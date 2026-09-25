@@ -37,14 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   storage.onSync(() => renderAll());
 
-  // Auto-connect Firebase
-  storage.autoInit().then(loggedIn => {
-    updateAccountUI();
-    if (loggedIn) {
-      document.getElementById('sync-dot').classList.add('connected');
-      document.getElementById('sync-dot').title = 'Sincronizado';
-    }
-  });
+  setupLoginGate();
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -583,38 +576,73 @@ function setupSettings() {
     }
   });
 
-  // Firebase sign in
-  document.getElementById('btn-firebase-connect').addEventListener('click', async () => {
-    const ok = await storage.signIn();
-    if (ok) updateAccountUI();
-  });
-
-  // Sign out
   document.getElementById('btn-sign-out').addEventListener('click', async () => {
+    if (timer.isRunning) timer.pause();
     await storage.signOut();
-    updateAccountUI();
+    document.getElementById('settings-panel').classList.remove('open');
+    lockApp();
   });
 }
 
+// ── Login gate ─────────────────────────
+async function setupLoginGate() {
+  const btn = document.getElementById('btn-login-google');
+  const loading = document.getElementById('login-loading');
+  const error = document.getElementById('login-error');
 
-function updateAccountUI() {
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    error.classList.add('hidden');
+    const ok = await storage.signIn();
+    btn.disabled = false;
+    if (ok) {
+      unlockApp();
+    } else {
+      error.textContent = 'Não foi possível iniciar sessão. Tenta outra vez.';
+      error.classList.remove('hidden');
+    }
+  });
+
+  const loggedIn = await storage.autoInit();
+  loading.classList.add('hidden');
+
+  if (loggedIn) {
+    unlockApp();
+  } else if (loggedIn === null && storage.hadPreviousLogin()) {
+    // Offline and the SDK couldn't load: trust the previous session, sync resumes later.
+    unlockApp(true);
+  } else {
+    if (loggedIn === null) {
+      error.textContent = 'Sem ligação. Liga-te à internet para iniciar sessão.';
+      error.classList.remove('hidden');
+    }
+    btn.classList.remove('hidden');
+  }
+}
+
+function unlockApp(offline = false) {
+  document.body.classList.remove('locked');
+  renderAll();
+  updateAccountUI(offline);
+}
+
+function lockApp() {
+  document.body.classList.add('locked');
+  document.getElementById('btn-login-google').classList.remove('hidden');
+  updateAccountUI();
+}
+
+function updateAccountUI(offline = false) {
   const user = storage.getCurrentUser();
+  const dot = document.getElementById('sync-dot');
   if (user) {
-    document.getElementById('user-logged-out').classList.add('hidden');
-    document.getElementById('user-logged-in').classList.remove('hidden');
     document.getElementById('user-name').textContent = user.displayName || 'Utilizador';
     document.getElementById('user-email').textContent = user.email || '';
-    if (user.photoURL) {
-      document.getElementById('user-avatar').src = user.photoURL;
-    }
-    document.getElementById('sync-dot').classList.add('connected');
-    document.getElementById('sync-dot').title = 'Sincronizado';
-  } else {
-    document.getElementById('user-logged-out').classList.remove('hidden');
-    document.getElementById('user-logged-in').classList.add('hidden');
-    document.getElementById('sync-dot').classList.remove('connected');
-    document.getElementById('sync-dot').title = 'Offline';
+    if (user.photoURL) document.getElementById('user-avatar').src = user.photoURL;
   }
+  const synced = !!user && !offline;
+  dot.classList.toggle('connected', synced);
+  dot.title = synced ? 'Sincronizado' : 'Offline';
 }
 
 function switchTab(tab) {

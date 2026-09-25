@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'estudar_data';
+const LAST_UID_KEY = 'estudar_last_uid';
 
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyBZOlDkDkAaZT-EiAgFV58jNkVdw0TFgzw",
@@ -149,6 +150,7 @@ export async function initFirebase(config) {
       onAuthStateChanged(firebaseAuth, (user) => {
         currentUser = user;
         if (user) {
+          localStorage.setItem(LAST_UID_KEY, user.uid);
           listenToFirebase();
         }
         resolve(!!user);
@@ -156,8 +158,13 @@ export async function initFirebase(config) {
     });
   } catch (e) {
     console.warn('Firebase init failed:', e);
-    return false;
+    return null;
   }
+}
+
+// Firebase SDK unreachable (offline) but this device was signed in before.
+export function hadPreviousLogin() {
+  return !!localStorage.getItem(LAST_UID_KEY);
 }
 
 export async function autoInit() {
@@ -172,8 +179,15 @@ export async function signIn() {
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(firebaseAuth, provider);
     currentUser = result.user;
+    localStorage.setItem(LAST_UID_KEY, currentUser.uid);
+
+    // Merge with what's already in the cloud before writing, so a fresh device doesn't wipe it.
+    const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js');
+    const snap = await getDoc(doc(firebaseDb, 'users', currentUser.uid));
+    const data = snap.exists() ? mergeData(loadData(), snap.data()) : loadData();
+    setLocal(data);
+    await syncToFirebase(data);
     listenToFirebase();
-    syncToFirebase(loadData());
     return true;
   } catch (e) {
     console.warn('Sign in failed:', e);
@@ -186,6 +200,7 @@ export async function signOut() {
   if (unsubscribe) unsubscribe();
   await firebaseAuth.signOut();
   currentUser = null;
+  localStorage.removeItem(LAST_UID_KEY);
 }
 
 async function syncToFirebase(data) {
@@ -240,7 +255,8 @@ function mergeData(local, remote) {
   for (const week of allWeeks) {
     const l = local.checklist?.[week] || [];
     const r = remote.checklist?.[week] || [];
-    merged.checklist[week] = l.map((v, i) => v || r[i] || false);
+    const len = Math.max(l.length, r.length);
+    merged.checklist[week] = Array.from({ length: len }, (_, i) => !!(l[i] || r[i]));
   }
   merged.lastSync = Date.now();
   return merged;

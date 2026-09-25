@@ -13,7 +13,17 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="css/app.css">
 </head>
-<body>
+<body class="locked">
+  <!-- ── Login Gate ────────────────────── -->
+  <div id="login-screen">
+    <img src="icons/icon.svg" alt="" class="login-logo">
+    <h1 class="login-title">ESTUDAR</h1>
+    <p class="login-sub">Inicia sessão para o teu progresso ficar guardado e sincronizado entre dispositivos.</p>
+    <div id="login-loading" class="login-status">A verificar sessão…</div>
+    <button class="btn btn-primary btn-block hidden" id="btn-login-google">Entrar com Google</button>
+    <div id="login-error" class="login-status login-error hidden"></div>
+  </div>
+
   <!-- ── Header ────────────────────────── -->
   <header class="app-header">
     <h1>ESTUDAR</h1>
@@ -192,13 +202,7 @@
       <div class="settings-group">
         <h3>Conta</h3>
         <div id="account-section">
-          <div id="user-logged-out">
-            <p style="font-size:14px;color:var(--text-secondary);margin-bottom:12px">
-              Inicia sessão com Google para sincronizar entre dispositivos.
-            </p>
-            <button class="btn btn-primary btn-block" id="btn-firebase-connect">🔑 Entrar com Google</button>
-          </div>
-          <div id="user-logged-in" class="hidden">
+          <div id="user-logged-in">
             <div class="user-info">
               <img class="user-avatar" id="user-avatar" src="" alt="">
               <div>
