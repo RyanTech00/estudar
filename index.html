@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#07070e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Sistema de estudo focado — Licenciatura em Engenharia Informática 2026/2027">
+  <title>Estudar</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <!-- ── Header ────────────────────────── -->
+  <header class="app-header">
+    <h1>ESTUDAR</h1>
+    <div class="header-right">
+      <div class="sync-indicator" id="sync-dot" title="Offline"></div>
+      <button class="header-btn" id="btn-settings" aria-label="Definições">⚙</button>
+    </div>
+  </header>
+
+  <!-- ── Main Content ──────────────────── -->
+  <main class="main-content">
+
+    <!-- TAB: Hoje -->
+    <section id="tab-today" class="tab-content active">
+      <div id="phase-banner" class="phase-banner"></div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-streak">0</div>
+          <div class="stat-label">Dias seguidos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-sessions">0</div>
+          <div class="stat-label">Sessões</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-hours">0h</div>
+          <div class="stat-label">Horas totais</div>
+        </div>
+      </div>
+
+      <div class="section-title">Sessões de hoje</div>
+      <div id="today-sessions"></div>
+
+      <div class="section-title mt-24">Dica do método</div>
+      <div id="method-tip" class="method-card"></div>
+    </section>
+
+    <!-- TAB: Semana -->
+    <section id="tab-week" class="tab-content">
+      <div class="days-counter">
+        <div class="days-num" id="days-until-exam">0</div>
+        <div class="days-label">dias até exames</div>
+      </div>
+
+      <div class="section-title">Plano semanal</div>
+      <div id="week-grid" class="week-grid"></div>
+
+      <div class="section-title mt-24">Roadmap do semestre</div>
+      <div id="gantt-chart" class="gantt-container"></div>
+    </section>
+
+    <!-- TAB: Timer -->
+    <section id="tab-timer" class="tab-content">
+      <div class="timer-container">
+        <div class="timer-subject-select">
+          <label>Cadeira</label>
+          <div class="subject-pills" id="timer-subjects"></div>
+        </div>
+
+        <div class="timer-ring-wrapper">
+          <svg class="timer-ring" viewBox="0 0 260 260">
+            <circle class="timer-ring-bg" cx="130" cy="130" r="120"/>
+            <circle class="timer-ring-progress" id="timer-progress" cx="130" cy="130" r="120"
+              stroke-dasharray="753.98" stroke-dashoffset="0"/>
+          </svg>
+          <div class="timer-center">
+            <div class="timer-time" id="timer-display">25:00</div>
+            <div class="timer-phase-label" id="timer-phase">pronto</div>
+            <div class="timer-sessions-dots" id="timer-dots"></div>
+          </div>
+        </div>
+
+        <div class="timer-controls">
+          <button class="timer-btn timer-btn-sm" id="btn-timer-reset" title="Reiniciar">↺</button>
+          <button class="timer-btn timer-btn-main" id="btn-timer-main" title="Iniciar">▶</button>
+          <button class="timer-btn timer-btn-sm" id="btn-timer-skip" title="Saltar">⏭</button>
+        </div>
+
+        <button class="btn btn-primary" id="btn-focus-mode" style="margin-bottom:24px">
+          🎯 Modo Foco
+        </button>
+
+        <div class="timer-settings">
+          <div class="timer-setting-row">
+            <span class="timer-setting-label">Estudo (min)</span>
+            <div class="timer-setting-value">
+              <button data-setting="work" data-dir="-1">−</button>
+              <span id="setting-work">25</span>
+              <button data-setting="work" data-dir="1">+</button>
+            </div>
+          </div>
+          <div class="timer-setting-row">
+            <span class="timer-setting-label">Pausa (min)</span>
+            <div class="timer-setting-value">
+              <button data-setting="break" data-dir="-1">−</button>
+              <span id="setting-break">5</span>
+              <button data-setting="break" data-dir="1">+</button>
+            </div>
+          </div>
+          <div class="timer-setting-row">
+            <span class="timer-setting-label">Pausa longa (min)</span>
+            <div class="timer-setting-value">
+              <button data-setting="longBreak" data-dir="-1">−</button>
+              <span id="setting-longBreak">15</span>
+              <button data-setting="longBreak" data-dir="1">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: Progresso -->
+    <section id="tab-progress" class="tab-content">
+      <div class="section-title">Checklist semanal</div>
+      <div class="card">
+        <div id="checklist-container"></div>
+      </div>
+
+      <div class="section-title mt-24">Método de estudo</div>
+      <div id="method-cards"></div>
+    </section>
+  </main>
+
+  <!-- ── Bottom Nav ────────────────────── -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-tab="today">
+      <span class="nav-icon">📅</span>
+      Hoje
+    </button>
+    <button class="nav-item" data-tab="week">
+      <span class="nav-icon">📋</span>
+      Semana
+    </button>
+    <button class="nav-item" data-tab="timer">
+      <span class="nav-icon">⏱</span>
+      Timer
+    </button>
+    <button class="nav-item" data-tab="progress">
+      <span class="nav-icon">📊</span>
+      Progresso
+    </button>
+  </nav>
+
+  <!-- ── Focus Mode Overlay ────────────── -->
+  <div id="focus-overlay">
+    <button class="focus-exit" id="btn-focus-exit">✕ Sair</button>
+    <div class="focus-subject-name" id="focus-subject">—</div>
+    <div class="focus-timer-ring-wrapper">
+      <svg class="focus-timer-ring" viewBox="0 0 360 360">
+        <circle class="ring-bg" cx="180" cy="180" r="170"/>
+        <circle class="ring-progress" id="focus-progress" cx="180" cy="180" r="170"
+          stroke-dasharray="1068.14" stroke-dashoffset="0" stroke="var(--primary)"/>
+      </svg>
+      <div class="focus-timer-center">
+        <div class="focus-timer-time" id="focus-time">25:00</div>
+        <div class="focus-phase-label" id="focus-phase">estudo</div>
+        <div class="focus-session-count" id="focus-count">Sessão 1 / 4</div>
+      </div>
+    </div>
+    <div class="focus-controls">
+      <button class="focus-btn focus-btn-sm" id="btn-focus-reset">↺</button>
+      <button class="focus-btn focus-btn-main" id="btn-focus-main">⏸</button>
+      <button class="focus-btn focus-btn-sm" id="btn-focus-skip">⏭</button>
+    </div>
+  </div>
+
+  <!-- ── Settings Panel ────────────────── -->
+  <div id="settings-panel">
+    <div class="settings-sheet">
+      <div class="settings-header">
+        <h2>Definições</h2>
+        <button class="settings-close" id="btn-settings-close">✕</button>
+      </div>
+
+      <div class="settings-group">
+        <h3>Conta</h3>
+        <div id="account-section">
+          <div id="user-logged-out">
+            <p style="font-size:14px;color:var(--text-secondary);margin-bottom:12px">
+              Inicia sessão com Google para sincronizar entre dispositivos.
+            </p>
+            <button class="btn btn-primary btn-block" id="btn-firebase-connect">🔑 Entrar com Google</button>
+          </div>
+          <div id="user-logged-in" class="hidden">
+            <div class="user-info">
+              <img class="user-avatar" id="user-avatar" src="" alt="">
+              <div>
+                <div class="user-name" id="user-name">—</div>
+                <div class="user-email" id="user-email">—</div>
+              </div>
+            </div>
+            <button class="btn btn-outline btn-block" id="btn-sign-out">Terminar sessão</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Som</h3>
+        <div class="settings-row">
+          <span class="settings-row-label">Notificação sonora</span>
+          <button class="btn btn-outline" id="btn-toggle-sound" style="padding:6px 12px;font-size:13px">Ligado</button>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Dados</h3>
+        <div class="settings-row">
+          <span class="settings-row-label">Limpar todos os dados</span>
+          <button class="btn btn-danger" id="btn-clear-data" style="padding:6px 12px;font-size:13px">Limpar</button>
+        </div>
+      </div>
+
+      <div style="text-align:center;margin-top:20px">
+        <p style="font-size:12px;color:var(--text-muted)">Estudar PWA — Licenciatura EI 2026/2027</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
