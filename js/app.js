@@ -40,6 +40,15 @@ document.addEventListener('DOMContentLoaded', () => {
   setupLoginGate();
 
   if ('serviceWorker' in navigator) {
+    // Reload once when a new deploy's worker takes over (skip on the very first install).
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloaded) return;
+      if (timer.isRunning) return;
+      reloaded = true;
+      location.reload();
+    });
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 });
