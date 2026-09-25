@@ -980,3 +980,28 @@ body.focus-active {
 body.focus-active .app-header,
 body.focus-active .bottom-nav,
 body.focus-active .main-content { display: none; }
+
+/* ── Login gate ─────────────────────── */
+#login-screen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px max(24px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  background: var(--bg);
+  text-align: center;
+}
+body.locked #login-screen { display: flex; }
+body.locked .app-header,
+body.locked .main-content,
+body.locked .bottom-nav { display: none; }
+#login-screen .btn { max-width: 320px; }
+.login-logo { width: 88px; height: 88px; }
+.login-title { font-size: 28px; letter-spacing: 0.12em; }
+.login-sub { max-width: 320px; font-size: 14px; color: var(--text-secondary); line-height: 1.5; }
+.login-status { font-size: 13px; color: var(--text-secondary); }
+.login-error { color: var(--danger); }

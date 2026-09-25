@@ -1,4 +1,4 @@
-const CACHE_NAME = 'estudar-v1';
+const CACHE_NAME = 'estudar-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -29,7 +29,20 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  // Skip Firebase and external requests
+  // Versioned Firebase SDK files never change, so cache-first is safe and lets the app open offline.
+  if (e.request.url.startsWith('https://www.gstatic.com/firebasejs/')) {
+    e.respondWith(
+      caches.match(e.request).then(cached => cached || fetch(e.request).then(response => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        }
+        return response;
+      }))
+    );
+    return;
+  }
+
   if (!e.request.url.startsWith(self.location.origin)) return;
 
   e.respondWith(
