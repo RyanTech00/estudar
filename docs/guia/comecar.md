@@ -52,6 +52,8 @@ A explicação completa, com as referências, está em [Ciência da aprendizagem
 
 Tudo isto configura-se **dentro da app**, no ecrã [Servidor e chaves](/guia/configuracao).
 
+A app está em português e em inglês. Na primeira abertura segue a língua do browser; podes mudar a qualquer momento em **Conta → Idioma**.
+
 ## Próximos passos
 
 - [Instalação](/guia/instalacao) — do `git clone` à app publicada, em minutos.

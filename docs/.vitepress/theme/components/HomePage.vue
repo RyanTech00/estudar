@@ -1,9 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { withBase } from 'vitepress'
+import { computed, ref } from 'vue'
+import { useData, withBase } from 'vitepress'
+import { PT_TO_EN } from '../locale-paths'
 
 const REPO = 'https://github.com/RyanTech00/estudar'
+const BMC = 'https://buymeacoffee.com/ryanbarbosa'
+const BMC_BUTTON = 'https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=ryanbarbosa&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff'
+const BMC_GIF = 'https://media.giphy.com/media/FoAQVAmLEsOz8DV2HS/giphy.gif'
 const INSTALL = 'git clone https://github.com/RyanTech00/estudar && cd estudar && npm install && npm start'
+
+const { lang } = useData()
+const en = computed(() => lang.value.startsWith('en'))
+
+const link = (p: string) => withBase(en.value ? PT_TO_EN[p] ?? p : p)
+const shot = (name: string) => withBase(`/screenshots/${en.value ? 'en/' : ''}${name}`)
 
 const copied = ref(false)
 function copyInstall() {
@@ -12,44 +22,170 @@ function copyInstall() {
   setTimeout(() => { copied.value = false }, 2000)
 }
 
-const features = [
-  { icon: 'plan', title: 'Plano semanal com IA', desc: 'Colocas disciplinas, datas e horas livres; a IA monta a semana com recuperação, espaçamento e intercalação. A app verifica o resultado antes de o guardares.', link: '/funcionalidades/plano-com-ia' },
-  { icon: 'focus', title: 'Modo foco', desc: 'Blocos de 40+10 em ecrã inteiro, ecrã sempre ligado e um timer que sobrevive ao telemóvel fechar a app a meio.', link: '/funcionalidades/timer-e-foco' },
-  { icon: 'target', title: 'Domínio sem ajuda', desc: 'O teu nível vem de testes de controlo em papel, sem consulta — não de horas nem do que acertas com ajuda.', link: '/funcionalidades/testes-de-controlo' },
-  { icon: 'gauge', title: 'Calibração da confiança', desc: 'Dizes quão seguro estás antes de corrigir. As disciplinas onde a confiança te engana sobem para o topo.', link: '/funcionalidades/registo-do-bloco' },
-  { icon: 'cap', title: 'Percurso académico', desc: 'Médias por ano e semestre, provas com peso e mínimos, recurso e época especial, pré-requisitos. Importa o plano de estudos por foto.', link: '/funcionalidades/percurso' },
-  { icon: 'cloud', title: 'Configura tudo na app', desc: 'Chaves, tabelas e publicação no Cloudflare num ecrã, com um ponto verde por serviço. Corre no teu PC ou em qualquer lado, grátis.', link: '/guia/configuracao' },
-]
+const PT = {
+  pill: '✨ v1.0 — percurso académico, testes de controlo e configuração na app →',
+  subtitle: 'Estuda para lembrar no dia do exame — não só no dia em que estudas.',
+  tagline: 'Um sistema de estudo open source que segue o que a investigação sobre aprendizagem mostra que funciona, e mede o que sabes <strong>sem ajuda</strong>.',
+  start: 'Começar', github: 'Ver no GitHub', copy: 'copiar', copiedLabel: '✓ copiado', copyTitle: 'Copiar', copiedTitle: 'Copiado!',
+  linkInstall: 'Instalação', linkScience: 'A ciência', linkArch: 'Arquitetura',
+  altDesktop: 'Estudar no computador: o separador Hoje com a sessão seguinte e o aviso de exame',
+  altPhone: 'Estudar no telemóvel: domínio sem ajuda por disciplina',
+  features: [
+    { icon: 'plan', title: 'Plano semanal com IA', desc: 'Colocas disciplinas, datas e horas livres; a IA monta a semana com recuperação, espaçamento e intercalação. A app verifica o resultado antes de o guardares.', link: '/funcionalidades/plano-com-ia' },
+    { icon: 'focus', title: 'Modo foco', desc: 'Blocos de 40+10 em ecrã inteiro, ecrã sempre ligado e um timer que sobrevive ao telemóvel fechar a app a meio.', link: '/funcionalidades/timer-e-foco' },
+    { icon: 'target', title: 'Domínio sem ajuda', desc: 'O teu nível vem de testes de controlo em papel, sem consulta — não de horas nem do que acertas com ajuda.', link: '/funcionalidades/testes-de-controlo' },
+    { icon: 'gauge', title: 'Calibração da confiança', desc: 'Dizes quão seguro estás antes de corrigir. As disciplinas onde a confiança te engana sobem para o topo.', link: '/funcionalidades/registo-do-bloco' },
+    { icon: 'cap', title: 'Percurso académico', desc: 'Médias por ano e semestre, provas com peso e mínimos, recurso e época especial, pré-requisitos. Importa o plano de estudos por foto.', link: '/funcionalidades/percurso' },
+    { icon: 'cloud', title: 'Configura tudo na app', desc: 'Chaves, tabelas e publicação no Cloudflare num ecrã, com um ponto verde por serviço. Corre no teu PC ou em qualquer lado, grátis.', link: '/guia/configuracao' },
+  ],
+  problemTitle: 'O problema',
+  problemIntro: 'A maioria das ferramentas de estudo mede o que é fácil de medir: <strong>horas, sessões, dias seguidos</strong>. Mas a investigação mostra que o desempenho durante o estudo é um mau sinal de aprendizagem:',
+  problemList: [
+    'Reler dá mais sensação de domínio do que testar-te — e rende menos uma semana depois (Roediger &amp; Karpicke, 2006).',
+    'Praticar um tipo de problema de cada vez dá melhores resultados no treino e muito piores no teste (Rohrer &amp; Taylor, 2007).',
+    'Com um tutor de IA que dá respostas, o desempenho com ajuda sobe e o desempenho sem ajuda cai (Bastani et al.).',
+  ],
+  problemOutro: 'E no ensino superior há mais: provas com pesos e mínimos, recurso, ECTS, uma média para manter — que nenhuma app de Pomodoro conhece.',
+  solutionTitle: 'A solução',
+  solution1: 'O Estudar organiza a semana e guia cada sessão, mas mede a aprendizagem pela <strong>recuperação sem ajuda, com atraso</strong>: testes de controlo em papel, feitos dias depois de estudares. Tudo o resto — tempo, prática com IA ou apontamentos — aparece à parte e nunca aumenta o teu domínio.',
+  altArch: 'Arquitetura: PWA no browser, Cloudflare Worker com a API e os segredos, Supabase para contas e dados, e o fornecedor de IA',
+  solution2: 'A app é uma PWA sem build. Um único Cloudflare Worker serve a app e a API (com as chaves como segredos), o Supabase guarda contas e dados com regras por utilizador, e a IA é a que escolheres. Alojar custa zero nos níveis gratuitos.',
+  dayTitle: 'Um dia com o Estudar',
+  day: [
+    { img: 'hoje.png', title: '1. Hoje', text: 'Vês o que vem a seguir e os avisos de exame. Um toque começa o foco.' },
+    { img: 'foco.png', title: '2. Foco', text: 'Ecrã inteiro, sem distrações. O bloco conta pela hora real, mesmo com o ecrã bloqueado.' },
+    { img: 'registo-bloco.png', title: '3. Registo', text: 'No fim, o que tentaste e quão seguro estás — antes de corrigir. Só depois os acertos.' },
+    { img: 'progresso.png', title: '4. Progresso', text: 'Domínio medido sem ajuda, excesso de confiança e dependência de ajuda à vista.' },
+  ],
+  scienceTitle: 'A ciência por trás',
+  scienceHead: ['Princípio', 'Evidência', 'No Estudar'],
+  science: [
+    { rule: 'Testar-te em vez de reler', evidence: 'Roediger & Karpicke (2006); Karpicke & Blunt (2011)', how: 'Registo do bloco e testes de controlo; o plano propõe atividades ativas.' },
+    { rule: 'Espaçar até ao exame', evidence: 'Ebbinghaus (1885); Cepeda et al. (2006, 2008)', how: 'Cada disciplina em vários dias; véspera só de revisão; semana final com prioridade.' },
+    { rule: 'Intercalar', evidence: 'Rohrer & Taylor (2007)', how: 'Exercícios mistos e revisões cruzadas no plano.' },
+    { rule: 'Desconfiar da fluência', evidence: 'Bjork (1994); Dunlosky et al. (2013)', how: 'Confiança vs. acertos; reler/sublinhar/resumir não são modo de estudo.' },
+    { rule: 'IA depois de tentares', evidence: 'Bastani et al.', how: 'A IA organiza o plano e nunca resolve exercícios; prática com ajuda nunca conta para o domínio.' },
+  ],
+  scienceNote: 'A evidência apoia os princípios; o plano concreto é sempre verificado por regras fixas e ajustado com os teus próprios resultados.',
+  scienceLink: 'Ver os princípios R1–R9 e o que está implementado →',
+  quickTitle: 'Início rápido',
+  quick1: '1. Corre no teu computador',
+  quickComment: '# abre http://localhost:8787',
+  quick1Note: 'Sem mais nada, a app já funciona em modo local (dados só no browser).',
+  quick2: '2. Liga o Supabase e a IA — dentro da app',
+  quick2Text: 'Em <strong>Conta → Servidor e chaves</strong> colas o URL do Supabase e a chave da IA (o Gemini tem nível gratuito). Um botão cria as tabelas; o painel de estado fica verde.',
+  quick3: '3. Publica no Cloudflare',
+  quick3Text: '<strong>Ligar conta Cloudflare → Publicar</strong>. A app fica em <code>https://estudar.&lt;a-tua-conta&gt;.workers.dev</code>, instalável no telemóvel.',
+  fullGuide: 'Guia completo →',
+  compareTitle: 'Comparação',
+  compareHead: ['Funcionalidade', 'Estudar', 'Apps de Pomodoro', 'Anki', 'Modelos Notion'],
+  compareRows: [
+    'Timer de foco (Pomodoro)', 'Plano semanal por disciplina', 'Plano gerado com regras de evidência', 'Repetição espaçada de cartões',
+    'Domínio medido sem ajuda', 'Confiança vs. acertos (calibração)', 'Provas, épocas e recurso', 'Média por ECTS e objetivo',
+    'Sincronização telemóvel ↔ PC', 'Funciona offline (PWA)', 'Os teus dados, o teu servidor', 'Open source',
+  ],
+  compareNote: '◐ = parcial ou depende da app/modelo. O Anki é excelente para cartões de memória e complementa o Estudar: um organiza a semana e mede o domínio por disciplina, o outro agenda revisões de cartões.',
+  contribTitle: 'Contribuir',
+  contribText: 'O Estudar é open source (MIT). Se te ajudou a estudar melhor, deixa uma ⭐ no repositório para outros o encontrarem, ou abre uma issue com o que falta.',
+  star: '⭐ Dar uma estrela', issue: 'Abrir uma issue',
+  supportTitle: 'Apoiar o projeto',
+  supportText: 'O Estudar é grátis e continua a ser. Se te poupou tempo — ou uma cadeira —, um café ajuda a mantê-lo e a pagar as horas de desenvolvimento.',
+  supportQr: 'Ou lê o código com o telemóvel',
+  altGif: 'Animação: apoia-me no Buy Me a Coffee',
+  altQr: 'Código QR para buymeacoffee.com/ryanbarbosa',
+}
 
-const day = [
-  { img: '/screenshots/hoje.png', title: '1. Hoje', text: 'Vês o que vem a seguir e os avisos de exame. Um toque começa o foco.' },
-  { img: '/screenshots/foco.png', title: '2. Foco', text: 'Ecrã inteiro, sem distrações. O bloco conta pela hora real, mesmo com o ecrã bloqueado.' },
-  { img: '/screenshots/registo-bloco.png', title: '3. Registo', text: 'No fim, o que tentaste e quão seguro estás — antes de corrigir. Só depois os acertos.' },
-  { img: '/screenshots/progresso.png', title: '4. Progresso', text: 'Domínio medido sem ajuda, excesso de confiança e dependência de ajuda à vista.' },
-]
+type Copy = typeof PT
+const EN: Copy = {
+  pill: '✨ v1.0 — degree record, closed-book tests and in-app setup →',
+  subtitle: 'Study to remember on exam day — not just on the day you study.',
+  tagline: 'An open-source study system that follows what learning research shows actually works, and measures what you know <strong>unaided</strong>.',
+  start: 'Get started', github: 'View on GitHub', copy: 'copy', copiedLabel: '✓ copied', copyTitle: 'Copy', copiedTitle: 'Copied!',
+  linkInstall: 'Installation', linkScience: 'The science', linkArch: 'Architecture',
+  altDesktop: 'Estudar on a computer: the Today tab with the next session and an exam warning',
+  altPhone: 'Estudar on a phone: unaided mastery per subject',
+  features: [
+    { icon: 'plan', title: 'AI weekly plan', desc: 'Enter your subjects, exam dates and free hours; the AI builds the week around retrieval, spacing and interleaving. The app checks the result before you save it.', link: '/funcionalidades/plano-com-ia' },
+    { icon: 'focus', title: 'Focus mode', desc: 'Full-screen 40+10 blocks, screen kept awake, and a timer that survives your phone killing the app halfway through.', link: '/funcionalidades/timer-e-foco' },
+    { icon: 'target', title: 'Unaided mastery', desc: 'Your level comes from closed-book tests on paper — not from hours, nor from what you get right with help.', link: '/funcionalidades/testes-de-controlo' },
+    { icon: 'gauge', title: 'Confidence calibration', desc: 'You say how sure you are before checking. Subjects where your confidence fools you rise to the top.', link: '/funcionalidades/registo-do-bloco' },
+    { icon: 'cap', title: 'Degree record', desc: 'Averages per year and semester, weighted assessments with minimum grades, resits and special periods, prerequisites. Import your curriculum from a photo.', link: '/funcionalidades/percurso' },
+    { icon: 'cloud', title: 'Set everything up in the app', desc: 'Keys, database tables and publishing to Cloudflare from one screen, with a green dot per service. Runs on your PC or anywhere, for free.', link: '/guia/configuracao' },
+  ],
+  problemTitle: 'The problem',
+  problemIntro: 'Most study tools measure what is easy to measure: <strong>hours, sessions, streaks</strong>. But research shows that performance while studying is a poor signal of learning:',
+  problemList: [
+    'Rereading feels like more mastery than testing yourself — and yields less a week later (Roediger &amp; Karpicke, 2006).',
+    'Practising one problem type at a time gives better results in practice and much worse ones on the test (Rohrer &amp; Taylor, 2007).',
+    'With an AI tutor that hands out answers, performance with help goes up and performance without help goes down (Bastani et al.).',
+  ],
+  problemOutro: 'And university adds more: weighted assessments with minimum grades, resits, ECTS credits, an average to keep up — which no Pomodoro app knows about.',
+  solutionTitle: 'The solution',
+  solution1: 'Estudar organises your week and guides each session, but measures learning by <strong>delayed, unaided retrieval</strong>: closed-book tests on paper, taken days after you studied. Everything else — time, AI-assisted practice or notes — is shown separately and never raises your mastery.',
+  altArch: 'Architecture: a PWA in the browser, a Cloudflare Worker holding the API and secrets, Supabase for accounts and data, and the AI provider',
+  solution2: 'The app is a PWA with no build step. A single Cloudflare Worker serves the app and the API (with the keys as secrets), Supabase stores accounts and data with per-user rules, and the AI is whichever you choose. Hosting costs nothing on the free tiers.',
+  dayTitle: 'A day with Estudar',
+  day: [
+    { img: 'hoje.png', title: '1. Today', text: 'See what comes next and any exam warnings. One tap starts focus.' },
+    { img: 'foco.png', title: '2. Focus', text: 'Full screen, no distractions. The block counts real time, even with the screen locked.' },
+    { img: 'registo-bloco.png', title: '3. Log', text: 'At the end, what you attempted and how sure you are — before checking. Only then the score.' },
+    { img: 'progresso.png', title: '4. Progress', text: 'Mastery measured unaided, with overconfidence and reliance on help in plain view.' },
+  ],
+  scienceTitle: 'The science behind it',
+  scienceHead: ['Principle', 'Evidence', 'In Estudar'],
+  science: [
+    { rule: 'Test yourself instead of rereading', evidence: 'Roediger & Karpicke (2006); Karpicke & Blunt (2011)', how: 'Block log and closed-book tests; the plan proposes active tasks.' },
+    { rule: 'Space it out until the exam', evidence: 'Ebbinghaus (1885); Cepeda et al. (2006, 2008)', how: 'Each subject on several days; the day before is review only; the final week gets priority.' },
+    { rule: 'Interleave', evidence: 'Rohrer & Taylor (2007)', how: 'Mixed exercises and cross-reviews in the plan.' },
+    { rule: 'Distrust fluency', evidence: 'Bjork (1994); Dunlosky et al. (2013)', how: 'Confidence vs. score; rereading, highlighting and summarising are not study modes.' },
+    { rule: 'AI after you try', evidence: 'Bastani et al.', how: 'The AI organises the plan and never solves exercises; assisted practice never counts towards mastery.' },
+  ],
+  scienceNote: 'The evidence supports the principles; the concrete plan is always checked by fixed rules and adjusted with your own results.',
+  scienceLink: 'See principles R1–R9 and what is implemented →',
+  quickTitle: 'Quick start',
+  quick1: '1. Run it on your computer',
+  quickComment: '# opens http://localhost:8787',
+  quick1Note: 'With nothing else, the app already works in local mode (data stays in the browser).',
+  quick2: '2. Connect Supabase and the AI — inside the app',
+  quick2Text: 'In <strong>Account → Server &amp; keys</strong>, paste your Supabase URL and AI key (Gemini has a free tier). One button creates the tables; the status panel turns green.',
+  quick3: '3. Publish to Cloudflare',
+  quick3Text: '<strong>Connect Cloudflare account → Publish</strong>. The app goes live at <code>https://estudar.&lt;your-account&gt;.workers.dev</code>, installable on your phone.',
+  fullGuide: 'Full guide →',
+  compareTitle: 'Comparison',
+  compareHead: ['Feature', 'Estudar', 'Pomodoro apps', 'Anki', 'Notion templates'],
+  compareRows: [
+    'Focus timer (Pomodoro)', 'Weekly plan per subject', 'Plan generated with evidence-based rules', 'Spaced repetition of flashcards',
+    'Mastery measured unaided', 'Confidence vs. score (calibration)', 'Assessments, exam periods and resits', 'ECTS-weighted average and target',
+    'Phone ↔ PC sync', 'Works offline (PWA)', 'Your data, your server', 'Open source',
+  ],
+  compareNote: '◐ = partial, or depends on the app/template. Anki is excellent for flashcards and complements Estudar: one organises the week and measures mastery per subject, the other schedules card reviews.',
+  contribTitle: 'Contribute',
+  contribText: 'Estudar is open source (MIT). If it helped you study better, leave a ⭐ on the repository so others can find it, or open an issue with what is missing.',
+  star: '⭐ Star it', issue: 'Open an issue',
+  supportTitle: 'Support the project',
+  supportText: 'Estudar is free and will stay free. If it saved you time — or a module — a coffee helps keep it going and pays for the development hours.',
+  supportQr: 'Or scan the code with your phone',
+  altGif: 'Animation: support me on Buy Me a Coffee',
+  altQr: 'QR code for buymeacoffee.com/ryanbarbosa',
+}
 
-const science = [
-  { rule: 'Testar-te em vez de reler', evidence: 'Roediger & Karpicke (2006); Karpicke & Blunt (2011)', how: 'Registo do bloco e testes de controlo; o plano propõe atividades ativas.' },
-  { rule: 'Espaçar até ao exame', evidence: 'Ebbinghaus (1885); Cepeda et al. (2006, 2008)', how: 'Cada disciplina em vários dias; véspera só de revisão; semana final com prioridade.' },
-  { rule: 'Intercalar', evidence: 'Rohrer & Taylor (2007)', how: 'Exercícios mistos e revisões cruzadas no plano.' },
-  { rule: 'Desconfiar da fluência', evidence: 'Bjork (1994); Dunlosky et al. (2013)', how: 'Confiança vs. acertos; reler/sublinhar/resumir não são modo de estudo.' },
-  { rule: 'IA depois de tentares', evidence: 'Bastani et al.', how: 'A IA organiza o plano e nunca resolve exercícios; prática com ajuda nunca conta para o domínio.' },
-]
+const c = computed<Copy>(() => (en.value ? EN : PT))
 
-const comparison = [
-  { feature: 'Timer de foco (Pomodoro)', es: true, pomo: true, anki: false, notion: 'part' },
-  { feature: 'Plano semanal por disciplina', es: true, pomo: false, anki: false, notion: true },
-  { feature: 'Plano gerado com regras de evidência', es: true, pomo: false, anki: false, notion: false },
-  { feature: 'Repetição espaçada de cartões', es: false, pomo: false, anki: true, notion: false },
-  { feature: 'Domínio medido sem ajuda', es: true, pomo: false, anki: 'part', notion: false },
-  { feature: 'Confiança vs. acertos (calibração)', es: true, pomo: false, anki: false, notion: false },
-  { feature: 'Provas, épocas e recurso', es: true, pomo: false, anki: false, notion: 'part' },
-  { feature: 'Média por ECTS e objetivo', es: true, pomo: false, anki: false, notion: 'part' },
-  { feature: 'Sincronização telemóvel ↔ PC', es: true, pomo: 'part', anki: true, notion: true },
-  { feature: 'Funciona offline (PWA)', es: true, pomo: 'part', anki: true, notion: 'part' },
-  { feature: 'Os teus dados, o teu servidor', es: true, pomo: false, anki: 'part', notion: false },
-  { feature: 'Open source', es: 'mit', pomo: 'part', anki: true, notion: false },
-]
+const COMPARISON = [
+  { es: true, pomo: true, anki: false, notion: 'part' },
+  { es: true, pomo: false, anki: false, notion: true },
+  { es: true, pomo: false, anki: false, notion: false },
+  { es: false, pomo: false, anki: true, notion: false },
+  { es: true, pomo: false, anki: 'part', notion: false },
+  { es: true, pomo: false, anki: false, notion: false },
+  { es: true, pomo: false, anki: false, notion: 'part' },
+  { es: true, pomo: false, anki: false, notion: 'part' },
+  { es: true, pomo: 'part', anki: true, notion: true },
+  { es: true, pomo: 'part', anki: true, notion: 'part' },
+  { es: true, pomo: false, anki: 'part', notion: false },
+  { es: 'mit', pomo: 'part', anki: true, notion: false },
+] as const
+const comparison = computed(() => COMPARISON.map((r, i) => ({ ...r, feature: c.value.compareRows[i] })))
 const cell = (v: boolean | string) => (v === true ? '✅' : v === false ? '—' : v === 'mit' ? '✅ MIT' : '◐')
 </script>
 
@@ -58,36 +194,37 @@ const cell = (v: boolean | string) => (v === true ? '✅' : v === false ? '—' 
     <!-- HERO -->
     <section class="hero">
       <div class="hero-copy">
-        <a :href="withBase('/changelog')" class="pill">✨ v1.0 — percurso académico, testes de controlo e configuração na app →</a>
+        <a :href="link('/changelog')" class="pill">{{ c.pill }}</a>
         <h1 class="title">Estudar</h1>
-        <p class="subtitle">Estuda para lembrar no dia do exame — não só no dia em que estudas.</p>
-        <p class="tagline">Um sistema de estudo open source que segue o que a investigação sobre aprendizagem mostra que funciona, e mede o que sabes <strong>sem ajuda</strong>.</p>
+        <p class="subtitle">{{ c.subtitle }}</p>
+        <p class="tagline" v-html="c.tagline"></p>
         <div class="actions">
-          <a :href="withBase('/guia/comecar')" class="btn brand">Começar</a>
-          <a :href="REPO" class="btn alt" target="_blank" rel="noopener">Ver no GitHub</a>
+          <a :href="link('/guia/comecar')" class="btn brand">{{ c.start }}</a>
+          <a :href="REPO" class="btn alt" target="_blank" rel="noopener">{{ c.github }}</a>
         </div>
-        <button class="install" @click="copyInstall" :title="copied ? 'Copiado!' : 'Copiar'">
+        <button class="install" @click="copyInstall" :title="copied ? c.copiedTitle : c.copyTitle">
           <code>git clone … &amp;&amp; npm install &amp;&amp; npm start</code>
-          <span>{{ copied ? '✓ copiado' : 'copiar' }}</span>
+          <span>{{ copied ? c.copiedLabel : c.copy }}</span>
         </button>
         <div class="links">
-          <a :href="withBase('/guia/instalacao')">Instalação</a><span>·</span>
-          <a :href="withBase('/ciencia/')">A ciência</a><span>·</span>
-          <a :href="withBase('/arquitetura/')">Arquitetura</a><span>·</span>
-          <a :href="REPO" target="_blank" rel="noopener">GitHub</a>
+          <a :href="link('/guia/instalacao')">{{ c.linkInstall }}</a><span>·</span>
+          <a :href="link('/ciencia/')">{{ c.linkScience }}</a><span>·</span>
+          <a :href="link('/arquitetura/')">{{ c.linkArch }}</a><span>·</span>
+          <a :href="REPO" target="_blank" rel="noopener">GitHub</a><span>·</span>
+          <a :href="BMC" target="_blank" rel="noopener">☕ Buy Me a Coffee</a>
         </div>
       </div>
       <div class="hero-visual">
         <div class="glow" aria-hidden="true"></div>
-        <img class="desktop" :src="withBase('/screenshots/hoje-desktop.png')" alt="Estudar no computador: o separador Hoje com a sessão seguinte e o aviso de exame" width="1280" height="800" />
-        <img class="phone" :src="withBase('/screenshots/progresso.png')" alt="Estudar no telemóvel: domínio sem ajuda por disciplina" width="390" height="844" />
+        <img class="desktop" :src="shot('hoje-desktop.png')" :alt="c.altDesktop" width="1280" height="800" />
+        <img class="phone" :src="shot('progresso.png')" :alt="c.altPhone" width="390" height="844" />
       </div>
     </section>
 
     <!-- FEATURES -->
     <section class="features">
       <div class="container grid">
-        <a v-for="f in features" :key="f.title" :href="withBase(f.link)" class="feature">
+        <a v-for="f in c.features" :key="f.icon" :href="link(f.link)" class="feature">
           <div class="icon" aria-hidden="true">
             <svg v-if="f.icon === 'plan'" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14h3M8 17h6"/></svg>
             <svg v-else-if="f.icon === 'focus'" viewBox="0 0 24 24"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/><circle cx="12" cy="12" r="2.5"/></svg>
@@ -105,34 +242,32 @@ const cell = (v: boolean | string) => (v === true ? '✅' : v === false ? '—' 
     <!-- PROBLEM -->
     <section class="section">
       <div class="container narrow">
-        <h2>O problema</h2>
-        <p>A maioria das ferramentas de estudo mede o que é fácil de medir: <strong>horas, sessões, dias seguidos</strong>. Mas a investigação mostra que o desempenho durante o estudo é um mau sinal de aprendizagem:</p>
+        <h2>{{ c.problemTitle }}</h2>
+        <p v-html="c.problemIntro"></p>
         <ul>
-          <li>Reler dá mais sensação de domínio do que testar-te — e rende menos uma semana depois (Roediger &amp; Karpicke, 2006).</li>
-          <li>Praticar um tipo de problema de cada vez dá melhores resultados no treino e muito piores no teste (Rohrer &amp; Taylor, 2007).</li>
-          <li>Com um tutor de IA que dá respostas, o desempenho com ajuda sobe e o desempenho sem ajuda cai (Bastani et al.).</li>
+          <li v-for="(p, i) in c.problemList" :key="i" v-html="p"></li>
         </ul>
-        <p>E no ensino superior há mais: provas com pesos e mínimos, recurso, ECTS, uma média para manter — que nenhuma app de Pomodoro conhece.</p>
+        <p>{{ c.problemOutro }}</p>
       </div>
     </section>
 
     <!-- SOLUTION -->
     <section class="section alt">
       <div class="container narrow">
-        <h2>A solução</h2>
-        <p>O Estudar organiza a semana e guia cada sessão, mas mede a aprendizagem pela <strong>recuperação sem ajuda, com atraso</strong>: testes de controlo em papel, feitos dias depois de estudares. Tudo o resto — tempo, prática com IA ou apontamentos — aparece à parte e nunca aumenta o teu domínio.</p>
-        <img :src="withBase('/architecture.svg')" alt="Arquitetura: PWA no browser, Cloudflare Worker com a API e os segredos, Supabase para contas e dados, e o fornecedor de IA" class="arch" />
-        <p>A app é uma PWA sem build. Um único Cloudflare Worker serve a app e a API (com as chaves como segredos), o Supabase guarda contas e dados com regras por utilizador, e a IA é a que escolheres. Alojar custa zero nos níveis gratuitos.</p>
+        <h2>{{ c.solutionTitle }}</h2>
+        <p v-html="c.solution1"></p>
+        <img :src="withBase(en ? '/architecture.en.svg' : '/architecture.svg')" :alt="c.altArch" class="arch" />
+        <p>{{ c.solution2 }}</p>
       </div>
     </section>
 
     <!-- A DAY -->
     <section class="section">
       <div class="container">
-        <h2 class="center">Um dia com o Estudar</h2>
+        <h2 class="center">{{ c.dayTitle }}</h2>
         <div class="day">
-          <div v-for="d in day" :key="d.title" class="day-step">
-            <img :src="withBase(d.img)" :alt="d.title" loading="lazy" />
+          <div v-for="d in c.day" :key="d.img" class="day-step">
+            <img :src="shot(d.img)" :alt="d.title" loading="lazy" />
             <h3>{{ d.title }}</h3>
             <p>{{ d.text }}</p>
           </div>
@@ -143,43 +278,43 @@ const cell = (v: boolean | string) => (v === true ? '✅' : v === false ? '—' 
     <!-- SCIENCE -->
     <section class="section alt">
       <div class="container narrow">
-        <h2>A ciência por trás</h2>
+        <h2>{{ c.scienceTitle }}</h2>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Princípio</th><th>Evidência</th><th>No Estudar</th></tr></thead>
+            <thead><tr><th v-for="h in c.scienceHead" :key="h">{{ h }}</th></tr></thead>
             <tbody>
-              <tr v-for="s in science" :key="s.rule"><td><strong>{{ s.rule }}</strong></td><td>{{ s.evidence }}</td><td>{{ s.how }}</td></tr>
+              <tr v-for="s in c.science" :key="s.rule"><td><strong>{{ s.rule }}</strong></td><td>{{ s.evidence }}</td><td>{{ s.how }}</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="note">A evidência apoia os princípios; o plano concreto é sempre verificado por regras fixas e ajustado com os teus próprios resultados. <a :href="withBase('/ciencia/')">Ver os princípios R1–R9 e o que está implementado →</a></p>
+        <p class="note">{{ c.scienceNote }} <a :href="link('/ciencia/')">{{ c.scienceLink }}</a></p>
       </div>
     </section>
 
     <!-- QUICK START -->
     <section class="section">
       <div class="container narrow">
-        <h2>Início rápido</h2>
-        <h3>1. Corre no teu computador</h3>
+        <h2>{{ c.quickTitle }}</h2>
+        <h3>{{ c.quick1 }}</h3>
         <div class="code"><pre><code>git clone https://github.com/RyanTech00/estudar.git
 cd estudar
 npm install
-npm start          # abre http://localhost:8787</code></pre></div>
-        <p>Sem mais nada, a app já funciona em modo local (dados só no browser).</p>
-        <h3>2. Liga o Supabase e a IA — dentro da app</h3>
-        <p>Em <strong>Conta → Servidor e chaves</strong> colas o URL do Supabase e a chave da IA (o Gemini tem nível gratuito). Um botão cria as tabelas; o painel de estado fica verde.</p>
-        <h3>3. Publica no Cloudflare</h3>
-        <p><strong>Ligar conta Cloudflare → Publicar</strong>. A app fica em <code>https://estudar.&lt;a-tua-conta&gt;.workers.dev</code>, instalável no telemóvel. <a :href="withBase('/guia/instalacao')">Guia completo →</a></p>
+npm start          {{ c.quickComment }}</code></pre></div>
+        <p>{{ c.quick1Note }}</p>
+        <h3>{{ c.quick2 }}</h3>
+        <p v-html="c.quick2Text"></p>
+        <h3>{{ c.quick3 }}</h3>
+        <p><span v-html="c.quick3Text"></span> <a :href="link('/guia/instalacao')">{{ c.fullGuide }}</a></p>
       </div>
     </section>
 
     <!-- COMPARISON -->
     <section class="section alt">
       <div class="container narrow">
-        <h2>Comparação</h2>
+        <h2>{{ c.compareTitle }}</h2>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Funcionalidade</th><th>Estudar</th><th>Apps de Pomodoro</th><th>Anki</th><th>Modelos Notion</th></tr></thead>
+            <thead><tr><th v-for="h in c.compareHead" :key="h">{{ h }}</th></tr></thead>
             <tbody>
               <tr v-for="r in comparison" :key="r.feature">
                 <td>{{ r.feature }}</td><td>{{ cell(r.es) }}</td><td>{{ cell(r.pomo) }}</td><td>{{ cell(r.anki) }}</td><td>{{ cell(r.notion) }}</td>
@@ -187,18 +322,36 @@ npm start          # abre http://localhost:8787</code></pre></div>
             </tbody>
           </table>
         </div>
-        <p class="note">◐ = parcial ou depende da app/modelo. O Anki é excelente para cartões de memória e complementa o Estudar: um organiza a semana e mede o domínio por disciplina, o outro agenda revisões de cartões.</p>
+        <p class="note">{{ c.compareNote }}</p>
+      </div>
+    </section>
+
+    <!-- CONTRIBUTE -->
+    <section class="section">
+      <div class="container narrow center">
+        <h2>{{ c.contribTitle }}</h2>
+        <p>{{ c.contribText }}</p>
+        <div class="actions centered">
+          <a :href="REPO" class="btn brand" target="_blank" rel="noopener">{{ c.star }}</a>
+          <a :href="`${REPO}/issues`" class="btn alt" target="_blank" rel="noopener">{{ c.issue }}</a>
+        </div>
       </div>
     </section>
 
     <!-- SUPPORT -->
-    <section class="section">
+    <section class="section alt">
       <div class="container narrow center">
-        <h2>Contribuir</h2>
-        <p>O Estudar é open source (MIT). Se te ajudou a estudar melhor, deixa uma ⭐ no repositório para outros o encontrarem, ou abre uma issue com o que falta.</p>
-        <div class="actions centered">
-          <a :href="REPO" class="btn brand" target="_blank" rel="noopener">⭐ Dar uma estrela</a>
-          <a :href="`${REPO}/issues`" class="btn alt" target="_blank" rel="noopener">Abrir uma issue</a>
+        <h2>{{ c.supportTitle }}</h2>
+        <p>{{ c.supportText }}</p>
+        <div class="support">
+          <a :href="BMC" target="_blank" rel="noopener" class="support-main">
+            <img class="bmc-gif" :src="BMC_GIF" :alt="c.altGif" width="240" height="240" loading="lazy" />
+            <img class="bmc-button" :src="BMC_BUTTON" alt="Buy me a coffee" height="50" loading="lazy" />
+          </a>
+          <div class="support-qr">
+            <img :src="withBase('/bmc-qr.webp')" :alt="c.altQr" width="180" height="180" loading="lazy" />
+            <span>{{ c.supportQr }}</span>
+          </div>
         </div>
       </div>
     </section>
@@ -294,4 +447,13 @@ table:has(th:nth-child(3):last-child) td { white-space: normal; }
 .code { margin: 12px 0; border-radius: 10px; background: var(--vp-c-bg-elv); border: 1px solid var(--vp-c-border); overflow-x: auto; }
 .code pre { margin: 0; padding: 16px 18px; }
 .code code { font-size: 13px; line-height: 1.7; background: none; color: var(--vp-c-text-1); }
+
+.support { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 32px; margin-top: 28px; }
+.support-main { display: flex; flex-direction: column; align-items: center; gap: 16px; text-decoration: none; }
+.bmc-gif { width: 200px; height: auto; border-radius: 16px; }
+.bmc-button { height: 50px; width: auto; transition: transform .12s; }
+.support-main:hover .bmc-button { transform: translateY(-2px); }
+.support-qr { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.support-qr img { width: 180px; height: auto; border-radius: 14px; background: #fff; padding: 8px; }
+.support-qr span { font-size: 13px; color: var(--vp-c-text-3); }
 </style>

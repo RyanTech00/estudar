@@ -9,7 +9,9 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
-const OUT = path.resolve(HERE, '..', 'public', 'screenshots');
+// Portuguese shots in public/screenshots, English ones in public/screenshots/en.
+const outDir = (lang) => path.resolve(HERE, '..', 'public', 'screenshots', ...(lang === 'en' ? ['en'] : []));
+let OUT = outDir('pt');
 const PORT = 8799;
 const BASE = `http://localhost:${PORT}`;
 
@@ -22,7 +24,51 @@ const iso = (days) => {
 };
 const ago = (days, hours = 0) => now - days * DAY - hours * 3600000;
 
-function demoData() {
+// English version of the fictional student: exact-string replacements over the demo data.
+const EN_DEMO = {
+  'Fundamentos da Programação': 'Programming Fundamentals', 'Estruturas de Dados': 'Data Structures',
+  'Processamento Estruturado de Informação': 'Structured Information Processing', 'Sistemas Operativos': 'Operating Systems',
+  'Ética e Legislação Informática': 'Computing Ethics and Law', 'Alemão Básico (A1)': 'Beginner German (A1)',
+  FP: 'PF', ED: 'DS', PEI: 'SIP', SO: 'OS', ELI: 'CEL',
+  '3 blocos 40+10': '3 blocks 40+10', '2 blocos 40+10': '2 blocks 40+10',
+  'Exercícios mistos de ciclos e funções sem consultar': 'Mixed loop and function exercises without notes',
+  'Use of English de memória': 'Use of English from memory',
+  'Implementar listas ligadas de raiz · Rever FP (20 min)': 'Implement linked lists from scratch · Review PF (20 min)',
+  'Flashcards A1 + frases em voz alta': 'A1 flashcards + sentences out loud',
+  'Problemas de escalonamento sem apontamentos · Rever ED (20 min)': 'Scheduling problems without notes · Review DS (20 min)',
+  'Reading com perguntas antes de reler': 'Reading with questions before rereading',
+  'Recall de FP e ED: explicar de memória': 'Recall PF and DS: explain from memory',
+  'Árvores: exercícios intercalados': 'Trees: interleaved exercises', 'Produção escrita curta': 'Short written production',
+  'Exercícios de XML/JSON mistos · Rever SO (20 min)': 'Mixed XML/JSON exercises · Review OS (20 min)',
+  'Writing cronometrado': 'Timed writing', 'Casos práticos de memória · Rever PEI (20 min)': 'Case studies from memory · Review SIP (20 min)',
+  'Revisão semanal de vocabulário': 'Weekly vocabulary review', 'Teste acumulado da semana + corrigir lacunas': 'Cumulative weekly test + fix gaps',
+  'Prova de treino': 'Mock paper',
+  'Engenharia Informática — 2.º ano': 'Computer Science — 2nd year',
+  Aprender: 'Learn', Praticar: 'Practise', 'Treino intensivo': 'Intensive drill', 'Simulações': 'Mock exams', SIM: 'MOCK',
+  '60% aprender · 40% exercícios + recuperação': '60% learning · 40% exercises + retrieval',
+  '40% aprender · 60% exercícios + recuperação': '40% learning · 60% exercises + retrieval',
+  '20% revisão · 80% exercícios e provas': '20% review · 80% exercises and past papers',
+  'Simulações de exame + correção de lacunas': 'Exam simulations + fixing gaps',
+  'ED depende de FP': 'DS builds on PF',
+  'A tua nota de Programação I foi baixa: nas primeiras semanas, 20 min de ponteiros e memória de cabeça antes de cada sessão de ED.': 'Your Programming I grade was low: for the first weeks, 20 min of pointers and memory from your head before each DS session.',
+  'Testa antes de te sentires pronto': 'Test before you feel ready',
+  'Faz o teste de controlo mesmo quando achas que ainda não sabes — é aí que ele mais ensina.': 'Take the closed-book test even when you think you don\'t know it yet — that\'s when it teaches most.',
+  'Álgebra Linear': 'Linear Algebra', 'Programação I': 'Programming I', 'Introdução aos Computadores': 'Introduction to Computers',
+  'Inglês Técnico': 'Technical English', 'Cálculo': 'Calculus', 'Matemática Discreta': 'Discrete Mathematics',
+  'Paradigmas de Programação': 'Programming Paradigms', 'Sistemas Digitais': 'Digital Systems', 'Redes de Computadores I': 'Computer Networks I',
+  'Bases de Dados': 'Databases', 'Redes de Computadores II': 'Computer Networks II', 'Programação Web': 'Web Programming',
+  'Teste 1': 'Test 1', 'Teste 2': 'Test 2', Exame: 'Exam', Trabalho: 'Assignment',
+  'Licenciatura em Engenharia Informática': 'BSc Computer Science',
+};
+const localise = (v) => (typeof v === 'string' ? (EN_DEMO[v] ?? v)
+  : Array.isArray(v) ? v.map(localise)
+  : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, localise(x)])) : v);
+
+function demoData(lang = 'pt') {
+  return lang === 'en' ? localise(demoDataPt()) : demoDataPt();
+}
+
+function demoDataPt() {
   const subjects = [
     { id: 'fp', ucId: 'fp', ects: 7, name: 'Fundamentos da Programação', short: 'FP', load: 'alta', color: '#8ea7ff', area: 'uni' },
     { id: 'ed', ucId: 'ed', ects: 7, name: 'Estruturas de Dados', short: 'ED', load: 'alta', color: '#c39cff', area: 'uni' },
@@ -111,6 +157,7 @@ function demoData() {
 }
 
 // ── Mocked server answers (the demo runs without real keys) ────
+const mock = (lang) => (lang === 'en' ? MOCK_EN : MOCK);
 const MOCK = {
   config: { configured: false, supabaseUrl: '', supabaseAnonKey: '', auth: { email: true, google: false }, ai: true, runtime: 'local', setup: true },
   health: {
@@ -135,6 +182,21 @@ const MOCK = {
   cloudflare: { ok: true, loggedIn: true, message: 'Ligado como estudante@exemplo.pt', loginRunning: false },
 };
 
+const MOCK_EN = {
+  ...MOCK,
+  health: {
+    app: { ok: true, runtime: 'local', message: 'Running on this computer' },
+    supabase: { ok: true, message: 'Online' },
+    database: { ok: true, message: 'Tables created' },
+    ai: { ok: true, provider: 'Gemini', message: 'Gemini · gemini-2.5-flash' },
+    limit: { ok: true, message: 'Up to 10 plans per user per day' },
+    checkedAt: new Date().toISOString(),
+  },
+  state: { ...MOCK.state, deploy: { ...MOCK.state.deploy, url: 'https://estudar.your-name.workers.dev' } },
+  remote: { ok: true, url: 'https://estudar.your-name.workers.dev', message: 'Online' },
+  cloudflare: { ok: true, loggedIn: true, message: 'Connected as student@example.com', loginRunning: false },
+};
+
 // ── Runner ─────────────────────────────────────────────────────
 function startServer() {
   const child = spawn(process.execPath, [path.join(ROOT, 'setup', 'server.mjs'), '--no-open'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT) } });
@@ -155,21 +217,23 @@ async function launch() {
 const MOBILE = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
 const DESKTOP = { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 };
 
-async function newPage(browser, device, { intro = false, config = MOCK.config } = {}) {
+async function newPage(browser, device, { intro = false, config = MOCK.config, lang = 'pt' } = {}) {
+  const M = mock(lang);
   const ctx = await browser.newContext({ ...device, locale: 'pt-PT', colorScheme: 'dark', serviceWorkers: 'block' });
-  const data = demoData();
-  await ctx.addInitScript(([d, showIntro]) => {
+  const data = demoData(lang);
+  await ctx.addInitScript(([d, showIntro, l]) => {
     if (sessionStorage.getItem('seeded')) return;
     sessionStorage.setItem('seeded', '1');
     localStorage.clear();
     localStorage.setItem('estudar_data', JSON.stringify(d));
     if (!showIntro) localStorage.setItem('estudar_intro_seen', '1');
-  }, [data, intro]);
+    localStorage.setItem('estudar_lang', l);
+  }, [data, intro, lang]);
   await ctx.route('**/api/config', r => r.fulfill({ json: config }));
-  await ctx.route('**/api/health', r => r.fulfill({ json: MOCK.health }));
-  await ctx.route('**/api/setup/state', r => r.fulfill({ json: MOCK.state }));
-  await ctx.route('**/api/setup/remote-health', r => r.fulfill({ json: MOCK.remote }));
-  await ctx.route('**/api/setup/cloudflare*', r => r.fulfill({ json: MOCK.cloudflare }));
+  await ctx.route('**/api/health', r => r.fulfill({ json: M.health }));
+  await ctx.route('**/api/setup/state', r => r.fulfill({ json: M.state }));
+  await ctx.route('**/api/setup/remote-health', r => r.fulfill({ json: M.remote }));
+  await ctx.route('**/api/setup/cloudflare*', r => r.fulfill({ json: M.cloudflare }));
   const page = await ctx.newPage();
   await page.goto(BASE);
   await page.waitForTimeout(700);
@@ -184,23 +248,38 @@ const shot = async (page, name, opts = {}) => {
 const tab = (page, t) => page.click(`.nav-item[data-tab="${t}"]`);
 
 async function main() {
-  await mkdir(OUT, { recursive: true });
   const server = await startServer();
   const browser = await launch();
   try {
+    for (const lang of ['pt', 'en']) {
+      OUT = outDir(lang);
+      await mkdir(OUT, { recursive: true });
+      console.log(`\n[${lang}]`);
+      await captureAll(browser, lang);
+    }
+  } finally {
+    await browser.close();
+    server.kill();
+  }
+  console.log('\nCapturas em public/screenshots (pt) e public/screenshots/en (en)');
+}
+
+async function captureAll(browser, lang) {
+  const open = (device, opts = {}) => newPage(browser, device, { ...opts, lang });
+  {
     // Intro
-    let p = await newPage(browser, MOBILE, { intro: true });
+    let p = await open(MOBILE, { intro: true });
     await shot(p, 'intro');
     await p.context().close();
 
     // Login screen (backend configured)
-    p = await newPage(browser, MOBILE, { config: { ...MOCK.config, configured: true, supabaseUrl: 'https://abcdefghijklmnop.supabase.co', supabaseAnonKey: 'sb_publishable_EXEMPLO' } });
+    p = await open(MOBILE, { config: { ...MOCK.config, configured: true, supabaseUrl: 'https://abcdefghijklmnop.supabase.co', supabaseAnonKey: 'sb_publishable_EXEMPLO' } });
     await p.waitForSelector('#login-email-form:not(.hidden)', { timeout: 15000 }).catch(() => {});
     await shot(p, 'login');
     await p.context().close();
 
     // Today, week, timer, focus, progress on mobile
-    p = await newPage(browser, MOBILE);
+    p = await open(MOBILE);
     await shot(p, 'hoje');
     await tab(p, 'week'); await shot(p, 'semana');
     await tab(p, 'timer'); await p.click('#timer-subjects .chip[data-id="ed"]'); await p.click('#btn-timer-main'); await p.waitForTimeout(2200); await shot(p, 'timer');
@@ -250,12 +329,11 @@ async function main() {
     await p.context().close();
 
     // Desktop: hero + degree manager
-    p = await newPage(browser, DESKTOP);
+    p = await open(DESKTOP);
     await shot(p, 'hoje-desktop');
     await p.click('#btn-settings'); await p.click('#btn-settings-percurso'); await p.waitForTimeout(400);
     await p.evaluate(() => {
-      const row = [...document.querySelectorAll('.pc-uc')].find(e => e.innerText.includes('Fundamentos'));
-      row.querySelector('[data-toggle]').click();
+      document.querySelector('.pc-uc[data-uc="fp"] [data-toggle]').click();
     });
     await p.waitForTimeout(300);
     await p.evaluate(() => document.querySelector('.pc-uc.open').scrollIntoView({ block: 'start' }));
@@ -263,11 +341,7 @@ async function main() {
     await p.evaluate(() => document.getElementById('percurso-body').scrollIntoView({ block: 'start' }));
     await shot(p, 'percurso-resumo');
     await p.context().close();
-  } finally {
-    await browser.close();
-    server.kill();
   }
-  console.log(`\nCapturas em ${path.relative(process.cwd(), OUT)}`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

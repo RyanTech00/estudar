@@ -31,6 +31,17 @@ O Estudar é uma **PWA sem build** servida por um **Cloudflare Worker**, com o *
 
 **A IA é não confiável.** Toda a resposta da IA é limpa e validada no servidor e no cliente, e revista pelo utilizador antes de ser guardada. O plano gerado passa sempre pela verificação científica.
 
+## Idiomas
+
+A app está em português e inglês. O idioma é detetado pelo browser e pode ser mudado em **Conta → Idioma**.
+
+- **`public/js/i18n.js`** exporta `t()`. As **frases em português são as chaves** (ao estilo gettext): `t('Hoje')` devolve `Today` em inglês. O código continua legível e uma tradução em falta cai para o português em vez de mostrar uma chave. Os marcadores funcionam igual nas duas línguas: `t('Acertaste {c} de {d}', { c: 3, d: 5 })`. O HTML estático é traduzido no sítio por `translateDOM()`.
+- **`public/js/i18n-en.js`** é o dicionário inglês: um objeto que liga cada frase portuguesa ao texto em inglês.
+- **As mensagens do servidor** seguem o mesmo esquema. A app envia o cabeçalho **`X-Estudar-Lang`**; `worker/i18n.js` lê-o e traduz as mensagens da API do Worker e do `npm start`. O plano gerado pela IA vem escrito no mesmo idioma.
+- **`tests/i18n.test.mjs`** falha se alguma frase da interface ou do servidor não tiver tradução inglesa, ou se uma tradução perder um `{marcador}` ou uma tag HTML.
+
+Acrescentar um idioma é, no essencial, mais um ficheiro de dicionário como `i18n-en.js`; depois, `i18n.js` precisa de umas linhas para o registar (`LANGS`, a procura em `t()` e os nomes dos dias e meses).
+
 ## Estrutura do repositório
 
 ```
@@ -48,9 +59,12 @@ public/                  a app — a única pasta publicada como ficheiros está
   js/data.js             plano de exemplo, normalização, datas
   js/timer.js            timer pelo relógio (sobrevive a segundo plano e fecho)
   js/focus.js            ecrã inteiro, wake lock, sons
+  js/i18n.js             t(), deteção e mudança de idioma
+  js/i18n-en.js          dicionário inglês
 worker/
   index.js               entrada do Worker
   api.js                 API partilhada
+  i18n.js                mensagens do servidor em inglês (X-Estudar-Lang)
 setup/server.mjs         npm start
 supabase/migrations/     SQL das tabelas e das regras de acesso
 tests/                   testes das regras (npm test)

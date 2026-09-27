@@ -4,89 +4,103 @@
 
 # Estudar
 
-**Estuda para lembrar no dia do exame — não só no dia em que estudas.**
+**English** · [Português](README.pt-PT.md)
 
-<img src="docs/public/screenshots/hoje-desktop.png" alt="Estudar: o separador Hoje" width="820">
+**Study to remember on exam day — not just on the day you study.**
 
-[![Licença: MIT](https://img.shields.io/badge/Licen%C3%A7a-MIT-cfe86a.svg)](LICENSE)
-[![PWA](https://img.shields.io/badge/PWA-offline-5fcdc2.svg)](docs/funcionalidades/sincronizacao.md)
+<img src="docs/public/screenshots/en/hoje-desktop.png" alt="Estudar: the Today tab" width="820">
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-cfe86a.svg)](LICENSE)
+[![PWA](https://img.shields.io/badge/PWA-offline-5fcdc2.svg)](docs/en/features/sync.md)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-f38020.svg)](https://workers.cloudflare.com)
 [![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20Postgres-3ecf8e.svg)](https://supabase.com)
-[![Testes](https://img.shields.io/badge/testes-npm%20test-8ea7ff.svg)](docs/arquitetura/testes.md)
+[![Tests](https://img.shields.io/badge/tests-npm%20test-8ea7ff.svg)](docs/en/architecture/tests.md)
 
-[Documentação](docs/) · [Começar](docs/guia/comecar.md) · [A ciência](docs/ciencia/index.md) · [Arquitetura](docs/arquitetura/index.md)
+<a href="https://www.buymeacoffee.com/ryanbarbosa"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=ryanbarbosa&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" alt="Buy me a coffee" height="40" /></a>
+
+[Documentation](docs/en/) · [Get started](docs/en/guide/getting-started.md) · [The science](docs/en/science/index.md) · [Architecture](docs/en/architecture/index.md)
 
 </div>
 
 ---
 
-## O que é
+## What it is
 
-Um sistema de estudo open source para o ensino superior. Organiza a semana com IA, guia cada sessão em blocos de foco e mede o que sabes **sem ajuda** — porque a investigação mostra que horas de estudo e desempenho durante a prática são maus sinais de aprendizagem (Roediger & Karpicke, 2006; Rohrer & Taylor, 2007; Bastani et al.).
+An open-source study system for university students. It plans your week with AI, guides each session in focus blocks and measures what you know **unaided** — because research shows that hours studied and performance during practice are poor signals of learning (Roediger & Karpicke, 2006; Rohrer & Taylor, 2007; Bastani et al.).
 
-## Funcionalidades
+## Features
 
-- **Plano semanal com IA** — a partir das disciplinas, datas e horas livres, com recuperação, espaçamento e intercalação; uma **verificação científica** fixa avisa o que ajustar. Gemini, Claude ou qualquer API compatível com OpenAI.
-- **Modo foco** — blocos 40+10 em ecrã inteiro, ecrã sempre ligado, timer que sobrevive ao telemóvel fechar a app.
-- **Registo do bloco** — tentativas, confiança e ajuda usada **antes** de corrigir; acertos depois.
-- **Domínio sem ajuda** — só de testes de controlo em papel, sem consulta; prática com ajuda à parte, com aviso de dependência.
-- **Calibração** — as disciplinas onde a confiança te engana sobem para o topo.
-- **Percurso académico** — importação por foto, média por ECTS, nota para não baixar, provas com pesos e mínimos, recurso e época especial, pré-requisitos, relatório de semestre.
-- **Configuração dentro da app** — chaves, tabelas e publicação no Cloudflare num ecrã, com um ponto de estado por serviço.
-- **Sincronização e offline** — telemóvel ↔ computador em tempo real; PWA instalável; cópia de segurança em JSON.
+- **AI weekly plan** — built from your subjects, exam dates and free hours, around retrieval, spacing and interleaving; a fixed **scientific check** flags what to adjust. Gemini, Claude or any OpenAI-compatible API.
+- **Focus mode** — full-screen 40+10 blocks, screen kept awake, a timer that survives the phone killing the app.
+- **Block log** — attempts, confidence and help used are recorded **before** checking; the score comes after.
+- **Unaided mastery** — only from closed-book tests on paper; assisted practice is shown separately, with a reliance-on-help warning.
+- **Calibration** — subjects where your confidence fools you rise to the top.
+- **Degree record** — curriculum import from a photo, ECTS-weighted average, the grade you need to keep it, weighted assessments with minimum grades, resits and special exam periods, prerequisites, semester report.
+- **In-app setup** — keys, database tables and publishing to Cloudflare from one screen, with a status dot per service.
+- **Sync and offline** — phone ↔ computer in real time; installable PWA; JSON backup.
+- **English and Portuguese** — interface, server messages and AI plans in the language you choose (**Account → Language**).
 
 <table>
   <tr>
-    <td><img src="docs/public/screenshots/progresso.png" alt="Domínio sem ajuda" width="200"></td>
-    <td><img src="docs/public/screenshots/registo-bloco.png" alt="Registo do bloco" width="200"></td>
-    <td><img src="docs/public/screenshots/relatorio-semestre.png" alt="Relatório de semestre" width="200"></td>
-    <td><img src="docs/public/screenshots/servidor-estado.png" alt="Servidor e chaves" width="200"></td>
+    <td><img src="docs/public/screenshots/en/progresso.png" alt="Unaided mastery" width="200"></td>
+    <td><img src="docs/public/screenshots/en/registo-bloco.png" alt="Block log" width="200"></td>
+    <td><img src="docs/public/screenshots/en/relatorio-semestre.png" alt="Semester report" width="200"></td>
+    <td><img src="docs/public/screenshots/en/servidor-estado.png" alt="Server & keys" width="200"></td>
   </tr>
 </table>
 
-## Início rápido
+## Quick start
 
 ```bash
 git clone https://github.com/RyanTech00/estudar.git
 cd estudar
 npm install
-npm start          # abre http://localhost:8787
+npm start          # opens http://localhost:8787
 ```
 
-Na app: **Conta → Servidor e chaves** → cola o Supabase e a chave de IA → **Testar → Guardar** → **Ligar conta Cloudflare → Publicar**. Guia completo em [docs/guia/instalacao.md](docs/guia/instalacao.md).
+In the app: **Account → Server & keys** → paste your Supabase details and AI key → **Test → Save** → **Connect Cloudflare account → Publish**. Full guide in [docs/en/guide/installation.md](docs/en/guide/installation.md).
 
-Sem configurar nada, a app já funciona em modo local (dados só no browser).
+With nothing configured, the app already works in local mode (data stays in the browser).
 
-## Como está feito
+## How it's built
 
-| Peça | Tecnologia |
+| Part | Technology |
 |---|---|
-| App | PWA sem build — HTML, CSS, ES modules (`public/`) |
-| Servidor | Um Cloudflare Worker serve a app e a API; `npm start` corre a mesma API localmente |
-| Dados | Supabase: login por código no email, um documento JSON por utilizador com RLS, Realtime |
-| IA | Configurável; a chave só existe no servidor |
-| Regras | `learning.js` e `curriculum.js`, funções puras com testes verificados por mutação |
+| App | PWA with no build step — HTML, CSS, ES modules (`public/`) |
+| Server | One Cloudflare Worker serves the app and the API; `npm start` runs the same API locally |
+| Data | Supabase: sign-in with an emailed code, one JSON document per user with RLS, Realtime |
+| AI | Configurable; the key only ever lives on the server |
+| Rules | `learning.js` and `curriculum.js`, pure functions with mutation-verified tests |
+| Languages | `i18n.js` + one dictionary per language; a test fails if any string is untranslated |
 
-Mais em [Arquitetura](docs/arquitetura/index.md) e [Modelo de dados](docs/arquitetura/dados.md).
+More in [Architecture](docs/en/architecture/index.md) and [Data model](docs/en/architecture/data.md).
 
-## Desenvolvimento
+## Development
 
 ```bash
-npm start            # app + API + ecrã de configuração
-npm test             # regras de aprendizagem e do percurso
-npm run check        # build do Worker sem publicar
+npm start            # app + API + setup screen
+npm test             # learning, degree-record and translation rules
+npm run check        # build the Worker without publishing
 
 cd docs
 npm install
-npm run dev          # site de documentação
-npm run screenshots  # regenera as capturas com um estudante fictício
-npm run build        # compila e verifica links e âncoras
+npm run dev          # documentation site
+npm run screenshots  # regenerate screenshots (both languages) with a fictional student
+npm run build        # build and check links and anchors
 ```
 
-## Contribuir
+## Contributing
 
-Issues e pull requests são bem-vindos — vê o [guia de contribuição](CONTRIBUTING.md). Antes de mexer numa regra de aprendizagem, lê [os princípios](docs/ciencia/index.md): são invariantes, e cada uma tem testes.
+Issues and pull requests are welcome — see the [contributing guide](CONTRIBUTING.md). Before changing a learning rule, read [the principles](docs/en/science/index.md): they are invariants, and each one has tests.
 
-## Licença
+## Support
+
+Estudar is free and will stay free. If it saved you time — or a module — a coffee helps keep it going.
+
+<a href="https://buymeacoffee.com/ryanbarbosa"><img src="https://media.giphy.com/media/FoAQVAmLEsOz8DV2HS/giphy.gif" alt="Support me on Buy Me a Coffee" width="200"></a>
+
+<a href="https://www.buymeacoffee.com/ryanbarbosa"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=ryanbarbosa&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" alt="Buy me a coffee" /></a>
+
+## License
 
 [MIT](LICENSE) © 2026 Ryan Barbosa

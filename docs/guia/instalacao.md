@@ -17,6 +17,8 @@ O browser abre em `http://localhost:8787`. Carrega em **Começar** na página de
 
 Sem mais nada, a app já funciona em **modo local**: plano, timer, foco, registos e percurso, com os dados guardados só neste browser. Para teres conta, sincronização e IA, continua.
 
+A app abre na língua do browser (português ou inglês). Para mudar, vai a **Conta → Idioma**.
+
 ::: tip Porta ocupada?
 Se a 8787 estiver em uso, o servidor experimenta a seguinte (8788, 8789…) e mostra o endereço no terminal. Também podes escolher: `PORT=9000 npm start`.
 :::

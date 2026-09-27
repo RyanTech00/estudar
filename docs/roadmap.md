@@ -6,7 +6,6 @@ O que vem a seguir segue a mesma regra do resto do projeto: **medir antes de dec
 
 - **Afinar com dados reais.** Depois de duas semanas de uso, comparar testes de controlo com prática com ajuda antes de mexer em qualquer parâmetro (limiar de excesso de confiança, fator de base fraca, mínimo de 10%).
 - **Lembretes** do teste de controlo semanal e da véspera de exame (notificações da PWA).
-- **Idiomas:** interface em inglês.
 
 ## Fase B — banco de perguntas
 

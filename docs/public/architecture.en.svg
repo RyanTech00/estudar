@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" font-family="Fira Sans, Segoe UI, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 10 5 0 10z" fill="#8c897f"/>
+    </marker>
+    <style>
+      .box { fill: #15161a; stroke: #2c2f36; stroke-width: 1.5; rx: 14; }
+      .hl { stroke: #cfe86a; }
+      .t { fill: #ece9e3; font-size: 17px; font-weight: 700; }
+      .s { fill: #9c998f; font-size: 13px; }
+      .c { fill: #cfe86a; font-size: 12.5px; font-family: Fira Code, ui-monospace, monospace; }
+      .l { fill: #8c897f; font-size: 12px; }
+      .line { stroke: #5a5d64; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+      .dash { stroke-dasharray: 5 5; }
+    </style>
+  </defs>
+  <rect width="960" height="560" rx="16" fill="#0d0e10"/>
+
+  <!-- Browser / PWA -->
+  <rect class="box hl" x="28" y="40" width="260" height="228"/>
+  <text class="t" x="48" y="72">PWA in the browser</text>
+  <text class="s" x="48" y="94">phone and computer</text>
+  <text class="c" x="48" y="126">public/js/app.js</text>
+  <text class="s" x="48" y="146">plan · timer · focus · progress</text>
+  <text class="c" x="48" y="174">learning.js · curriculum.js</text>
+  <text class="s" x="48" y="194">rules (tested, no DOM)</text>
+  <text class="c" x="48" y="222">localStorage + sw.js</text>
+  <text class="s" x="48" y="242">works offline</text>
+
+  <!-- Cloudflare Worker -->
+  <rect class="box hl" x="350" y="40" width="270" height="228"/>
+  <text class="t" x="370" y="72">Cloudflare Worker</text>
+  <text class="s" x="370" y="94">worker/index.js · worker/api.js</text>
+  <text class="c" x="370" y="126">GET  /api/config</text>
+  <text class="c" x="370" y="148">GET  /api/health</text>
+  <text class="c" x="370" y="170">POST /api/generate-plan</text>
+  <text class="c" x="370" y="192">POST /api/import-curriculum</text>
+  <text class="s" x="370" y="222">serves public/ as static files</text>
+  <text class="s" x="370" y="242">keys = Worker secrets</text>
+
+  <!-- AI -->
+  <rect class="box" x="682" y="40" width="250" height="140"/>
+  <text class="t" x="702" y="72">AI provider</text>
+  <text class="s" x="702" y="98">Gemini (default, free tier)</text>
+  <text class="s" x="702" y="120">Claude (Anthropic)</text>
+  <text class="s" x="702" y="142">OpenAI-compatible API</text>
+  <text class="l" x="702" y="166">structured JSON · never sees exercises</text>
+
+  <!-- Supabase -->
+  <rect class="box" x="350" y="330" width="270" height="190"/>
+  <text class="t" x="370" y="362">Supabase</text>
+  <text class="s" x="370" y="388">Auth: email code (+ Google)</text>
+  <text class="c" x="370" y="416">user_data</text>
+  <text class="s" x="460" y="416">1 JSON row per user</text>
+  <text class="c" x="370" y="440">ai_usage</text>
+  <text class="s" x="460" y="440">daily AI limit</text>
+  <text class="s" x="370" y="466">RLS: each user sees only their data</text>
+  <text class="s" x="370" y="488">Realtime: syncs devices</text>
+
+  <!-- Local setup -->
+  <rect class="box" x="28" y="330" width="260" height="190"/>
+  <text class="t" x="48" y="362">npm start (local)</text>
+  <text class="c" x="48" y="388">setup/server.mjs</text>
+  <text class="s" x="48" y="410">the same API + setup screen</text>
+  <text class="c" x="48" y="436">/api/setup/*  (localhost only)</text>
+  <text class="s" x="48" y="458">stores keys in .dev.vars</text>
+  <text class="s" x="48" y="478">creates tables · wrangler deploy</text>
+  <text class="s" x="48" y="498">and sends the secrets to the Worker</text>
+
+  <!-- Arrows -->
+  <path class="line" d="M288 130 H346"/>
+  <text class="l" x="296" y="122">API</text>
+  <path class="line" d="M620 110 H678"/>
+  <text class="l" x="630" y="102">prompt</text>
+  <path class="line" d="M240 268 V298 H330 V405 H346"/>
+  <text class="l" x="172" y="318">auth + data (RLS)</text>
+  <path class="line" d="M485 268 V326"/>
+  <text class="l" x="494" y="302">checks session · limit</text>
+  <path class="line dash" d="M120 330 V272"/>
+  <text class="l" x="40" y="304">serve a app</text>
+  <path class="line dash" d="M288 352 H310 V238 H346"/>
+  <text class="l" x="302" y="230">publica</text>
+  <path class="line dash" d="M288 470 H346"/>
+  <text class="l" x="296" y="462">SQL</text>
+
+  <text class="l" x="682" y="232">— pedidos da app</text>
+  <text class="l" x="682" y="252">- - setup / publishing</text>
+</svg>
