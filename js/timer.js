@@ -1,100 +1,118 @@
+// Wall-clock based: mobile browsers throttle intervals in the background, so we derive
+// the remaining time from a target timestamp instead of counting ticks.
 export class Timer {
-  constructor(onTick, onComplete, onPhaseChange) {
+  constructor({ onTick, onPhaseEnd } = {}) {
     this.onTick = onTick;
-    this.onComplete = onComplete;
-    this.onPhaseChange = onPhaseChange;
-    this.interval = null;
-    this.remaining = 0;
-    this.total = 0;
-    this.running = false;
-    this.paused = false;
-    this.currentPhase = 'work'; // 'work' | 'break' | 'longBreak'
+    this.onPhaseEnd = onPhaseEnd;
+    this.config = { work: 40 * 60, break: 10 * 60, longBreak: 15 * 60, sessionsBeforeLong: 4 };
+    this.phase = 'work';
     this.sessionsCompleted = 0;
-    this.config = {
-      work: 25 * 60,
-      break: 5 * 60,
-      longBreak: 15 * 60,
-      sessionsBeforeLong: 4,
-    };
+    this.state = 'idle'; // 'idle' | 'running' | 'paused'
+    this.endsAt = 0;
+    this.remainingMs = this.config.work * 1000;
+    this.interval = null;
   }
 
   configure(opts) {
     Object.assign(this.config, opts);
+    if (this.state === 'idle') this.remainingMs = this.config[this.phase] * 1000;
   }
 
-  start(phase = 'work') {
-    this.currentPhase = phase;
-    this.total = this.config[phase];
-    this.remaining = this.total;
-    this.running = true;
-    this.paused = false;
+  get total() { return this.config[this.phase] * 1000; }
+  get remaining() {
+    const ms = this.state === 'running' ? this.endsAt - Date.now() : this.remainingMs;
+    return Math.max(0, Math.ceil(ms / 1000));
+  }
+  get progress() { return 1 - (this.remaining * 1000) / this.total; }
+  get isRunning() { return this.state === 'running'; }
+  get isPaused() { return this.state === 'paused'; }
+  get isIdle() { return this.state === 'idle'; }
+
+  start() {
+    if (this.state === 'running') return;
+    if (this.state === 'idle') this.remainingMs = this.total;
+    this.endsAt = Date.now() + this.remainingMs;
+    this.state = 'running';
+    clearInterval(this.interval);
+    this.interval = setInterval(() => this._tick(), 250);
     this._tick();
-    this.interval = setInterval(() => this._tick(), 1000);
-    if (this.onPhaseChange) this.onPhaseChange(phase, this.sessionsCompleted);
-  }
-
-  _tick() {
-    if (this.paused) return;
-    this.remaining--;
-    const progress = 1 - (this.remaining / this.total);
-    if (this.onTick) this.onTick(this.remaining, progress, this.currentPhase);
-    if (this.remaining <= 0) {
-      this.stop();
-      this._onPhaseComplete();
-    }
-  }
-
-  _onPhaseComplete() {
-    if (this.currentPhase === 'work') {
-      this.sessionsCompleted++;
-      const nextPhase = (this.sessionsCompleted % this.config.sessionsBeforeLong === 0)
-        ? 'longBreak' : 'break';
-      if (this.onComplete) this.onComplete(this.currentPhase, this.sessionsCompleted, nextPhase);
-    } else {
-      if (this.onComplete) this.onComplete(this.currentPhase, this.sessionsCompleted, 'work');
-    }
   }
 
   pause() {
-    this.paused = true;
-  }
-
-  resume() {
-    this.paused = false;
-  }
-
-  togglePause() {
-    if (this.paused) this.resume();
-    else this.pause();
-    return this.paused;
-  }
-
-  stop() {
+    if (this.state !== 'running') return;
+    this.remainingMs = this.endsAt - Date.now();
+    this.state = 'paused';
     clearInterval(this.interval);
-    this.interval = null;
-    this.running = false;
-    this.paused = false;
+    this._emit();
+  }
+
+  toggle() {
+    if (this.state === 'running') this.pause();
+    else this.start();
+  }
+
+  // Ends the current phase now and moves to the next one (without starting it).
+  skip() {
+    this._finish(false);
   }
 
   reset() {
-    this.stop();
+    clearInterval(this.interval);
+    this.state = 'idle';
+    this.phase = 'work';
     this.sessionsCompleted = 0;
-    this.remaining = 0;
-    this.total = 0;
+    this.remainingMs = this.total;
+    this._emit();
   }
 
-  skip() {
-    this.stop();
-    this._onPhaseComplete();
+  _tick() {
+    if (this.state === 'running' && this.endsAt - Date.now() <= 0) {
+      this._finish(true);
+      return;
+    }
+    this._emit();
   }
 
-  get isRunning() { return this.running && !this.paused; }
-  get isPaused() { return this.running && this.paused; }
-  get isStopped() { return !this.running; }
+  _finish(natural) {
+    clearInterval(this.interval);
+    const finished = this.phase;
+    const workedSeconds = finished === 'work'
+      ? Math.round((this.total - (this.state === 'running' ? Math.max(0, this.endsAt - Date.now()) : this.remainingMs)) / 1000)
+      : 0;
 
-  static formatTime(seconds) {
-    const m = Math.floor(Math.abs(seconds) / 60);
-    const s = Math.abs(seconds) % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    if (finished === 'work') {
+      this.sessionsCompleted++;
+      this.phase = this.sessionsCompleted % this.config.sessionsBeforeLong === 0 ? 'longBreak' : 'break';
+    } else {
+      this.phase = 'work';
+    }
+    this.state = 'idle';
+    this.remainingMs = this.total;
+    if (this.onPhaseEnd) this.onPhaseEnd({ finished, next: this.phase, natural, workedSeconds });
+    this._emit();
+  }
+
+  _emit() {
+    if (this.onTick) this.onTick(this);
+  }
+
+  snapshot() {
+    return { phase: this.phase, state: this.state, endsAt: this.endsAt, remainingMs: this.remainingMs, sessionsCompleted: this.sessionsCompleted };
+  }
+
+  restore(s) {
+    if (!s || !['idle', 'running', 'paused'].includes(s.state)) return;
+    Object.assign(this, { phase: s.phase, state: s.state, endsAt: s.endsAt, remainingMs: s.remainingMs, sessionsCompleted: s.sessionsCompleted });
+    if (this.state === 'running') {
+      clearInterval(this.interval);
+      this.interval = setInterval(() => this._tick(), 250);
+    }
+    this._tick();
+  }
+
+  static format(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
 }

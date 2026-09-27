@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'estudar_data';
 const LAST_UID_KEY = 'estudar_last_uid';
+const SDK = 'https://www.gstatic.com/firebasejs/12.19.0';
 
 const FIREBASE_CONFIG = {
   apiKey: "AIza...",
@@ -10,17 +11,35 @@ const FIREBASE_CONFIG = {
   appId: "1:000000000000:web:0000000000000000000000",
 };
 
-let firebaseApp = null;
 let firebaseDb = null;
 let firebaseAuth = null;
 let currentUser = null;
 let unsubscribe = null;
 let onSyncCallback = null;
 
+// Local calendar date (not UTC), so a session at 00:30 counts for the day you're living in.
+export function dateKey(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function getDefaults() {
+  return {
+    sessions: {},   // { '2026-09-25': { fp: { done: true, timestamp } } }
+    focus: {},      // { '2026-09-25': { fp: 80 } }  minutes studied per subject
+    checklist: {},  // { '2026-W01': [bool x5] }
+    timerConfig: { work: 40, break: 10, longBreak: 15, sessionsBeforeLong: 4 },
+    settings: { sound: true },
+    updatedAt: 0,
+  };
+}
+
 function getLocal() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : getDefaults();
+    return raw ? { ...getDefaults(), ...JSON.parse(raw) } : getDefaults();
   } catch {
     return getDefaults();
   }
@@ -32,89 +51,53 @@ function setLocal(data) {
   } catch { /* quota exceeded */ }
 }
 
-function getDefaults() {
-  return {
-    sessions: {},      // { '2026-09-25': { fp: { done: true, notes: '', minutes: 50 } } }
-    checklist: {},     // { '2026-W01': [false, false, false, false, false] }
-    timerConfig: { work: 40, break: 10, longBreak: 15, sessionsBeforeLong: 4 },
-    totalMinutes: 0,
-    totalSessions: 0,
-    streak: 0,
-    lastStudyDate: null,
-    settings: { sound: true, autoStart: false, darkMode: true },
-  };
-}
-
 export function loadData() {
   return getLocal();
 }
 
 export function saveData(data) {
+  data.updatedAt = Date.now();
   setLocal(data);
-  if (firebaseDb && currentUser) {
-    syncToFirebase(data);
-  }
+  if (firebaseDb && currentUser) syncToFirebase(data);
 }
 
-export function markSessionDone(date, subjectId, minutes = 0, notes = '') {
-  const data = loadData();
-  const key = date.toISOString().slice(0, 10);
-  if (!data.sessions[key]) data.sessions[key] = {};
-  data.sessions[key][subjectId] = { done: true, minutes, notes, timestamp: Date.now() };
-  data.totalSessions++;
-  data.totalMinutes += minutes;
+// ── Sessions ───────────────────────────
+export function isSessionDone(date, id) {
+  return !!loadData().sessions[dateKey(date)]?.[id]?.done;
+}
 
-  const today = new Date().toISOString().slice(0, 10);
-  if (data.lastStudyDate === today) {
-    // same day, no streak change
-  } else {
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    if (data.lastStudyDate === yesterday) {
-      data.streak++;
-    } else {
-      data.streak = 1;
-    }
-  }
-  data.lastStudyDate = today;
+export function setSessionDone(date, id, done) {
+  const data = loadData();
+  const key = dateKey(date);
+  data.sessions[key] = data.sessions[key] || {};
+  if (done) data.sessions[key][id] = { done: true, timestamp: Date.now() };
+  else delete data.sessions[key][id];
   saveData(data);
-  return data;
 }
 
-export function unmarkSession(date, subjectId) {
+export function logFocus(subjectId, minutes, date = new Date()) {
+  if (!subjectId || minutes <= 0) return;
   const data = loadData();
-  const key = date.toISOString().slice(0, 10);
-  if (data.sessions[key] && data.sessions[key][subjectId]) {
-    const session = data.sessions[key][subjectId];
-    data.totalMinutes = Math.max(0, data.totalMinutes - (session.minutes || 0));
-    data.totalSessions = Math.max(0, data.totalSessions - 1);
-    delete data.sessions[key][subjectId];
-  }
+  const key = dateKey(date);
+  data.focus[key] = data.focus[key] || {};
+  data.focus[key][subjectId] = (data.focus[key][subjectId] || 0) + minutes;
   saveData(data);
-  return data;
 }
 
-export function isSessionDone(date, subjectId) {
-  const data = loadData();
-  const key = date.toISOString().slice(0, 10);
-  return !!(data.sessions[key] && data.sessions[key][subjectId]?.done);
-}
-
+// ── Checklist / config ─────────────────
 export function getWeekChecklist(weekNum) {
-  const data = loadData();
-  const key = `2026-W${weekNum.toString().padStart(2, '0')}`;
-  return data.checklist[key] || [false, false, false, false, false];
+  const key = `W${String(weekNum).padStart(2, '0')}`;
+  return loadData().checklist[key] || [false, false, false, false, false];
 }
 
 export function saveWeekChecklist(weekNum, checks) {
   const data = loadData();
-  const key = `2026-W${weekNum.toString().padStart(2, '0')}`;
-  data.checklist[key] = checks;
+  data.checklist[`W${String(weekNum).padStart(2, '0')}`] = checks;
   saveData(data);
 }
 
 export function getTimerConfig() {
-  const data = loadData();
-  return data.timerConfig;
+  return loadData().timerConfig;
 }
 
 export function saveTimerConfig(config) {
@@ -123,30 +106,66 @@ export function saveTimerConfig(config) {
   saveData(data);
 }
 
-export function getStats() {
-  const data = loadData();
-  return {
-    totalMinutes: data.totalMinutes,
-    totalSessions: data.totalSessions,
-    streak: data.streak,
-  };
+export function getSetting(name) {
+  return loadData().settings?.[name];
 }
 
-// --- Firebase sync ---
+export function setSetting(name, value) {
+  const data = loadData();
+  data.settings = { ...data.settings, [name]: value };
+  saveData(data);
+}
 
-export async function initFirebase(config) {
-  const cfg = config || FIREBASE_CONFIG;
-  if (!cfg || !cfg.apiKey) return false;
+// ── Stats (derived, so merging devices can't make counters drift) ──
+export function getStats() {
+  const data = loadData();
+  let totalMinutes = 0;
+  const activeDays = new Set();
+
+  for (const [day, subs] of Object.entries(data.focus || {})) {
+    const mins = Object.values(subs).reduce((a, b) => a + b, 0);
+    totalMinutes += mins;
+    if (mins > 0) activeDays.add(day);
+  }
+  let totalSessions = 0;
+  for (const [day, subs] of Object.entries(data.sessions || {})) {
+    const n = Object.values(subs).filter(s => s?.done).length;
+    totalSessions += n;
+    if (n > 0) activeDays.add(day);
+  }
+
+  // Streak: consecutive days with activity ending today (or yesterday, if today hasn't started yet).
+  let streak = 0;
+  const cursor = new Date();
+  if (!activeDays.has(dateKey(cursor))) cursor.setDate(cursor.getDate() - 1);
+  while (activeDays.has(dateKey(cursor))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return { totalMinutes, totalSessions, streak };
+}
+
+export function getMinutesByDay(days) {
+  const data = loadData();
+  return days.map(d => {
+    const subs = data.focus?.[dateKey(d)] || {};
+    return { date: d, bySubject: subs, total: Object.values(subs).reduce((a, b) => a + b, 0) };
+  });
+}
+
+// ── Firebase ───────────────────────────
+export async function autoInit() {
   try {
-    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js');
-    const { getFirestore } = await import('https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js');
-    const { getAuth, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js');
+    const { initializeApp } = await import(`${SDK}/firebase-app.js`);
+    const { getFirestore } = await import(`${SDK}/firebase-firestore.js`);
+    const { getAuth, onAuthStateChanged } = await import(`${SDK}/firebase-auth.js`);
 
-    firebaseApp = initializeApp(cfg);
-    firebaseDb = getFirestore(firebaseApp);
-    firebaseAuth = getAuth(firebaseApp);
+    const app = initializeApp(FIREBASE_CONFIG);
+    firebaseDb = getFirestore(app);
+    firebaseAuth = getAuth(app);
 
-    return new Promise((resolve) => {
+    return await new Promise((resolve) => {
       onAuthStateChanged(firebaseAuth, (user) => {
         currentUser = user;
         if (user) {
@@ -167,38 +186,51 @@ export function hadPreviousLogin() {
   return !!localStorage.getItem(LAST_UID_KEY);
 }
 
-export async function autoInit() {
-  const loggedIn = await initFirebase();
-  return loggedIn;
-}
+const AUTH_ERRORS = {
+  'auth/unauthorized-domain': `Este domínio (${location.hostname}) não está autorizado no Firebase. Adiciona-o em Authentication → Settings → Authorized domains.`,
+  'auth/network-request-failed': 'Sem ligação à internet. Tenta de novo quando estiveres online.',
+  'auth/operation-not-allowed': 'O login com Google não está ativo no Firebase (Authentication → Sign-in method).',
+  'auth/internal-error': 'O Firebase devolveu um erro interno. Tenta de novo daqui a pouco.',
+};
 
 export async function signIn() {
-  if (!firebaseAuth) return false;
+  if (!firebaseAuth) return { ok: false, message: 'Não foi possível carregar o Firebase. Verifica a ligação.' };
+  const { signInWithPopup, signInWithRedirect, GoogleAuthProvider } = await import(`${SDK}/firebase-auth.js`);
+  const provider = new GoogleAuthProvider();
   try {
-    const { signInWithPopup, GoogleAuthProvider } = await import('https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js');
-    const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(firebaseAuth, provider);
     currentUser = result.user;
-    localStorage.setItem(LAST_UID_KEY, currentUser.uid);
+  } catch (e) {
+    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
+      return { ok: false, message: null };
+    }
+    if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
+      await signInWithRedirect(firebaseAuth, provider);
+      return { ok: false, message: null };
+    }
+    console.warn('Sign in failed:', e);
+    return { ok: false, message: AUTH_ERRORS[e.code] || `Não foi possível iniciar sessão (${e.code || e.message}).` };
+  }
 
-    // Merge with what's already in the cloud before writing, so a fresh device doesn't wipe it.
-    const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js');
+  localStorage.setItem(LAST_UID_KEY, currentUser.uid);
+  // Merge with the cloud copy before writing, so a fresh device doesn't wipe it.
+  try {
+    const { doc, getDoc } = await import(`${SDK}/firebase-firestore.js`);
     const snap = await getDoc(doc(firebaseDb, 'users', currentUser.uid));
     const data = snap.exists() ? mergeData(loadData(), snap.data()) : loadData();
     setLocal(data);
     await syncToFirebase(data);
-    listenToFirebase();
-    return true;
   } catch (e) {
-    console.warn('Sign in failed:', e);
-    return false;
+    console.warn('Initial sync failed:', e);
   }
+  listenToFirebase();
+  return { ok: true };
 }
 
 export async function signOut() {
-  if (!firebaseAuth) return;
   if (unsubscribe) unsubscribe();
-  await firebaseAuth.signOut();
+  unsubscribe = null;
+  if (firebaseAuth) await firebaseAuth.signOut();
   currentUser = null;
   localStorage.removeItem(LAST_UID_KEY);
 }
@@ -206,12 +238,8 @@ export async function signOut() {
 async function syncToFirebase(data) {
   if (!firebaseDb || !currentUser) return;
   try {
-    const { doc, setDoc } = await import('https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js');
-    await setDoc(doc(firebaseDb, 'users', currentUser.uid), {
-      ...data,
-      lastSync: Date.now(),
-      email: currentUser.email,
-    });
+    const { doc, setDoc } = await import(`${SDK}/firebase-firestore.js`);
+    await setDoc(doc(firebaseDb, 'users', currentUser.uid), { ...data, email: currentUser.email });
   } catch (e) {
     console.warn('Sync to Firebase failed:', e);
   }
@@ -220,17 +248,18 @@ async function syncToFirebase(data) {
 async function listenToFirebase() {
   if (!firebaseDb || !currentUser) return;
   try {
-    const { doc, onSnapshot } = await import('https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js');
+    const { doc, onSnapshot } = await import(`${SDK}/firebase-firestore.js`);
     if (unsubscribe) unsubscribe();
     unsubscribe = onSnapshot(doc(firebaseDb, 'users', currentUser.uid), (snap) => {
-      if (!snap.exists()) return;
+      if (!snap.exists() || snap.metadata.hasPendingWrites) return;
       const remote = snap.data();
       const local = loadData();
-      if (remote.lastSync > (local.lastSync || 0)) {
-        const merged = mergeData(local, remote);
-        setLocal(merged);
-        if (onSyncCallback) onSyncCallback(merged);
-      }
+      if ((remote.updatedAt || 0) <= (local.updatedAt || 0)) return;
+      // Remote is newer and was written by a device that already merged on sign-in:
+      // take it as-is so un-checking something on one device propagates.
+      const { email, ...next } = remote;
+      setLocal({ ...getDefaults(), ...next });
+      if (onSyncCallback) onSyncCallback(next);
     });
   } catch (e) {
     console.warn('Listen to Firebase failed:', e);
@@ -238,27 +267,34 @@ async function listenToFirebase() {
 }
 
 function mergeData(local, remote) {
-  const merged = { ...local };
-  // Merge sessions (keep the one with more data)
-  const allDates = new Set([...Object.keys(local.sessions || {}), ...Object.keys(remote.sessions || {})]);
+  const newer = (remote.updatedAt || 0) > (local.updatedAt || 0) ? remote : local;
+  const merged = { ...getDefaults(), ...local };
+
   merged.sessions = {};
-  for (const date of allDates) {
-    merged.sessions[date] = { ...(local.sessions?.[date] || {}), ...(remote.sessions?.[date] || {}) };
+  for (const day of new Set([...Object.keys(local.sessions || {}), ...Object.keys(remote.sessions || {})])) {
+    merged.sessions[day] = { ...(local.sessions?.[day] || {}), ...(remote.sessions?.[day] || {}) };
   }
-  // Take higher values for counters
-  merged.totalMinutes = Math.max(local.totalMinutes || 0, remote.totalMinutes || 0);
-  merged.totalSessions = Math.max(local.totalSessions || 0, remote.totalSessions || 0);
-  merged.streak = Math.max(local.streak || 0, remote.streak || 0);
-  // Merge checklists
-  const allWeeks = new Set([...Object.keys(local.checklist || {}), ...Object.keys(remote.checklist || {})]);
+
+  merged.focus = {};
+  for (const day of new Set([...Object.keys(local.focus || {}), ...Object.keys(remote.focus || {})])) {
+    const l = local.focus?.[day] || {};
+    const r = remote.focus?.[day] || {};
+    merged.focus[day] = {};
+    for (const sub of new Set([...Object.keys(l), ...Object.keys(r)])) {
+      merged.focus[day][sub] = Math.max(l[sub] || 0, r[sub] || 0);
+    }
+  }
+
   merged.checklist = {};
-  for (const week of allWeeks) {
+  for (const week of new Set([...Object.keys(local.checklist || {}), ...Object.keys(remote.checklist || {})])) {
     const l = local.checklist?.[week] || [];
     const r = remote.checklist?.[week] || [];
-    const len = Math.max(l.length, r.length);
-    merged.checklist[week] = Array.from({ length: len }, (_, i) => !!(l[i] || r[i]));
+    merged.checklist[week] = Array.from({ length: Math.max(l.length, r.length) }, (_, i) => !!(l[i] || r[i]));
   }
-  merged.lastSync = Date.now();
+
+  merged.timerConfig = newer.timerConfig || merged.timerConfig;
+  merged.settings = { ...getDefaults().settings, ...(newer.settings || {}) };
+  merged.updatedAt = Math.max(local.updatedAt || 0, remote.updatedAt || 0);
   return merged;
 }
 
@@ -268,8 +304,4 @@ export function onSync(callback) {
 
 export function getCurrentUser() {
   return currentUser;
-}
-
-export function isFirebaseConfigured() {
-  return !!firebaseApp;
 }

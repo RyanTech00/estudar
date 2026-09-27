@@ -2,9 +2,10 @@
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#07070e">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0e10">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="description" content="Sistema de estudo focado — Licenciatura em Engenharia Informática 2026/2027">
   <title>Estudar</title>
@@ -14,228 +15,209 @@
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body class="locked">
-  <!-- ── Login Gate ────────────────────── -->
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-today" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.6" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="i-week" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></symbol>
+    <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2M10 2.5h4"/></symbol>
+    <symbol id="i-progress" viewBox="0 0 24 24"><path d="M5 20V12M12 20V5M19 20v-5"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5.5v13M16 5.5v13" stroke-width="3"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4v4h4"/></symbol>
+    <symbol id="i-skip" viewBox="0 0 24 24"><path d="M6 5.5v13l9-6.5zM18 5.5v13" fill="none"/></symbol>
+    <symbol id="i-focus" viewBox="0 0 24 24"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/><circle cx="12" cy="12" r="2.5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  </svg>
+
+  <!-- ── Login ───────────────────────────── -->
   <div id="login-screen">
-    <img src="icons/icon.svg" alt="" class="login-logo">
-    <h1 class="login-title">ESTUDAR</h1>
-    <p class="login-sub">Inicia sessão para o teu progresso ficar guardado e sincronizado entre dispositivos.</p>
-    <div id="login-loading" class="login-status">A verificar sessão…</div>
-    <button class="btn btn-primary btn-block hidden" id="btn-login-google">Entrar com Google</button>
-    <div id="login-error" class="login-status login-error hidden"></div>
+    <div class="login-card">
+      <img src="icons/icon.svg" alt="" class="login-logo">
+      <h1 class="login-title">Estudar</h1>
+      <p class="login-sub">Licenciatura em Engenharia Informática · 2026/27. Inicia sessão para guardar o progresso e sincronizar entre o telemóvel e o computador.</p>
+      <div id="login-loading" class="login-status">A verificar sessão…</div>
+      <button class="btn btn-primary btn-block hidden" id="btn-login-google">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3z"/><path fill="currentColor" opacity=".85" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22z"/><path fill="currentColor" opacity=".7" d="M6.4 14a6 6 0 0 1 0-3.9V7.5H3.1a10 10 0 0 0 0 9z"/><path fill="currentColor" opacity=".55" d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.5l3.3 2.6C7.2 7.7 9.4 5.9 12 5.9z"/></svg>
+        Entrar com Google
+      </button>
+      <p id="login-error" class="login-error hidden" role="alert"></p>
+    </div>
   </div>
 
-  <!-- ── Header ────────────────────────── -->
-  <header class="app-header">
-    <h1>ESTUDAR</h1>
-    <div class="header-right">
-      <div class="sync-indicator" id="sync-dot" title="Offline"></div>
-      <button class="header-btn" id="btn-settings" aria-label="Definições">⚙</button>
-    </div>
-  </header>
+  <div class="shell">
+    <!-- ── Navigation (bottom bar on mobile, rail on desktop) ── -->
+    <nav class="nav" aria-label="Secções">
+      <div class="nav-brand">Estudar</div>
+      <button class="nav-item active" data-tab="today"><svg class="ico"><use href="#i-today"/></svg><span>Hoje</span></button>
+      <button class="nav-item" data-tab="week"><svg class="ico"><use href="#i-week"/></svg><span>Semana</span></button>
+      <button class="nav-item" data-tab="timer"><svg class="ico"><use href="#i-timer"/></svg><span>Timer</span></button>
+      <button class="nav-item" data-tab="progress"><svg class="ico"><use href="#i-progress"/></svg><span>Progresso</span></button>
+    </nav>
 
-  <!-- ── Main Content ──────────────────── -->
-  <main class="main-content">
-
-    <!-- TAB: Hoje -->
-    <section id="tab-today" class="tab-content active">
-      <div id="phase-banner" class="phase-banner"></div>
-
-      <div class="stats-row">
-        <div class="stat-card">
-          <div class="stat-value" id="stat-streak">0</div>
-          <div class="stat-label">Dias seguidos</div>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <div class="topbar-kicker" id="topbar-date">—</div>
+          <h1 class="topbar-title" id="topbar-title">Hoje</h1>
         </div>
-        <div class="stat-card">
-          <div class="stat-value" id="stat-sessions">0</div>
-          <div class="stat-label">Sessões</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" id="stat-hours">0h</div>
-          <div class="stat-label">Horas totais</div>
-        </div>
-      </div>
-
-      <div class="section-title">Sessões de hoje</div>
-      <div id="today-sessions"></div>
-
-      <div class="section-title mt-24">Dica do método</div>
-      <div id="method-tip" class="method-card"></div>
-    </section>
-
-    <!-- TAB: Semana -->
-    <section id="tab-week" class="tab-content">
-      <div class="days-counter">
-        <div class="days-num" id="days-until-exam">0</div>
-        <div class="days-label">dias até exames</div>
-      </div>
-
-      <div class="section-title">Plano semanal</div>
-      <div id="week-grid" class="week-grid"></div>
-
-      <div class="section-title mt-24">Roadmap do semestre</div>
-      <div id="gantt-chart" class="gantt-container"></div>
-    </section>
-
-    <!-- TAB: Timer -->
-    <section id="tab-timer" class="tab-content">
-      <div class="timer-container">
-        <div class="timer-subject-select">
-          <label>Cadeira</label>
-          <div class="subject-pills" id="timer-subjects"></div>
-        </div>
-
-        <div class="timer-ring-wrapper">
-          <svg class="timer-ring" viewBox="0 0 260 260">
-            <circle class="timer-ring-bg" cx="130" cy="130" r="120"/>
-            <circle class="timer-ring-progress" id="timer-progress" cx="130" cy="130" r="120"
-              stroke-dasharray="753.98" stroke-dashoffset="0"/>
-          </svg>
-          <div class="timer-center">
-            <div class="timer-time" id="timer-display">25:00</div>
-            <div class="timer-phase-label" id="timer-phase">pronto</div>
-            <div class="timer-sessions-dots" id="timer-dots"></div>
-          </div>
-        </div>
-
-        <div class="timer-controls">
-          <button class="timer-btn timer-btn-sm" id="btn-timer-reset" title="Reiniciar">↺</button>
-          <button class="timer-btn timer-btn-main" id="btn-timer-main" title="Iniciar">▶</button>
-          <button class="timer-btn timer-btn-sm" id="btn-timer-skip" title="Saltar">⏭</button>
-        </div>
-
-        <button class="btn btn-primary" id="btn-focus-mode" style="margin-bottom:24px">
-          🎯 Modo Foco
+        <button class="account-btn" id="btn-settings" aria-label="Conta e definições">
+          <img id="topbar-avatar" alt="" class="hidden">
+          <span id="topbar-initial">·</span>
+          <i class="sync-dot" id="sync-dot" title="Offline"></i>
         </button>
+      </header>
 
-        <div class="timer-settings">
-          <div class="timer-setting-row">
-            <span class="timer-setting-label">Estudo (min)</span>
-            <div class="timer-setting-value">
-              <button data-setting="work" data-dir="-1">−</button>
-              <span id="setting-work">25</span>
-              <button data-setting="work" data-dir="1">+</button>
+      <main>
+        <!-- TAB: Hoje -->
+        <section id="tab-today" class="tab active">
+          <div id="next-up"></div>
+
+          <div class="card">
+            <div class="row-between">
+              <h2 class="h2">Sessões de hoje</h2>
+              <span class="muted small" id="today-count"></span>
             </div>
+            <div class="bar"><i id="today-bar"></i></div>
+            <div id="today-sessions"></div>
           </div>
-          <div class="timer-setting-row">
-            <span class="timer-setting-label">Pausa (min)</span>
-            <div class="timer-setting-value">
-              <button data-setting="break" data-dir="-1">−</button>
-              <span id="setting-break">5</span>
-              <button data-setting="break" data-dir="1">+</button>
-            </div>
+
+          <div class="stats">
+            <div class="stat"><div class="stat-num" id="stat-streak">0</div><div class="stat-label">dias seguidos</div></div>
+            <div class="stat"><div class="stat-num" id="stat-hours">0h</div><div class="stat-label">de foco</div></div>
+            <div class="stat"><div class="stat-num" id="stat-sessions">0</div><div class="stat-label">sessões feitas</div></div>
           </div>
-          <div class="timer-setting-row">
-            <span class="timer-setting-label">Pausa longa (min)</span>
-            <div class="timer-setting-value">
-              <button data-setting="longBreak" data-dir="-1">−</button>
-              <span id="setting-longBreak">15</span>
-              <button data-setting="longBreak" data-dir="1">+</button>
-            </div>
+
+          <div class="card tip">
+            <div class="eyebrow" id="tip-title">Dica</div>
+            <p id="tip-text"></p>
           </div>
-        </div>
-      </div>
-    </section>
+        </section>
 
-    <!-- TAB: Progresso -->
-    <section id="tab-progress" class="tab-content">
-      <div class="section-title">Checklist semanal</div>
-      <div class="card">
-        <div id="checklist-container"></div>
-      </div>
-
-      <div class="section-title mt-24">Método de estudo</div>
-      <div id="method-cards"></div>
-    </section>
-  </main>
-
-  <!-- ── Bottom Nav ────────────────────── -->
-  <nav class="bottom-nav">
-    <button class="nav-item active" data-tab="today">
-      <span class="nav-icon">📅</span>
-      Hoje
-    </button>
-    <button class="nav-item" data-tab="week">
-      <span class="nav-icon">📋</span>
-      Semana
-    </button>
-    <button class="nav-item" data-tab="timer">
-      <span class="nav-icon">⏱</span>
-      Timer
-    </button>
-    <button class="nav-item" data-tab="progress">
-      <span class="nav-icon">📊</span>
-      Progresso
-    </button>
-  </nav>
-
-  <!-- ── Focus Mode Overlay ────────────── -->
-  <div id="focus-overlay">
-    <button class="focus-exit" id="btn-focus-exit">✕ Sair</button>
-    <div class="focus-subject-name" id="focus-subject">—</div>
-    <div class="focus-timer-ring-wrapper">
-      <svg class="focus-timer-ring" viewBox="0 0 360 360">
-        <circle class="ring-bg" cx="180" cy="180" r="170"/>
-        <circle class="ring-progress" id="focus-progress" cx="180" cy="180" r="170"
-          stroke-dasharray="1068.14" stroke-dashoffset="0" stroke="var(--primary)"/>
-      </svg>
-      <div class="focus-timer-center">
-        <div class="focus-timer-time" id="focus-time">25:00</div>
-        <div class="focus-phase-label" id="focus-phase">estudo</div>
-        <div class="focus-session-count" id="focus-count">Sessão 1 / 4</div>
-      </div>
-    </div>
-    <div class="focus-controls">
-      <button class="focus-btn focus-btn-sm" id="btn-focus-reset">↺</button>
-      <button class="focus-btn focus-btn-main" id="btn-focus-main">⏸</button>
-      <button class="focus-btn focus-btn-sm" id="btn-focus-skip">⏭</button>
-    </div>
-  </div>
-
-  <!-- ── Settings Panel ────────────────── -->
-  <div id="settings-panel">
-    <div class="settings-sheet">
-      <div class="settings-header">
-        <h2>Definições</h2>
-        <button class="settings-close" id="btn-settings-close">✕</button>
-      </div>
-
-      <div class="settings-group">
-        <h3>Conta</h3>
-        <div id="account-section">
-          <div id="user-logged-in">
-            <div class="user-info">
-              <img class="user-avatar" id="user-avatar" src="" alt="">
+        <!-- TAB: Semana -->
+        <section id="tab-week" class="tab">
+          <div class="card">
+            <div class="countdown">
+              <div class="countdown-num" id="days-until-exam">0</div>
               <div>
-                <div class="user-name" id="user-name">—</div>
-                <div class="user-email" id="user-email">—</div>
+                <div class="h2">dias até à época de exames</div>
+                <div class="muted small" id="phase-now"></div>
               </div>
             </div>
-            <button class="btn btn-outline btn-block" id="btn-sign-out">Terminar sessão</button>
+            <div class="timeline" id="timeline"></div>
           </div>
-        </div>
-      </div>
 
-      <div class="settings-group">
-        <h3>Som</h3>
-        <div class="settings-row">
-          <span class="settings-row-label">Notificação sonora</span>
-          <button class="btn btn-outline" id="btn-toggle-sound" style="padding:6px 12px;font-size:13px">Ligado</button>
-        </div>
-      </div>
+          <h2 class="h2 section-head">Plano semanal</h2>
+          <div id="week-list" class="week-list"></div>
+        </section>
 
-      <div class="settings-group">
-        <h3>Dados</h3>
-        <div class="settings-row">
-          <span class="settings-row-label">Limpar todos os dados</span>
-          <button class="btn btn-danger" id="btn-clear-data" style="padding:6px 12px;font-size:13px">Limpar</button>
-        </div>
-      </div>
+        <!-- TAB: Timer -->
+        <section id="tab-timer" class="tab">
+          <div class="timer-wrap">
+            <div class="chips" id="timer-subjects" role="radiogroup" aria-label="Cadeira"></div>
 
-      <div style="text-align:center;margin-top:20px">
-        <p style="font-size:12px;color:var(--text-muted)">Estudar PWA — Licenciatura EI 2026/2027</p>
-      </div>
+            <div class="ring">
+              <svg viewBox="0 0 260 260" aria-hidden="true">
+                <circle class="ring-track" cx="130" cy="130" r="118"/>
+                <circle class="ring-fill" id="timer-progress" cx="130" cy="130" r="118"/>
+              </svg>
+              <div class="ring-center">
+                <div class="ring-phase" id="timer-phase">estudo</div>
+                <div class="ring-time" id="timer-display">40:00</div>
+                <div class="dots" id="timer-dots"></div>
+              </div>
+            </div>
+
+            <div class="controls">
+              <button class="ctrl" id="btn-timer-reset" aria-label="Reiniciar"><svg class="ico"><use href="#i-reset"/></svg></button>
+              <button class="ctrl ctrl-main" id="btn-timer-main" aria-label="Iniciar"><svg class="ico"><use href="#i-play"/></svg></button>
+              <button class="ctrl" id="btn-timer-skip" aria-label="Saltar fase"><svg class="ico"><use href="#i-skip"/></svg></button>
+            </div>
+
+            <button class="btn btn-ghost" id="btn-focus-mode"><svg class="ico"><use href="#i-focus"/></svg> Modo foco</button>
+
+            <details class="card timer-settings">
+              <summary>Durações <svg class="ico chev"><use href="#i-chevron"/></svg></summary>
+              <div class="stepper-row"><span>Estudo</span><div class="stepper"><button data-setting="work" data-dir="-1" aria-label="Menos">−</button><output id="setting-work">40</output><button data-setting="work" data-dir="1" aria-label="Mais">+</button></div></div>
+              <div class="stepper-row"><span>Pausa</span><div class="stepper"><button data-setting="break" data-dir="-1" aria-label="Menos">−</button><output id="setting-break">10</output><button data-setting="break" data-dir="1" aria-label="Mais">+</button></div></div>
+              <div class="stepper-row"><span>Pausa longa</span><div class="stepper"><button data-setting="longBreak" data-dir="-1" aria-label="Menos">−</button><output id="setting-longBreak">15</output><button data-setting="longBreak" data-dir="1" aria-label="Mais">+</button></div></div>
+            </details>
+          </div>
+        </section>
+
+        <!-- TAB: Progresso -->
+        <section id="tab-progress" class="tab">
+          <div class="card">
+            <div class="row-between">
+              <h2 class="h2">Últimos 7 dias</h2>
+              <span class="muted small" id="week-total"></span>
+            </div>
+            <div class="chart" id="chart-days"></div>
+          </div>
+
+          <div class="card">
+            <h2 class="h2">Por cadeira · esta semana</h2>
+            <div id="by-subject"></div>
+          </div>
+
+          <div class="card">
+            <div class="row-between">
+              <h2 class="h2">Checklist semanal</h2>
+              <span class="muted small" id="checklist-week"></span>
+            </div>
+            <div id="checklist-container"></div>
+          </div>
+
+          <h2 class="h2 section-head">Método</h2>
+          <div id="method-cards" class="accordion"></div>
+        </section>
+      </main>
     </div>
   </div>
+
+  <!-- ── Focus mode ──────────────────────── -->
+  <div id="focus-overlay" aria-hidden="true">
+    <button class="focus-exit" id="btn-focus-exit"><svg class="ico"><use href="#i-close"/></svg> Sair</button>
+    <div class="focus-subject" id="focus-subject">—</div>
+    <div class="focus-time" id="focus-time">40:00</div>
+    <div class="focus-phase" id="focus-phase">estudo</div>
+    <div class="focus-bar"><i id="focus-progress"></i></div>
+    <div class="focus-count" id="focus-count"></div>
+    <div class="controls">
+      <button class="ctrl" id="btn-focus-reset" aria-label="Reiniciar"><svg class="ico"><use href="#i-reset"/></svg></button>
+      <button class="ctrl ctrl-main" id="btn-focus-main" aria-label="Iniciar"><svg class="ico"><use href="#i-play"/></svg></button>
+      <button class="ctrl" id="btn-focus-skip" aria-label="Saltar fase"><svg class="ico"><use href="#i-skip"/></svg></button>
+    </div>
+  </div>
+
+  <!-- ── Settings sheet ──────────────────── -->
+  <div id="settings-panel" aria-hidden="true">
+    <div class="sheet" role="dialog" aria-label="Conta e definições">
+      <div class="row-between">
+        <h2 class="h2">Conta</h2>
+        <button class="icon-btn" id="btn-settings-close" aria-label="Fechar"><svg class="ico"><use href="#i-close"/></svg></button>
+      </div>
+      <div class="user">
+        <img class="user-avatar" id="user-avatar" alt="">
+        <div>
+          <div class="user-name" id="user-name">—</div>
+          <div class="muted small" id="user-email">—</div>
+          <div class="small" id="user-sync">—</div>
+        </div>
+      </div>
+
+      <div class="setting">
+        <span>Som ao terminar um bloco</span>
+        <button class="switch" id="btn-toggle-sound" role="switch" aria-checked="true"><i></i></button>
+      </div>
+
+      <button class="btn btn-ghost btn-block" id="btn-sign-out">Terminar sessão</button>
+      <button class="btn btn-danger-ghost btn-block" id="btn-clear-data">Apagar dados deste dispositivo</button>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
 
   <script type="module" src="js/app.js"></script>
 </body>

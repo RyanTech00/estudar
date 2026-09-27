@@ -1,11 +1,11 @@
 export const subjects = [
-  { id: 'fp', name: 'Fundamentos da Programação', short: 'FP', ects: 7, load: 'alta', color: '#6366f1', icon: '💻', area: 'uni' },
-  { id: 'ed', name: 'Estruturas de Dados', short: 'ED', ects: 7, load: 'alta', color: '#8b5cf6', icon: '🧱', area: 'uni' },
-  { id: 'pei', name: 'Processamento Estruturado de Informação', short: 'PEI', ects: 5, load: 'media', color: '#06b6d4', icon: '📊', area: 'uni' },
-  { id: 'so', name: 'Sistemas Operativos', short: 'SO', ects: 5, load: 'media', color: '#10b981', icon: '⚙️', area: 'uni' },
-  { id: 'eli', name: 'Ética e Legislação Informática', short: 'ELI', ects: 2, load: 'leve', color: '#f59e0b', icon: '⚖️', area: 'uni' },
-  { id: 'c2', name: 'Cambridge C2 Proficiency', short: 'C2', ects: null, load: 'media', color: '#e11d48', icon: '🇬🇧', area: 'lingua' },
-  { id: 'de', name: 'Alemão Básico (A1)', short: 'DE', ects: null, load: 'leve', color: '#dc2626', icon: '🇩🇪', area: 'lingua' },
+  { id: 'fp', name: 'Fundamentos da Programação', short: 'FP', ects: 7, load: 'alta', color: '#8ea7ff', area: 'uni' },
+  { id: 'ed', name: 'Estruturas de Dados', short: 'ED', ects: 7, load: 'alta', color: '#c39cff', area: 'uni' },
+  { id: 'pei', name: 'Processamento Estruturado de Informação', short: 'PEI', ects: 5, load: 'media', color: '#5fcdc2', area: 'uni' },
+  { id: 'so', name: 'Sistemas Operativos', short: 'SO', ects: 5, load: 'media', color: '#8fd37e', area: 'uni' },
+  { id: 'eli', name: 'Ética e Legislação Informática', short: 'ELI', ects: 2, load: 'leve', color: '#e8b65a', area: 'uni' },
+  { id: 'c2', name: 'Cambridge C2 Proficiency', short: 'C2', ects: null, load: 'media', color: '#f28b8b', area: 'lingua' },
+  { id: 'de', name: 'Alemão Básico (A1)', short: 'DE', ects: null, load: 'leve', color: '#e0a47a', area: 'lingua' },
 ];
 
 export const weeklyPlan = [
@@ -35,10 +35,10 @@ export const weeklyPlan = [
 ];
 
 export const phases = [
-  { id: 'learn', start: '2026-09-25', end: '2026-10-31', label: '60 / 40', ratio: '60% aprender · 40% exercícios + recuperação', color: '#6366f1' },
-  { id: 'practice', start: '2026-11-01', end: '2026-11-30', label: '40 / 60', ratio: '40% aprender · 60% exercícios + recuperação', color: '#f59e0b' },
-  { id: 'drill', start: '2026-12-01', end: '2026-12-20', label: '20 / 80', ratio: '20% revisão · 80% exercícios, questões e provas', color: '#ef4444' },
-  { id: 'simulate', start: '2026-12-21', end: '2027-01-04', label: 'SIM', ratio: 'Simulações de exame + correção de lacunas', color: '#22c55e' },
+  { id: 'learn', start: '2026-09-25', end: '2026-10-31', label: '60 / 40', ratio: '60% aprender · 40% exercícios + recuperação', color: '#8ea7ff' },
+  { id: 'practice', start: '2026-11-01', end: '2026-11-30', label: '40 / 60', ratio: '40% aprender · 60% exercícios + recuperação', color: '#e8b65a' },
+  { id: 'drill', start: '2026-12-01', end: '2026-12-20', label: '20 / 80', ratio: '20% revisão · 80% exercícios, questões e provas', color: '#f28b8b' },
+  { id: 'simulate', start: '2026-12-21', end: '2027-01-04', label: 'SIM', ratio: 'Simulações de exame + correção de lacunas', color: '#cfe86a' },
 ];
 
 export const checklist = [
@@ -67,9 +67,12 @@ export const languageMethod = {
   adjust: 'Se notas queda persistente de sono, atenção ou rendimento, reduz volume antes de acrescentar mais horas.',
 };
 
+export const phaseNames = { learn: 'Aprender', practice: 'Praticar', drill: 'Treino intensivo', simulate: 'Simulações' };
+
 export function getCurrentPhase(date = new Date()) {
-  const d = date.toISOString().slice(0, 10);
-  return phases.find(p => d >= p.start && d <= p.end) || phases[0];
+  const d = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  if (d < phases[0].start) return phases[0];
+  return phases.find(p => d >= p.start && d <= p.end) || phases[phases.length - 1];
 }
 
 export function getTodaySessions(date = new Date()) {
@@ -78,7 +81,7 @@ export function getTodaySessions(date = new Date()) {
 }
 
 export function getSubject(id) {
-  if (id === 'all') return { id: 'all', name: 'Todas as cadeiras', short: 'ALL', ects: 26, load: 'todas', color: '#e2e8f0', icon: '📚', area: 'uni' };
+  if (id === 'all') return { id: 'all', name: 'Revisão geral', short: 'REV', ects: 26, load: 'todas', color: '#d6d3cc', area: 'uni' };
   return subjects.find(s => s.id === id);
 }
 

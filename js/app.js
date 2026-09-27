@@ -1,41 +1,560 @@
-import { subjects, weeklyPlan, phases, checklist, studyMethod, languageMethod, getCurrentPhase, getTodaySessions, getSubject, getWeekNumber, getDaysUntilExam } from './data.js';
+import { subjects, weeklyPlan, phases, phaseNames, checklist, studyMethod, languageMethod, getCurrentPhase, getTodaySessions, getSubject, getWeekNumber, getDaysUntilExam } from './data.js';
 import { Timer } from './timer.js';
 import * as storage from './storage.js';
-import { enterFocusMode, exitFocusMode, isFocusActive, playSound } from './focus.js';
+import { enterFocusMode, exitFocusMode, playSound } from './focus.js';
 
-// ── State ──────────────────────────────
-let currentTab = 'today';
-let selectedSubject = subjects[0].id;
-let focusModeActive = false;
-let timerMinutesAccum = 0;
-const CIRCUMFERENCE = 2 * Math.PI * 120;        // main timer ring
-const FOCUS_CIRCUMFERENCE = 2 * Math.PI * 170;   // focus mode ring
+const $ = (id) => document.getElementById(id);
+const RING_C = 2 * Math.PI * 118;
+const PHASE_LABEL = { work: 'estudo', break: 'pausa', longBreak: 'pausa longa' };
+const TAB_TITLE = { today: 'Hoje', week: 'Semana', timer: 'Timer', progress: 'Progresso' };
+const DAY_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const DAY_LONG = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const MONTH_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const TIP_TITLES = {
+  structure: 'Estrutura de estudo', reviewShort: 'Revisão espaçada', programming: 'Programação',
+  mix: 'Misturar tópicos', metric: 'Como medir progresso', blocks: 'Blocos 40+10', rest: 'Descanso',
+  priority: 'Prioridades', c2: 'Cambridge C2', german: 'Alemão básico',
+  december: 'Dezembro', adjust: 'Regra de ajuste',
+};
+
+let selectedSubject = getTodaySessions().find(s => s.subject !== 'all')?.subject || subjects[0].id;
+let focusActive = false;
+
+const sessionId = (s) => s.subject + (s.block || '');
+const icon = (name) => `<svg class="ico"><use href="#i-${name}"/></svg>`;
+const tag = (sub) => `<span class="tag" style="--c:${sub.color}">${sub.short}</span>`;
+
+function formatMinutes(total) {
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (!h) return `${m}m`;
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+}
+
+function startOfWeek(date = new Date()) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
+}
+
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => el.classList.remove('show'), 2600);
+}
 
 // ── Timer ──────────────────────────────
-const timerConfig = storage.getTimerConfig();
-const timer = new Timer(
-  (remaining, progress, phase) => onTimerTick(remaining, progress, phase),
-  (phase, sessions, nextPhase) => onTimerComplete(phase, sessions, nextPhase),
-  (phase, sessions) => onPhaseChange(phase, sessions),
-);
-timer.configure({
-  work: timerConfig.work * 60,
-  break: timerConfig.break * 60,
-  longBreak: timerConfig.longBreak * 60,
-  sessionsBeforeLong: timerConfig.sessionsBeforeLong,
-});
+const timer = new Timer({ onTick: renderTimer, onPhaseEnd });
 
-// ── Init ───────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+function applyTimerConfig() {
+  const c = storage.getTimerConfig();
+  timer.configure({ work: c.work * 60, break: c.break * 60, longBreak: c.longBreak * 60, sessionsBeforeLong: c.sessionsBeforeLong });
+}
+
+function onPhaseEnd({ finished, next, natural, workedSeconds }) {
+  if (finished === 'work') {
+    const minutes = Math.round(workedSeconds / 60);
+    storage.logFocus(selectedSubject, minutes);
+    if (natural && storage.getSetting('sound') !== false) playSound('complete');
+    if (minutes > 0) toast(`+${minutes} min de ${getSubject(selectedSubject).short} · ${PHASE_LABEL[next]} a seguir`);
+    renderStats();
+    renderProgress();
+    // Breaks start by themselves; the next study block waits for you.
+    if (natural) timer.start();
+  } else if (natural) {
+    if (storage.getSetting('sound') !== false) playSound('break');
+    toast('Pausa terminada — carrega ▶ quando estiveres pronto');
+  }
+}
+
+// Survives the OS killing the PWA in the background mid-block.
+const TIMER_KEY = 'estudar_timer';
+let lastSavedState = '';
+function persistTimer() {
+  const snap = JSON.stringify({ ...timer.snapshot(), subject: selectedSubject });
+  if (snap === lastSavedState) return;
+  lastSavedState = snap;
+  try { localStorage.setItem(TIMER_KEY, snap); } catch {}
+}
+
+function restoreTimer() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TIMER_KEY) || 'null');
+    if (!saved) return;
+    if (saved.subject) selectedSubject = saved.subject;
+    timer.restore(saved);
+  } catch {}
+}
+
+function renderTimer() {
+  persistTimer();
+  const remaining = timer.remaining;
+  const time = Timer.format(remaining);
+  const progress = timer.isIdle ? 0 : timer.progress;
+  const playing = timer.isRunning;
+
+  $('timer-display').textContent = time;
+  $('timer-phase').textContent = timer.isIdle && timer.phase === 'work' && timer.sessionsCompleted === 0 ? 'pronto' : PHASE_LABEL[timer.phase];
+  const ring = $('timer-progress');
+  ring.style.strokeDasharray = RING_C;
+  ring.style.strokeDashoffset = RING_C * (1 - progress);
+  ring.classList.toggle('break', timer.phase === 'break');
+  ring.classList.toggle('longBreak', timer.phase === 'longBreak');
+
+  const done = timer.sessionsCompleted % timer.config.sessionsBeforeLong;
+  const filled = done === 0 && timer.sessionsCompleted > 0 && timer.phase === 'longBreak' ? timer.config.sessionsBeforeLong : done;
+  $('timer-dots').innerHTML = Array.from({ length: timer.config.sessionsBeforeLong }, (_, i) => `<i class="${i < filled ? 'on' : ''}"></i>`).join('');
+
+  for (const id of ['btn-timer-main', 'btn-focus-main']) {
+    $(id).innerHTML = icon(playing ? 'pause' : 'play');
+    $(id).setAttribute('aria-label', playing ? 'Pausar' : 'Iniciar');
+  }
+
+  if (focusActive) {
+    $('focus-time').textContent = time;
+    $('focus-phase').textContent = timer.isPaused ? 'em pausa' : PHASE_LABEL[timer.phase];
+    const bar = $('focus-progress');
+    bar.style.width = `${progress * 100}%`;
+    bar.style.background = timer.phase === 'work' ? 'var(--accent)' : timer.phase === 'break' ? 'var(--break)' : 'var(--long)';
+    const block = Math.min(done + (timer.phase === 'work' ? 1 : 0), timer.config.sessionsBeforeLong) || timer.config.sessionsBeforeLong;
+    $('focus-count').textContent = `Bloco ${block} de ${timer.config.sessionsBeforeLong}`;
+  }
+
+  document.title = timer.isIdle ? 'Estudar' : `${time} · ${PHASE_LABEL[timer.phase]} — Estudar`;
+}
+
+function setupTimer() {
+  $('btn-timer-main').addEventListener('click', () => timer.toggle());
+  $('btn-focus-main').addEventListener('click', () => timer.toggle());
+  for (const id of ['btn-timer-reset', 'btn-focus-reset']) {
+    $(id).addEventListener('click', () => {
+      if (!timer.isIdle && !confirm('Reiniciar o ciclo? O bloco atual não será contado.')) return;
+      timer.reset();
+    });
+  }
+  for (const id of ['btn-timer-skip', 'btn-focus-skip']) {
+    $(id).addEventListener('click', () => timer.skip());
+  }
+
+  document.querySelectorAll('[data-setting]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.setting;
+      const limits = { work: [10, 90], break: [5, 30], longBreak: [10, 60] };
+      const config = storage.getTimerConfig();
+      config[key] = Math.max(limits[key][0], Math.min(limits[key][1], config[key] + Number(btn.dataset.dir) * 5));
+      storage.saveTimerConfig(config);
+      renderTimerSettings();
+      applyTimerConfig();
+      renderTimer();
+    });
+  });
+}
+
+function renderTimerSettings() {
+  const c = storage.getTimerConfig();
+  $('setting-work').textContent = c.work;
+  $('setting-break').textContent = c.break;
+  $('setting-longBreak').textContent = c.longBreak;
+}
+
+function renderTimerSubjects() {
+  const list = [...subjects, getSubject('all')];
+  $('timer-subjects').innerHTML = list.map(s => `
+    <button class="chip ${s.id === selectedSubject ? 'on' : ''}" style="--c:${s.color}" data-id="${s.id}"
+      role="radio" aria-checked="${s.id === selectedSubject}" title="${s.name}">${s.short}</button>
+  `).join('');
+  $('timer-subjects').querySelectorAll('.chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedSubject = btn.dataset.id;
+      renderTimerSubjects();
+      persistTimer();
+    });
+  });
+}
+
+// ── Focus mode ─────────────────────────
+async function openFocus() {
+  focusActive = true;
+  const sub = getSubject(selectedSubject);
+  $('focus-subject').textContent = sub.name;
+  $('focus-subject').style.setProperty('--c', sub.color);
+  $('focus-overlay').classList.add('active');
+  $('focus-overlay').setAttribute('aria-hidden', 'false');
+  renderTimer();
+  await enterFocusMode();
+}
+
+async function closeFocus() {
+  focusActive = false;
+  $('focus-overlay').classList.remove('active');
+  $('focus-overlay').setAttribute('aria-hidden', 'true');
+  await exitFocusMode();
+}
+
+function setupFocus() {
+  $('btn-focus-mode').addEventListener('click', openFocus);
+  $('btn-focus-exit').addEventListener('click', closeFocus);
+  document.addEventListener('focusModeExit', () => {
+    focusActive = false;
+    $('focus-overlay').classList.remove('active');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (!focusActive) return;
+    if (e.code === 'Space') { e.preventDefault(); timer.toggle(); }
+  });
+}
+
+function startStudying(subjectId) {
+  selectedSubject = subjectId;
+  renderTimerSubjects();
+  if (timer.phase !== 'work' && timer.isIdle) timer.reset();
+  if (!timer.isRunning) timer.start();
+  openFocus();
+}
+
+// ── Navigation / header ────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
+  $('topbar-title').textContent = TAB_TITLE[tab];
+  window.scrollTo({ top: 0 });
+}
+
+function setupNav() {
+  document.querySelectorAll('.nav-item').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+}
+
+function renderHeader() {
+  const now = new Date();
+  $('topbar-date').textContent = `${DAY_LONG[now.getDay()]}, ${now.getDate()} ${MONTH_SHORT[now.getMonth()]} · semana ${getWeekNumber(now)}`;
+}
+
+// ── Today ──────────────────────────────
+function renderToday() {
+  const today = new Date();
+  const sessions = getTodaySessions(today);
+  const withState = sessions.map(s => ({ ...s, id: sessionId(s), sub: getSubject(s.subject), done: storage.isSessionDone(today, sessionId(s)) }));
+  const doneCount = withState.filter(s => s.done).length;
+
+  $('today-count').textContent = sessions.length ? `${doneCount} de ${sessions.length}` : '';
+  $('today-bar').style.width = sessions.length ? `${(doneCount / sessions.length) * 100}%` : '0';
+
+  // Hero
+  const next = withState.find(s => !s.done);
+  if (!sessions.length) {
+    $('next-up').innerHTML = `<div class="hero done"><div class="hero-name">Dia livre</div><div class="hero-meta">Sem sessões planeadas para hoje.</div></div>`;
+  } else if (!next) {
+    $('next-up').innerHTML = `<div class="hero done"><div class="eyebrow">Tudo feito</div><div class="hero-name">Dia concluído</div><div class="hero-meta">${doneCount} sessões fechadas. Descansa — amanhã há mais.</div></div>`;
+  } else {
+    $('next-up').innerHTML = `
+      <div class="hero" style="--c:${next.sub.color}">
+        <div class="row-between"><div class="eyebrow">A seguir</div>${tag(next.sub)}</div>
+        <div class="hero-name">${next.sub.name}</div>
+        <div class="hero-meta">${next.session}${next.reviewLabel ? ` · ${next.reviewLabel}` : ''}</div>
+        <div class="hero-actions">
+          <button class="btn btn-primary" id="hero-start">${icon('play')} Começar foco</button>
+          <button class="btn btn-ghost" id="hero-done" aria-label="Marcar como feita">${icon('check')}</button>
+        </div>
+      </div>`;
+    $('hero-start').addEventListener('click', () => startStudying(next.subject === 'all' ? 'all' : next.subject));
+    $('hero-done').addEventListener('click', () => toggleSession(next.id, true));
+  }
+
+  // List
+  const groups = [['uni', 'Universidade'], ['lingua', 'Línguas']];
+  $('today-sessions').innerHTML = sessions.length ? groups.map(([area, label]) => {
+    const items = withState.filter(s => s.area === area);
+    if (!items.length) return '';
+    return `<div class="group-label">${label}</div>` + items.map(s => `
+      <div class="session ${s.done ? 'done' : ''}">
+        <button class="session-main" data-subject="${s.subject}">
+          ${tag(s.sub)}
+          <span class="session-text">
+            <span class="session-name">${s.sub.name}</span>
+            <span class="session-meta">${s.session}${s.reviewLabel ? ` · ${s.reviewLabel}` : ''}</span>
+          </span>
+        </button>
+        <button class="check ${s.done ? 'on' : ''}" data-id="${s.id}" aria-pressed="${s.done}" aria-label="${s.done ? 'Desmarcar' : 'Marcar como feita'}">${icon('check')}</button>
+      </div>`).join('');
+  }).join('') : '<div class="empty">Nada planeado para hoje.</div>';
+
+  $('today-sessions').querySelectorAll('.check').forEach(btn => {
+    btn.addEventListener('click', () => toggleSession(btn.dataset.id, btn.getAttribute('aria-pressed') !== 'true'));
+  });
+  $('today-sessions').querySelectorAll('.session-main').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedSubject = btn.dataset.subject;
+      renderTimerSubjects();
+      switchTab('timer');
+    });
+  });
+}
+
+function toggleSession(id, done) {
+  storage.setSessionDone(new Date(), id, done);
+  if (done && storage.getSetting('sound') !== false) playSound('complete');
+  renderToday();
+  renderStats();
+  renderWeek();
+}
+
+function renderStats() {
+  const s = storage.getStats();
+  $('stat-streak').textContent = s.streak;
+  $('stat-hours').textContent = formatMinutes(s.totalMinutes);
+  $('stat-sessions').textContent = s.totalSessions;
+}
+
+function renderTip() {
+  const tips = [...Object.entries(studyMethod), ...Object.entries(languageMethod)];
+  const now = new Date();
+  const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+  const [key, text] = tips[dayOfYear % tips.length];
+  $('tip-title').textContent = `Dica · ${TIP_TITLES[key] || key}`;
+  $('tip-text').textContent = text;
+}
+
+// ── Week ───────────────────────────────
+function renderWeek() {
+  const now = new Date();
+  const phase = getCurrentPhase(now);
+  $('days-until-exam').textContent = getDaysUntilExam(now);
+  $('phase-now').textContent = `Fase: ${phaseNames[phase.id]} · ${phase.ratio}`;
+
+  const start = new Date(phases[0].start + 'T00:00');
+  const end = new Date(phases[phases.length - 1].end + 'T23:59');
+  const span = end - start;
+  const nowPct = Math.min(100, Math.max(0, ((now - start) / span) * 100));
+  $('timeline').innerHTML = phases.map(p => {
+    const w = ((new Date(p.end + 'T23:59') - new Date(p.start + 'T00:00')) / span) * 100;
+    return `<div class="timeline-seg ${p.id === phase.id ? 'current' : ''}" style="--c:${p.color};flex:${w}"><span>${p.label}</span></div>`;
+  }).join('') + `<div class="timeline-now" style="left:${nowPct}%"></div>`;
+
+  const monday = startOfWeek(now);
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  $('week-list').innerHTML = order.map((dow, i) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + i);
+    const isToday = date.toDateString() === now.toDateString();
+    const items = weeklyPlan.filter(s => Math.floor(s.day) === dow);
+    return `
+      <div class="day ${isToday ? 'today' : ''}">
+        <div class="day-name"><b>${DAY_SHORT[dow]}</b><small>${date.getDate()}</small></div>
+        <div class="day-items">
+          ${items.map(s => {
+            const sub = getSubject(s.subject);
+            const done = storage.isSessionDone(date, sessionId(s));
+            return `<div class="day-item ${done ? 'done' : ''}">${tag(sub)}<span class="day-item-text"><b>${s.session}</b>${s.reviewLabel ? ` · ${s.reviewLabel}` : ''}</span></div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Progress ───────────────────────────
+function renderProgress() {
+  const now = new Date();
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    d.setDate(d.getDate() - (6 - i));
+    return d;
+  });
+  const data = storage.getMinutesByDay(days);
+  const max = Math.max(60, ...data.map(d => d.total));
+  const weekTotal = data.reduce((a, d) => a + d.total, 0);
+  $('week-total').textContent = formatMinutes(weekTotal);
+  $('chart-days').innerHTML = data.map((d, i) => `
+    <div class="chart-col ${i === 6 ? 'today' : ''}" title="${formatMinutes(d.total)}">
+      <div class="chart-bar">
+        ${Object.entries(d.bySubject).map(([id, m]) => `<i style="height:${(m / max) * 100}%;background:${getSubject(id)?.color || 'var(--muted)'}"></i>`).join('')}
+      </div>
+      <small>${DAY_SHORT[d.date.getDay()][0]}</small>
+    </div>`).join('');
+
+  const monday = startOfWeek(now);
+  const thisWeek = storage.getMinutesByDay(Array.from({ length: (now.getDay() + 6) % 7 + 1 }, (_, i) => {
+    const d = new Date(monday); d.setDate(monday.getDate() + i); return d;
+  }));
+  const bySubject = {};
+  thisWeek.forEach(d => Object.entries(d.bySubject).forEach(([id, m]) => { bySubject[id] = (bySubject[id] || 0) + m; }));
+  const rows = Object.entries(bySubject).sort((a, b) => b[1] - a[1]);
+  const subMax = Math.max(1, ...rows.map(r => r[1]));
+  $('by-subject').innerHTML = rows.length ? rows.map(([id, m]) => {
+    const sub = getSubject(id) || { short: id, color: 'var(--muted)' };
+    return `<div class="subj-row">${tag(sub)}<div class="subj-bar" style="--c:${sub.color}"><i style="width:${(m / subMax) * 100}%"></i></div><span class="subj-min">${formatMinutes(m)}</span></div>`;
+  }).join('') : '<div class="empty">Ainda sem tempo registado esta semana. Os minutos entram aqui sempre que terminas um bloco de estudo no timer.</div>';
+
+  renderChecklist();
+}
+
+function renderChecklist() {
+  const week = getWeekNumber();
+  const checks = storage.getWeekChecklist(week);
+  $('checklist-week').textContent = `semana ${week}`;
+  $('checklist-container').innerHTML = checklist.map((q, i) => `
+    <button class="check-row" data-idx="${i}" aria-pressed="${!!checks[i]}">
+      <span class="check ${checks[i] ? 'on' : ''}">${icon('check')}</span>${q}
+    </button>`).join('');
+  $('checklist-container').querySelectorAll('.check-row').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const current = storage.getWeekChecklist(week);
+      current[Number(btn.dataset.idx)] = !current[Number(btn.dataset.idx)];
+      storage.saveWeekChecklist(week, current);
+      renderChecklist();
+    });
+  });
+}
+
+function renderMethod() {
+  const block = (entries) => entries.map(([key, text]) => `
+    <details><summary>${TIP_TITLES[key] || key}${icon('chevron').replace('class="ico"', 'class="ico chev"')}</summary><p>${text}</p></details>`).join('');
+  $('method-cards').innerHTML =
+    `<div class="accordion-group">Estudo</div>${block(Object.entries(studyMethod))}` +
+    `<div class="accordion-group">Línguas</div>${block(Object.entries(languageMethod))}`;
+}
+
+// ── Account / settings ─────────────────
+function openSettings(open) {
+  $('settings-panel').classList.toggle('active', open);
+  $('settings-panel').setAttribute('aria-hidden', String(!open));
+}
+
+function setupSettings() {
+  $('btn-settings').addEventListener('click', () => openSettings(true));
+  $('btn-settings-close').addEventListener('click', () => openSettings(false));
+  $('settings-panel').addEventListener('click', (e) => { if (e.target === $('settings-panel')) openSettings(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') openSettings(false); });
+
+  $('btn-toggle-sound').addEventListener('click', () => {
+    const on = storage.getSetting('sound') === false;
+    storage.setSetting('sound', on);
+    renderSoundSwitch();
+  });
+
+  $('btn-clear-data').addEventListener('click', () => {
+    if (confirm('Apagar os dados guardados neste dispositivo? O que está na tua conta volta a descarregar quando entrares.')) {
+      localStorage.removeItem('estudar_data');
+      location.reload();
+    }
+  });
+
+  $('btn-sign-out').addEventListener('click', async () => {
+    if (timer.isRunning) timer.pause();
+    await storage.signOut();
+    openSettings(false);
+    lockApp();
+  });
+}
+
+function renderSoundSwitch() {
+  $('btn-toggle-sound').setAttribute('aria-checked', String(storage.getSetting('sound') !== false));
+}
+
+function renderAccount(offline = false) {
+  const user = storage.getCurrentUser();
+  const synced = !!user && !offline;
+  $('sync-dot').classList.toggle('connected', synced);
+  $('sync-dot').title = synced ? 'Sincronizado' : 'Offline';
+  $('user-sync').textContent = synced ? 'Sincronizado' : 'Offline — sincroniza quando voltares a ter ligação';
+  $('user-sync').classList.toggle('off', !synced);
+  if (!user) return;
+  $('user-name').textContent = user.displayName || 'Utilizador';
+  $('user-email').textContent = user.email || '';
+  $('topbar-initial').textContent = (user.displayName || user.email || '·')[0].toUpperCase();
+  if (user.photoURL) {
+    for (const id of ['user-avatar', 'topbar-avatar']) {
+      $(id).src = user.photoURL;
+      $(id).referrerPolicy = 'no-referrer';
+    }
+    $('topbar-avatar').classList.remove('hidden');
+    $('topbar-initial').classList.add('hidden');
+  }
+}
+
+// ── Login gate ─────────────────────────
+async function setupLoginGate() {
+  const btn = $('btn-login-google');
+  const error = $('login-error');
+  const showError = (msg) => {
+    error.textContent = msg || '';
+    error.classList.toggle('hidden', !msg);
+  };
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    showError(null);
+    const result = await storage.signIn();
+    btn.disabled = false;
+    if (result.ok) unlockApp();
+    else showError(result.message);
+  });
+
+  const loggedIn = await storage.autoInit();
+  $('login-loading').classList.add('hidden');
+
+  if (loggedIn) {
+    unlockApp();
+  } else if (loggedIn === null && storage.hadPreviousLogin()) {
+    unlockApp(true);
+  } else {
+    if (loggedIn === null) showError('Sem ligação. Liga-te à internet para iniciar sessão.');
+    btn.classList.remove('hidden');
+  }
+}
+
+function unlockApp(offline = false) {
+  document.body.classList.remove('locked');
   renderAll();
+  renderAccount(offline);
+}
+
+function lockApp() {
+  document.body.classList.add('locked');
+  $('btn-login-google').classList.remove('hidden');
+  renderAccount();
+}
+
+// ── Boot ───────────────────────────────
+function renderAll() {
+  renderHeader();
+  renderToday();
+  renderStats();
+  renderTip();
+  renderWeek();
+  renderProgress();
+  renderMethod();
+  renderTimerSubjects();
+  renderTimerSettings();
+  renderSoundSwitch();
+  renderTimer();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  applyTimerConfig();
+  restoreTimer();
   setupNav();
   setupTimer();
-  setupFocusMode();
+  setupFocus();
   setupSettings();
-  setupTimerSettings();
-  updateTimerDisplay();
+  renderAll();
 
-  storage.onSync(() => renderAll());
+  storage.onSync(() => {
+    applyTimerConfig();
+    renderAll();
+  });
+
+  // Day rolls over while the app stays open (e.g. studying past midnight).
+  let lastDay = new Date().toDateString();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    renderTimer();
+    if (new Date().toDateString() !== lastDay) {
+      lastDay = new Date().toDateString();
+      renderAll();
+    }
+  });
 
   setupLoginGate();
 
@@ -44,620 +563,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const hadController = !!navigator.serviceWorker.controller;
     let reloaded = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!hadController || reloaded) return;
-      if (timer.isRunning) return;
+      if (!hadController || reloaded || !timer.isIdle) return;
       reloaded = true;
       location.reload();
     });
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 });
-
-// ── Navigation ─────────────────────────
-function setupNav() {
-  document.querySelectorAll('.nav-item').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-      btn.classList.add('active');
-      const tab = btn.dataset.tab;
-      document.getElementById(`tab-${tab}`).classList.add('active');
-      currentTab = tab;
-    });
-  });
-}
-
-// ── Render All ─────────────────────────
-function renderAll() {
-  renderPhaseBanner();
-  renderStats();
-  renderTodaySessions();
-  renderMethodTip();
-  renderWeekGrid();
-  renderGantt();
-  renderChecklist();
-  renderMethodCards();
-  renderTimerSubjects();
-  renderDaysCounter();
-}
-
-// ── Phase Banner ───────────────────────
-function renderPhaseBanner() {
-  const phase = getCurrentPhase();
-  const el = document.getElementById('phase-banner');
-  el.innerHTML = `
-    <div class="phase-badge" style="background:${phase.color};color:#fff">${phase.label}</div>
-    <div class="phase-info">
-      <div class="phase-label">Fase atual</div>
-      <div class="phase-desc">${phase.ratio}</div>
-    </div>
-  `;
-}
-
-// ── Stats ──────────────────────────────
-function renderStats() {
-  const stats = storage.getStats();
-  document.getElementById('stat-streak').textContent = stats.streak;
-  document.getElementById('stat-sessions').textContent = stats.totalSessions;
-  const hours = Math.floor(stats.totalMinutes / 60);
-  const mins = stats.totalMinutes % 60;
-  document.getElementById('stat-hours').textContent = hours > 0 ? `${hours}h${mins > 0 ? mins : ''}` : `${mins}m`;
-}
-
-// ── Today Sessions ─────────────────────
-function renderTodaySessions() {
-  const container = document.getElementById('today-sessions');
-  const sessions = getTodaySessions();
-  const today = new Date();
-
-  if (sessions.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div class="emoji">🎉</div><p>Sem sessões programadas para hoje!</p></div>`;
-    return;
-  }
-
-  const uniSessions = sessions.filter(s => s.area === 'uni');
-  const langSessions = sessions.filter(s => s.area === 'lingua');
-
-  const renderCards = (list) => list.map(s => {
-    const sub = getSubject(s.subject);
-    const done = storage.isSessionDone(today, s.subject + (s.block || ''));
-    return `
-      <div class="session-card ${done ? 'done' : ''}" data-subject="${s.subject}" data-block="${s.block || ''}">
-        <div class="session-icon" style="background:${sub.color}20;color:${sub.color}">${sub.icon}</div>
-        <div class="session-info">
-          <div class="session-subject">${sub.name}</div>
-          <div class="session-type">${s.session}</div>
-          ${s.reviewLabel ? `<div class="session-review">${s.reviewLabel}</div>` : ''}
-        </div>
-        <button class="session-check ${done ? 'checked' : ''}" data-id="${s.subject + (s.block || '')}">✓</button>
-      </div>
-    `;
-  }).join('');
-
-  container.innerHTML =
-    (uniSessions.length ? `<div class="section-subtitle">🎓 Universidade</div>${renderCards(uniSessions)}` : '') +
-    (langSessions.length ? `<div class="section-subtitle mt-16">🌍 Línguas</div>${renderCards(langSessions)}` : '');
-
-  container.querySelectorAll('.session-check').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const id = btn.dataset.id;
-      const done = btn.classList.contains('checked');
-      if (done) {
-        storage.unmarkSession(new Date(), id);
-      } else {
-        const elapsed = Math.round(timerMinutesAccum);
-        storage.markSessionDone(new Date(), id, elapsed || timerConfig.work);
-        timerMinutesAccum = 0;
-        playSound('complete');
-      }
-      renderAll();
-    });
-  });
-
-  container.querySelectorAll('.session-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const subId = card.dataset.subject;
-      if (subId !== 'all') {
-        selectedSubject = subId;
-        renderTimerSubjects();
-        switchTab('timer');
-      }
-    });
-  });
-}
-
-// ── Method Tip ─────────────────────────
-function renderMethodTip() {
-  const allTips = [...Object.entries(studyMethod), ...Object.entries(languageMethod)];
-  const idx = new Date().getDay() % allTips.length;
-  const [key, val] = allTips[idx];
-  const titles = {
-    structure: 'Estrutura', reviewShort: 'Revisão', programming: 'Programação',
-    mix: 'Misturar tópicos', metric: 'Métrica', blocks: 'Blocos 40+10', rest: 'Descanso',
-    priority: 'Prioridades', c2: 'Cambridge C2', german: 'Alemão',
-    december: 'Dezembro', adjust: 'Regra de ajuste',
-  };
-  document.getElementById('method-tip').innerHTML = `
-    <h4>${titles[key] || key}</h4>
-    <p>${val}</p>
-  `;
-}
-
-// ── Week Grid ──────────────────────────
-function renderWeekGrid() {
-  const container = document.getElementById('week-grid');
-  const today = new Date().getDay();
-  const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-  const groups = {};
-
-  weeklyPlan.forEach(s => {
-    const d = Math.floor(s.day);
-    if (!groups[d]) groups[d] = [];
-    groups[d].push(s);
-  });
-
-  const days = [1, 2, 3, 4, 5, 6, 0];
-  container.innerHTML = days.map(d => {
-    const sessions = groups[d] || [];
-    const isToday = d === today;
-    return `
-      <div class="week-day-card ${isToday ? 'today' : ''}">
-        <div class="week-day-name">${dayNames[d]}</div>
-        <div class="week-day-subjects">
-          ${sessions.map(s => {
-            const sub = getSubject(s.subject);
-            return `<span class="week-subject-tag" style="background:${sub.color}">${sub.short}</span>`;
-          }).join('')}
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-// ── Gantt Chart ────────────────────────
-function renderGantt() {
-  const container = document.getElementById('gantt-chart');
-  const start = new Date('2026-09-25');
-  const end = new Date('2027-01-04');
-  const total = end - start;
-  const now = new Date();
-  const nowPct = Math.min(100, Math.max(0, ((now - start) / total) * 100));
-
-  const uniSubjects = subjects.filter(s => s.area === 'uni');
-  const langSubjects = subjects.filter(s => s.area === 'lingua');
-
-  container.innerHTML = uniSubjects.map(sub => {
-    return `
-      <div class="gantt-row">
-        <div class="gantt-label" style="color:${sub.color}">${sub.short}</div>
-        <div class="gantt-bar-container">
-          ${phases.map(p => {
-            const pStart = new Date(p.start);
-            const pEnd = new Date(p.end);
-            const left = ((pStart - start) / total) * 100;
-            const width = ((pEnd - pStart) / total) * 100;
-            return `<div class="gantt-bar" style="position:absolute;left:${left}%;width:${width}%;background:${p.color}40;border-left:2px solid ${p.color}">${p.label}</div>`;
-          }).join('')}
-          <div class="gantt-now" style="left:${nowPct}%"></div>
-        </div>
-      </div>
-    `;
-  }).join('') + langSubjects.map(sub => {
-    return `
-      <div class="gantt-row">
-        <div class="gantt-label" style="color:${sub.color}">${sub.short}</div>
-        <div class="gantt-bar-container">
-          <div class="gantt-bar" style="position:absolute;left:0;width:100%;background:${sub.color}30;border-left:2px solid ${sub.color}">contínuo</div>
-          <div class="gantt-now" style="left:${nowPct}%"></div>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-// ── Days Counter ───────────────────────
-function renderDaysCounter() {
-  document.getElementById('days-until-exam').textContent = getDaysUntilExam();
-}
-
-// ── Checklist ──────────────────────────
-function renderChecklist() {
-  const container = document.getElementById('checklist-container');
-  const weekNum = getWeekNumber();
-  const checks = storage.getWeekChecklist(weekNum);
-
-  container.innerHTML = `
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Semana ${weekNum}</div>
-    ${checklist.map((q, i) => `
-      <div class="checklist-item">
-        <button class="checklist-checkbox ${checks[i] ? 'checked' : ''}" data-idx="${i}">✓</button>
-        <span class="checklist-text">${q}</span>
-      </div>
-    `).join('')}
-  `;
-
-  container.querySelectorAll('.checklist-checkbox').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = parseInt(btn.dataset.idx);
-      const weekNum = getWeekNumber();
-      const checks = storage.getWeekChecklist(weekNum);
-      checks[idx] = !checks[idx];
-      storage.saveWeekChecklist(weekNum, checks);
-      renderChecklist();
-    });
-  });
-}
-
-// ── Method Cards ───────────────────────
-function renderMethodCards() {
-  const container = document.getElementById('method-cards');
-  const titles = {
-    structure: 'Estrutura de estudo', reviewShort: 'Revisão espaçada', programming: 'Programação',
-    mix: 'Misturar tópicos', metric: 'Como medir progresso', blocks: 'Blocos 40+10', rest: 'Descanso',
-    priority: '⚡ Prioridades', c2: '🇬🇧 Cambridge C2', german: '🇩🇪 Alemão básico',
-    december: '📅 Dezembro', adjust: '⚠️ Regra de ajuste',
-  };
-
-  const studyCards = Object.entries(studyMethod).map(([key, val]) => `
-    <div class="method-card">
-      <h4>${titles[key] || key}</h4>
-      <p>${val}</p>
-    </div>
-  `).join('');
-
-  const langCards = Object.entries(languageMethod).map(([key, val]) => `
-    <div class="method-card">
-      <h4>${titles[key] || key}</h4>
-      <p>${val}</p>
-    </div>
-  `).join('');
-
-  container.innerHTML = studyCards +
-    '<div class="section-title mt-24">Línguas — como encaixar</div>' +
-    langCards;
-}
-
-// ── Timer Subjects ─────────────────────
-function renderTimerSubjects() {
-  const container = document.getElementById('timer-subjects');
-  container.innerHTML = subjects.map(s => `
-    <button class="subject-pill ${s.id === selectedSubject ? 'active' : ''}" data-id="${s.id}" style="${s.id === selectedSubject ? `background:${s.color};border-color:${s.color}` : ''}">
-      ${s.icon} ${s.short}
-    </button>
-  `).join('');
-
-  container.querySelectorAll('.subject-pill').forEach(btn => {
-    btn.addEventListener('click', () => {
-      selectedSubject = btn.dataset.id;
-      renderTimerSubjects();
-    });
-  });
-}
-
-// ── Timer Setup ────────────────────────
-function setupTimer() {
-  const mainBtn = document.getElementById('btn-timer-main');
-  const resetBtn = document.getElementById('btn-timer-reset');
-  const skipBtn = document.getElementById('btn-timer-skip');
-
-  mainBtn.addEventListener('click', () => {
-    if (timer.isStopped) {
-      timer.start('work');
-      mainBtn.textContent = '⏸';
-      mainBtn.classList.add('running');
-    } else if (timer.isPaused) {
-      timer.resume();
-      mainBtn.textContent = '⏸';
-    } else {
-      timer.pause();
-      mainBtn.textContent = '▶';
-    }
-  });
-
-  resetBtn.addEventListener('click', () => {
-    timer.reset();
-    mainBtn.textContent = '▶';
-    mainBtn.classList.remove('running');
-    timerMinutesAccum = 0;
-    updateTimerDisplay();
-  });
-
-  skipBtn.addEventListener('click', () => {
-    if (timer.running) timer.skip();
-  });
-}
-
-function updateTimerDisplay() {
-  const config = storage.getTimerConfig();
-  document.getElementById('timer-display').textContent = Timer.formatTime(config.work * 60);
-  document.getElementById('timer-phase').textContent = 'pronto';
-  document.getElementById('timer-progress').style.strokeDashoffset = '0';
-  renderTimerDots(0);
-}
-
-function renderTimerDots(filled) {
-  const config = storage.getTimerConfig();
-  const container = document.getElementById('timer-dots');
-  container.innerHTML = Array.from({ length: config.sessionsBeforeLong }, (_, i) =>
-    `<div class="timer-dot ${i < filled ? 'filled' : ''}"></div>`
-  ).join('');
-}
-
-function onTimerTick(remaining, progress, phase) {
-  document.getElementById('timer-display').textContent = Timer.formatTime(remaining);
-  const offset = CIRCUMFERENCE * (1 - progress);
-  const ring = document.getElementById('timer-progress');
-  ring.style.strokeDashoffset = offset;
-  ring.classList.toggle('break', phase === 'break');
-  ring.classList.toggle('longBreak', phase === 'longBreak');
-
-  if (phase === 'work') {
-    timerMinutesAccum += 1 / 60;
-  }
-
-  // Focus mode sync
-  if (focusModeActive) {
-    document.getElementById('focus-time').textContent = Timer.formatTime(remaining);
-    const focusOffset = FOCUS_CIRCUMFERENCE * (1 - progress);
-    const fp = document.getElementById('focus-progress');
-    fp.style.strokeDashoffset = focusOffset;
-    fp.setAttribute('stroke', phase === 'work' ? 'var(--primary)' : phase === 'longBreak' ? 'var(--accent)' : 'var(--success)');
-  }
-
-  document.title = `${Timer.formatTime(remaining)} — Estudar`;
-}
-
-function onTimerComplete(phase, sessions, nextPhase) {
-  const data = storage.loadData();
-  if (data.settings.sound) playSound(phase === 'work' ? 'complete' : 'break');
-
-  renderTimerDots(sessions);
-
-  if (focusModeActive) {
-    const phaseLabels = { work: 'estudo', break: 'pausa', longBreak: 'pausa longa' };
-    document.getElementById('focus-phase').textContent = phaseLabels[nextPhase] || nextPhase;
-    document.getElementById('focus-count').textContent = `Sessão ${sessions + (nextPhase === 'work' ? 1 : 0)} / ${timer.config.sessionsBeforeLong}`;
-  }
-
-  if (data.settings.autoStart) {
-    setTimeout(() => timer.start(nextPhase), 1500);
-  } else {
-    const phaseLabels = { work: 'ESTUDAR', break: 'PAUSA', longBreak: 'PAUSA LONGA' };
-    document.getElementById('timer-display').textContent = Timer.formatTime(timer.config[nextPhase]);
-    document.getElementById('timer-phase').textContent = `próximo: ${phaseLabels[nextPhase]}`;
-    document.getElementById('btn-timer-main').textContent = '▶';
-    document.getElementById('btn-timer-main').classList.remove('running');
-    document.getElementById('btn-timer-main').onclick = () => {
-      timer.start(nextPhase);
-      document.getElementById('btn-timer-main').textContent = '⏸';
-      document.getElementById('btn-timer-main').classList.add('running');
-      document.getElementById('btn-timer-main').onclick = null;
-      setupTimer();
-    };
-  }
-
-  document.title = 'Estudar';
-  renderStats();
-}
-
-function onPhaseChange(phase) {
-  const phaseLabels = { work: 'estudo', break: 'pausa', longBreak: 'pausa longa' };
-  document.getElementById('timer-phase').textContent = phaseLabels[phase] || phase;
-  if (focusModeActive) {
-    document.getElementById('focus-phase').textContent = phaseLabels[phase] || phase;
-  }
-}
-
-// ── Timer Settings ─────────────────────
-function setupTimerSettings() {
-  const config = storage.getTimerConfig();
-  document.getElementById('setting-work').textContent = config.work;
-  document.getElementById('setting-break').textContent = config.break;
-  document.getElementById('setting-longBreak').textContent = config.longBreak;
-
-  document.querySelectorAll('[data-setting]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const key = btn.dataset.setting;
-      const dir = parseInt(btn.dataset.dir);
-      const config = storage.getTimerConfig();
-      const mins = { work: [5, 90], break: [1, 30], longBreak: [5, 60] };
-      config[key] = Math.max(mins[key][0], Math.min(mins[key][1], config[key] + dir * 5));
-      storage.saveTimerConfig(config);
-      document.getElementById(`setting-${key}`).textContent = config[key];
-      timer.configure({
-        work: config.work * 60,
-        break: config.break * 60,
-        longBreak: config.longBreak * 60,
-      });
-      if (timer.isStopped) updateTimerDisplay();
-    });
-  });
-}
-
-// ── Focus Mode ─────────────────────────
-function setupFocusMode() {
-  document.getElementById('btn-focus-mode').addEventListener('click', () => {
-    activateFocusMode();
-  });
-
-  document.getElementById('btn-focus-exit').addEventListener('click', () => {
-    deactivateFocusMode();
-  });
-
-  document.getElementById('btn-focus-main').addEventListener('click', () => {
-    if (timer.isStopped) {
-      timer.start('work');
-      document.getElementById('btn-focus-main').textContent = '⏸';
-    } else if (timer.isPaused) {
-      timer.resume();
-      document.getElementById('btn-focus-main').textContent = '⏸';
-    } else {
-      timer.pause();
-      document.getElementById('btn-focus-main').textContent = '▶';
-    }
-  });
-
-  document.getElementById('btn-focus-reset').addEventListener('click', () => {
-    timer.reset();
-    timerMinutesAccum = 0;
-    const config = storage.getTimerConfig();
-    document.getElementById('focus-time').textContent = Timer.formatTime(config.work * 60);
-    document.getElementById('focus-phase').textContent = 'pronto';
-    document.getElementById('focus-progress').style.strokeDashoffset = '0';
-    document.getElementById('btn-focus-main').textContent = '▶';
-  });
-
-  document.getElementById('btn-focus-skip').addEventListener('click', () => {
-    if (timer.running) timer.skip();
-  });
-
-  document.addEventListener('focusModeExit', () => {
-    focusModeActive = false;
-    document.getElementById('focus-overlay').classList.remove('active');
-  });
-}
-
-async function activateFocusMode() {
-  focusModeActive = true;
-  const sub = getSubject(selectedSubject);
-  document.getElementById('focus-subject').textContent = `${sub.icon} ${sub.name}`;
-  const config = storage.getTimerConfig();
-
-  if (timer.isStopped) {
-    document.getElementById('focus-time').textContent = Timer.formatTime(config.work * 60);
-    document.getElementById('focus-phase').textContent = 'pronto';
-    document.getElementById('focus-progress').style.strokeDashoffset = '0';
-    document.getElementById('btn-focus-main').textContent = '▶';
-  } else {
-    document.getElementById('btn-focus-main').textContent = timer.isPaused ? '▶' : '⏸';
-  }
-  document.getElementById('focus-count').textContent = `Sessão ${timer.sessionsCompleted + 1} / ${config.sessionsBeforeLong}`;
-
-  document.getElementById('focus-overlay').classList.add('active');
-  await enterFocusMode();
-}
-
-async function deactivateFocusMode() {
-  focusModeActive = false;
-  document.getElementById('focus-overlay').classList.remove('active');
-  await exitFocusMode();
-
-  // Sync timer state back to main view
-  if (timer.running) {
-    document.getElementById('btn-timer-main').textContent = timer.isPaused ? '▶' : '⏸';
-    document.getElementById('btn-timer-main').classList.toggle('running', !timer.isPaused);
-  }
-}
-
-// ── Settings ───────────────────────────
-function setupSettings() {
-  document.getElementById('btn-settings').addEventListener('click', () => {
-    document.getElementById('settings-panel').classList.add('active');
-  });
-
-  document.getElementById('btn-settings-close').addEventListener('click', () => {
-    document.getElementById('settings-panel').classList.remove('active');
-  });
-
-  document.getElementById('settings-panel').addEventListener('click', (e) => {
-    if (e.target === document.getElementById('settings-panel')) {
-      document.getElementById('settings-panel').classList.remove('active');
-    }
-  });
-
-  // Sound toggle
-  const data = storage.loadData();
-  document.getElementById('btn-toggle-sound').textContent = data.settings.sound ? 'Ligado' : 'Desligado';
-  document.getElementById('btn-toggle-sound').addEventListener('click', () => {
-    const data = storage.loadData();
-    data.settings.sound = !data.settings.sound;
-    storage.saveData(data);
-    document.getElementById('btn-toggle-sound').textContent = data.settings.sound ? 'Ligado' : 'Desligado';
-  });
-
-  // Clear data
-  document.getElementById('btn-clear-data').addEventListener('click', () => {
-    if (confirm('Tens a certeza? Todos os dados locais serão apagados.')) {
-      localStorage.removeItem('estudar_data');
-      localStorage.removeItem('firebase_config');
-      location.reload();
-    }
-  });
-
-  document.getElementById('btn-sign-out').addEventListener('click', async () => {
-    if (timer.isRunning) timer.pause();
-    await storage.signOut();
-    document.getElementById('settings-panel').classList.remove('open');
-    lockApp();
-  });
-}
-
-// ── Login gate ─────────────────────────
-async function setupLoginGate() {
-  const btn = document.getElementById('btn-login-google');
-  const loading = document.getElementById('login-loading');
-  const error = document.getElementById('login-error');
-
-  btn.addEventListener('click', async () => {
-    btn.disabled = true;
-    error.classList.add('hidden');
-    const ok = await storage.signIn();
-    btn.disabled = false;
-    if (ok) {
-      unlockApp();
-    } else {
-      error.textContent = 'Não foi possível iniciar sessão. Tenta outra vez.';
-      error.classList.remove('hidden');
-    }
-  });
-
-  const loggedIn = await storage.autoInit();
-  loading.classList.add('hidden');
-
-  if (loggedIn) {
-    unlockApp();
-  } else if (loggedIn === null && storage.hadPreviousLogin()) {
-    // Offline and the SDK couldn't load: trust the previous session, sync resumes later.
-    unlockApp(true);
-  } else {
-    if (loggedIn === null) {
-      error.textContent = 'Sem ligação. Liga-te à internet para iniciar sessão.';
-      error.classList.remove('hidden');
-    }
-    btn.classList.remove('hidden');
-  }
-}
-
-function unlockApp(offline = false) {
-  document.body.classList.remove('locked');
-  renderAll();
-  updateAccountUI(offline);
-}
-
-function lockApp() {
-  document.body.classList.add('locked');
-  document.getElementById('btn-login-google').classList.remove('hidden');
-  updateAccountUI();
-}
-
-function updateAccountUI(offline = false) {
-  const user = storage.getCurrentUser();
-  const dot = document.getElementById('sync-dot');
-  if (user) {
-    document.getElementById('user-name').textContent = user.displayName || 'Utilizador';
-    document.getElementById('user-email').textContent = user.email || '';
-    if (user.photoURL) document.getElementById('user-avatar').src = user.photoURL;
-  }
-  const synced = !!user && !offline;
-  dot.classList.toggle('connected', synced);
-  dot.title = synced ? 'Sincronizado' : 'Offline';
-}
-
-function switchTab(tab) {
-  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-  document.getElementById(`tab-${tab}`).classList.add('active');
-  currentTab = tab;
-}
