@@ -105,3 +105,5 @@ O Estudar é grátis e continua a ser. Se te poupou tempo — ou uma cadeira —
 ## Licença
 
 [MIT](LICENSE) © 2026 Ryan Barbosa
+
+<sub>Co-Authored-By: Claude Opus 5.5</sub>

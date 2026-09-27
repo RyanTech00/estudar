@@ -106,3 +106,5 @@ Estudar is free and will stay free. If it saved you time — or a module — a c
 ## License
 
 [MIT](LICENSE) © 2026 Ryan Barbosa
+
+<sub>Co-Authored-By: Claude Opus 5.5</sub>
