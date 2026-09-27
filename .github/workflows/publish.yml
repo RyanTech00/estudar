@@ -1,0 +1,43 @@
+name: Stage on npm
+
+# Publishing a GitHub release stages that version on npm (npm stage publish).
+# It only goes live after a maintainer approves it with 2FA, on npmjs.com or with
+# `npm stage approve <id>`. Auth is npm Trusted Publishing (OIDC): no token is stored here.
+# OIDC tokens can stage but never approve, so a compromised workflow can't publish on its own.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: npm stage publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Staged publishing needs npm 11.15.0+; the npm bundled with Node may be older.
+      - run: npm install -g npm@11
+
+      - name: Tag matches package.json
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "::error::Release tag ${GITHUB_REF_NAME} does not match package.json version v${VERSION}"
+            exit 1
+          fi
+          if npm view "estudar@${VERSION}" version >/dev/null 2>&1; then
+            echo "::error::estudar@${VERSION} is already on npm — bump the version first"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm test
+      - run: npm stage publish

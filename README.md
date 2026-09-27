@@ -16,6 +16,7 @@
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-f38020.svg)](https://workers.cloudflare.com)
 [![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20Postgres-3ecf8e.svg)](https://supabase.com)
 [![Tests](https://img.shields.io/badge/tests-npm%20test-8ea7ff.svg)](docs/en/architecture/tests.md)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/RyanTech00/estudar)
 
 <a href="https://www.buymeacoffee.com/ryanbarbosa"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=ryanbarbosa&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" alt="Buy me a coffee" height="40" /></a>
 
@@ -102,6 +103,16 @@ Estudar is free and will stay free. If it saved you time — or a module — a c
 <a href="https://www.buymeacoffee.com/ryanbarbosa"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=ryanbarbosa&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" alt="Buy me a coffee" /></a>
 
 <img src="docs/public/bmc-qr.webp" alt="QR code for buymeacoffee.com/ryanbarbosa" width="160">
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=ryantech00%2Festudar&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=ryantech00/estudar&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=ryantech00/estudar&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=ryantech00/estudar&type=date&legend=top-left" />
+ </picture>
+</a>
 
 ## License
 

@@ -44,5 +44,11 @@ Correções, melhorias de acessibilidade, novos fornecedores de IA, traduções,
 - Dependências com licenças restritivas.
 - Mudanças ao formato dos dados sem migração.
 
+## Publicar uma versão (mantenedor)
+1. Sobe a versão em `package.json` (`npm version patch|minor|major --no-git-tag-version`) e acrescenta a secção ao changelog, nas duas línguas (`docs/changelog.md` e `docs/en/changelog.md`).
+2. Faz commit e push para `main`.
+3. Cria uma release no GitHub com a tag `vX.Y.Z` igual à versão. O workflow [`publish.yml`](.github/workflows/publish.yml) corre os testes e deixa a versão **em espera** no npm (`npm stage publish`, por Trusted Publishing, sem token).
+4. Aprova-a com 2FA em npmjs.com → **Staged Packages**, ou com `npm stage list` e `npm stage approve <id>`. Só então fica pública.
+
 ## Dúvidas
 Abre uma [issue](https://github.com/RyanTech00/estudar/issues).
