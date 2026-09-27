@@ -485,3 +485,28 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size
   background: #08090a; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px;
 }
 .user-avatar:not([src]), .user-avatar[src=""] { display: none; }
+
+/* ── Intro ───────────────────────────── */
+#intro {
+  position: fixed; inset: 0; z-index: 350; display: none; flex-direction: column; overflow-y: auto;
+  background: radial-gradient(120% 60% at 50% 0%, #1a1c14 0%, var(--bg) 55%);
+}
+body.intro #intro { display: flex; }
+body.intro { overflow: hidden; }
+.intro-inner { width: 100%; max-width: 620px; margin: 0 auto; padding: calc(var(--safe-t) + 40px) 20px 24px; flex: 1; }
+.intro-inner .login-logo { width: 56px; height: 56px; margin-bottom: 18px; }
+.intro-title { font-size: clamp(26px, 6vw, 36px); font-weight: 700; letter-spacing: -.02em; line-height: 1.15; margin: 8px 0 14px; }
+.intro-lead { color: #cfccc4; font-size: 16px; }
+.intro-h2 { font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 32px 0 12px; }
+.intro-points { list-style: none; display: flex; flex-direction: column; gap: 14px; }
+.intro-points li { padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); font-size: 14px; color: #cfccc4; }
+.intro-points b { display: block; color: var(--text); font-size: 15px; margin-bottom: 4px; }
+.intro-points cite { display: block; margin-top: 8px; font-style: normal; font-size: 12px; color: var(--faint); }
+.intro-refs { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 14px; }
+.intro-refs summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.intro-refs ul { margin: 12px 0 0 18px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--muted); }
+.intro-cta {
+  position: sticky; bottom: 0; padding: 14px 20px calc(var(--safe-b) + 14px);
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+}
+.intro-cta .btn { max-width: 620px; margin: 0 auto; display: flex; min-height: 54px; font-size: 16px; }

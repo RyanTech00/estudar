@@ -600,6 +600,27 @@ function unlockApp(mode) {
   renderAccount(mode);
 }
 
+// ── Intro ──────────────────────────────
+const INTRO_KEY = 'estudar_intro_seen';
+
+function showIntro(show) {
+  document.body.classList.toggle('intro', show);
+  $('intro').setAttribute('aria-hidden', String(!show));
+  if (show) $('intro').scrollTop = 0;
+}
+
+function setupIntro() {
+  $('btn-intro-start').addEventListener('click', () => {
+    try { localStorage.setItem(INTRO_KEY, '1'); } catch {}
+    showIntro(false);
+  });
+  $('btn-settings-intro').addEventListener('click', () => { openSettings(false); showIntro(true); });
+  // First visit only; afterwards it lives under Conta → Sobre o método.
+  let seen = false;
+  try { seen = !!localStorage.getItem(INTRO_KEY); } catch {}
+  showIntro(!seen);
+}
+
 // ── Boot ───────────────────────────────
 function renderAll() {
   renderHeader();
@@ -616,6 +637,7 @@ function renderAll() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  setupIntro();
   loadPlan();
   applyTimerConfig();
   restoreTimer();

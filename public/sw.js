@@ -1,4 +1,4 @@
-const CACHE_NAME = 'estudar-v7';
+const CACHE_NAME = 'estudar-v8';
 const ASSETS = [
   '/',
   '/index.html',
