@@ -29,9 +29,21 @@ function literalKeys(src) {
   return keys;
 }
 
+// Drops <script>, <style> and <svg> blocks before collecting text. This only ever reads our own index.html,
+// but it's written like a real filter anyway: any case, attributes or spaces in the closing tag, and repeated
+// until nothing changes (one pass could leave a block that two removals glued back together).
+function stripBlocks(html) {
+  let prev;
+  do {
+    prev = html;
+    html = html.replace(/<(script|style|svg)\b[^>]*>[\s\S]*?<\/\1\b[^>]*>/gi, '');
+  } while (html !== prev);
+  return html;
+}
+
 function htmlKeys(html) {
   const keys = new Set();
-  const body = html.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<style[\s\S]*?<\/style>/g, '').replace(/<svg[\s\S]*?<\/svg>/g, '');
+  const body = stripBlocks(html);
   for (const m of body.matchAll(/>([^<>]+)</g)) {
     const text = m[1].trim();
     if (text && /[A-Za-zÀ-ÿ]/.test(text) && !/^[A-Z0-9 .·—–:-]{1,5}$/.test(text)) keys.add(text.replace(/&amp;/g, '&'));

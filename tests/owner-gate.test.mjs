@@ -75,9 +75,10 @@ const INPUT = { startDate: '2026-09-28', examDate: '2026-12-20', hoursPerDay: [2
 function fakeProviders({ rpc = () => new Response('1', { status: 200 }), model } = {}) {
   const base = globalThis.fetch;
   globalThis.fetch = async (url, opts = {}) => {
-    const u = String(url);
-    if (u.includes('/rest/v1/rpc/ai_usage_take')) return rpc(JSON.parse(opts.body));
-    if (u.includes('generativelanguage.googleapis.com')) {
+    // Match on the parsed host and path, never on a substring of the URL.
+    const { hostname, pathname } = new URL(String(url));
+    if (pathname === '/rest/v1/rpc/ai_usage_take') return rpc(JSON.parse(opts.body));
+    if (hostname === 'generativelanguage.googleapis.com') {
       return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(model) }] } }] }), { status: 200 });
     }
     return base(url, opts);
