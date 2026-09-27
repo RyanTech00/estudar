@@ -36,9 +36,22 @@
     <div class="login-card">
       <img src="icons/icon.svg" alt="" class="login-logo">
       <h1 class="login-title">Estudar</h1>
-      <p class="login-sub">Licenciatura em Engenharia Informática · 2026/27. Inicia sessão para guardar o progresso e sincronizar entre o telemóvel e o computador.</p>
+      <p class="login-sub">O teu plano de estudo, timer de foco e progresso — sincronizados entre o telemóvel e o computador.</p>
       <div id="login-loading" class="login-status">A verificar sessão…</div>
-      <button class="btn btn-primary btn-block hidden" id="btn-login-google">
+
+      <form id="login-email-form" class="login-form hidden">
+        <input type="email" id="login-email" placeholder="o-teu-email@exemplo.com" autocomplete="email" required aria-label="Email">
+        <button class="btn btn-primary btn-block" type="submit">Receber código por email</button>
+      </form>
+
+      <form id="login-code-form" class="login-form hidden">
+        <p class="login-status" id="login-code-hint"></p>
+        <input id="login-code" inputmode="numeric" autocomplete="one-time-code" placeholder="Código" maxlength="10" required aria-label="Código recebido por email">
+        <button class="btn btn-primary btn-block" type="submit">Entrar</button>
+        <button class="btn btn-ghost btn-block" type="button" id="login-back">Usar outro email</button>
+      </form>
+
+      <button class="btn btn-ghost btn-block hidden" id="btn-login-google">
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M21.6 12.2c0-.7-.1-1.4-.2-2H12v3.8h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.3z"/><path fill="currentColor" opacity=".85" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 1-3.4 1-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22z"/><path fill="currentColor" opacity=".7" d="M6.4 14a6 6 0 0 1 0-3.9V7.5H3.1a10 10 0 0 0 0 9z"/><path fill="currentColor" opacity=".55" d="M12 5.9c1.5 0 2.8.5 3.8 1.5l2.9-2.9A10 10 0 0 0 3.1 7.5l3.3 2.6C7.2 7.7 9.4 5.9 12 5.9z"/></svg>
         Entrar com Google
       </button>
@@ -97,7 +110,7 @@
 
         <!-- TAB: Semana -->
         <section id="tab-week" class="tab">
-          <div class="card">
+          <div class="card" id="countdown-card">
             <div class="countdown">
               <div class="countdown-num" id="days-until-exam">0</div>
               <div>
@@ -108,7 +121,10 @@
             <div class="timeline" id="timeline"></div>
           </div>
 
-          <h2 class="h2 section-head">Plano semanal</h2>
+          <div class="row-between section-head">
+            <h2 class="h2">Plano semanal</h2>
+            <button class="btn btn-ghost btn-sm" id="btn-edit-plan">Editar plano</button>
+          </div>
           <div id="week-list" class="week-list"></div>
         </section>
 
@@ -212,8 +228,27 @@
         <button class="switch" id="btn-toggle-sound" role="switch" aria-checked="true"><i></i></button>
       </div>
 
+      <button class="btn btn-ghost btn-block" id="btn-settings-plan">Editar o meu plano</button>
       <button class="btn btn-ghost btn-block" id="btn-sign-out">Terminar sessão</button>
       <button class="btn btn-danger-ghost btn-block" id="btn-clear-data">Apagar dados deste dispositivo</button>
+    </div>
+  </div>
+
+  <!-- ── Plan editor ─────────────────────── -->
+  <div id="planner" aria-hidden="true">
+    <div class="planner-inner" role="dialog" aria-label="Editar plano">
+      <header class="planner-head">
+        <h2 class="topbar-title">O meu plano</h2>
+        <button class="icon-btn" id="planner-close" aria-label="Fechar"><svg class="ico"><use href="#i-close"/></svg></button>
+      </header>
+      <div id="planner-body"></div>
+      <footer class="planner-foot">
+        <p id="planner-status" class="planner-status hidden" role="status"></p>
+        <div class="planner-actions">
+          <button class="btn btn-ghost" id="planner-cancel">Cancelar</button>
+          <button class="btn btn-primary" id="planner-save">Guardar plano</button>
+        </div>
+      </footer>
     </div>
   </div>
 

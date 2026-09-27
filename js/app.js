@@ -1,6 +1,8 @@
-import { subjects, weeklyPlan, phases, phaseNames, checklist, studyMethod, languageMethod, getCurrentPhase, getTodaySessions, getSubject, getWeekNumber, getDaysUntilExam } from './data.js';
+import { plan, subjects, phases, checklist, studyMethod, EXAMPLE_PLAN, normalizePlan, setActivePlan, hasPlan, getCurrentPhase, getTodaySessions, getSessionsForDay, getSubject, getWeekNumber, getDaysUntilExam } from './data.js';
 import { Timer } from './timer.js';
 import * as storage from './storage.js';
+import { AUTH_METHODS } from './config.js';
+import { openPlanner, setupPlanner } from './planner.js';
 import { enterFocusMode, exitFocusMode, playSound } from './focus.js';
 
 const $ = (id) => document.getElementById(id);
@@ -10,19 +12,14 @@ const TAB_TITLE = { today: 'Hoje', week: 'Semana', timer: 'Timer', progress: 'Pr
 const DAY_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const DAY_LONG = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
 const MONTH_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-const TIP_TITLES = {
-  structure: 'Estrutura de estudo', reviewShort: 'Revisão espaçada', programming: 'Programação',
-  mix: 'Misturar tópicos', metric: 'Como medir progresso', blocks: 'Blocos 40+10', rest: 'Descanso',
-  priority: 'Prioridades', c2: 'Cambridge C2', german: 'Alemão básico',
-  december: 'Dezembro', adjust: 'Regra de ajuste',
-};
 
-let selectedSubject = getTodaySessions().find(s => s.subject !== 'all')?.subject || subjects[0].id;
+let selectedSubject = 'all';
 let focusActive = false;
 
-const sessionId = (s) => s.subject + (s.block || '');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const icon = (name) => `<svg class="ico"><use href="#i-${name}"/></svg>`;
-const tag = (sub) => `<span class="tag" style="--c:${sub.color}">${sub.short}</span>`;
+const tag = (sub) => `<span class="tag" style="--c:${esc(sub.color)}">${esc(sub.short)}</span>`;
+const detail = (s) => `${esc(s.session)}${s.focus ? ` · ${esc(s.focus)}` : ''}`;
 
 function formatMinutes(total) {
   const h = Math.floor(total / 60);
@@ -42,7 +39,28 @@ function toast(msg) {
   el.textContent = msg;
   el.classList.add('show');
   clearTimeout(toast.t);
-  toast.t = setTimeout(() => el.classList.remove('show'), 2600);
+  toast.t = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+function loadPlan() {
+  // Data from before plans were per-user: it was built on the example plan, so keep using it.
+  if (!storage.getPlan()) {
+    const d = storage.loadData();
+    if (Object.keys(d.sessions || {}).length || Object.keys(d.focus || {}).length) storage.savePlan(normalizePlan(EXAMPLE_PLAN));
+  }
+  setActivePlan(storage.getPlan());
+  const valid = new Set([...subjects.map(s => s.id), 'all']);
+  if (!valid.has(selectedSubject)) {
+    selectedSubject = getTodaySessions().find(s => s.subject !== 'all')?.subject || subjects[0]?.id || 'all';
+  }
+}
+
+function editPlan() {
+  openPlanner(hasPlan() ? plan : null, () => {
+    loadPlan();
+    renderAll();
+    toast('Plano guardado');
+  });
 }
 
 // ── Timer ──────────────────────────────
@@ -51,6 +69,24 @@ const timer = new Timer({ onTick: renderTimer, onPhaseEnd });
 function applyTimerConfig() {
   const c = storage.getTimerConfig();
   timer.configure({ work: c.work * 60, break: c.break * 60, longBreak: c.longBreak * 60, sessionsBeforeLong: c.sessionsBeforeLong });
+}
+
+// Survives the OS killing the PWA in the background mid-block.
+let lastSavedState = '';
+function persistTimer() {
+  const snap = JSON.stringify({ ...timer.snapshot(), subject: selectedSubject });
+  if (snap === lastSavedState) return;
+  lastSavedState = snap;
+  try { localStorage.setItem(storage.TIMER_KEY, snap); } catch {}
+}
+
+function restoreTimer() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(storage.TIMER_KEY) || 'null');
+    if (!saved) return;
+    if (saved.subject) selectedSubject = saved.subject;
+    timer.restore(saved);
+  } catch {}
 }
 
 function onPhaseEnd({ finished, next, natural, workedSeconds }) {
@@ -69,29 +105,9 @@ function onPhaseEnd({ finished, next, natural, workedSeconds }) {
   }
 }
 
-// Survives the OS killing the PWA in the background mid-block.
-const TIMER_KEY = 'estudar_timer';
-let lastSavedState = '';
-function persistTimer() {
-  const snap = JSON.stringify({ ...timer.snapshot(), subject: selectedSubject });
-  if (snap === lastSavedState) return;
-  lastSavedState = snap;
-  try { localStorage.setItem(TIMER_KEY, snap); } catch {}
-}
-
-function restoreTimer() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(TIMER_KEY) || 'null');
-    if (!saved) return;
-    if (saved.subject) selectedSubject = saved.subject;
-    timer.restore(saved);
-  } catch {}
-}
-
 function renderTimer() {
   persistTimer();
-  const remaining = timer.remaining;
-  const time = Timer.format(remaining);
+  const time = Timer.format(timer.remaining);
   const progress = timer.isIdle ? 0 : timer.progress;
   const playing = timer.isRunning;
 
@@ -162,8 +178,8 @@ function renderTimerSettings() {
 function renderTimerSubjects() {
   const list = [...subjects, getSubject('all')];
   $('timer-subjects').innerHTML = list.map(s => `
-    <button class="chip ${s.id === selectedSubject ? 'on' : ''}" style="--c:${s.color}" data-id="${s.id}"
-      role="radio" aria-checked="${s.id === selectedSubject}" title="${s.name}">${s.short}</button>
+    <button class="chip ${s.id === selectedSubject ? 'on' : ''}" style="--c:${esc(s.color)}" data-id="${esc(s.id)}"
+      role="radio" aria-checked="${s.id === selectedSubject}" title="${esc(s.name)}">${esc(s.short)}</button>
   `).join('');
   $('timer-subjects').querySelectorAll('.chip').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -224,61 +240,69 @@ function switchTab(tab) {
 
 function setupNav() {
   document.querySelectorAll('.nav-item').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+  $('btn-edit-plan').addEventListener('click', editPlan);
 }
 
 function renderHeader() {
   const now = new Date();
-  $('topbar-date').textContent = `${DAY_LONG[now.getDay()]}, ${now.getDate()} ${MONTH_SHORT[now.getMonth()]} · semana ${getWeekNumber(now)}`;
+  const week = plan.startDate ? ` · semana ${getWeekNumber(now)}` : '';
+  $('topbar-date').textContent = `${DAY_LONG[now.getDay()]}, ${now.getDate()} ${MONTH_SHORT[now.getMonth()]}${week}`;
 }
 
 // ── Today ──────────────────────────────
 function renderToday() {
   const today = new Date();
-  const sessions = getTodaySessions(today);
-  const withState = sessions.map(s => ({ ...s, id: sessionId(s), sub: getSubject(s.subject), done: storage.isSessionDone(today, sessionId(s)) }));
-  const doneCount = withState.filter(s => s.done).length;
+  const sessions = getTodaySessions(today).map(s => ({ ...s, sub: getSubject(s.subject), done: storage.isSessionDone(today, s.id) }));
+  const doneCount = sessions.filter(s => s.done).length;
 
   $('today-count').textContent = sessions.length ? `${doneCount} de ${sessions.length}` : '';
   $('today-bar').style.width = sessions.length ? `${(doneCount / sessions.length) * 100}%` : '0';
 
-  // Hero
-  const next = withState.find(s => !s.done);
-  if (!sessions.length) {
+  const next = sessions.find(s => !s.done);
+  if (!hasPlan()) {
+    $('next-up').innerHTML = `
+      <div class="hero" style="--c:var(--accent)">
+        <div class="eyebrow">Bem-vindo</div>
+        <div class="hero-name">Monta o teu plano de estudo</div>
+        <div class="hero-meta">Adiciona as tuas disciplinas e datas — a IA organiza a semana com técnicas de estudo comprovadas. Também podes começar pelo plano de exemplo.</div>
+        <div class="hero-actions"><button class="btn btn-primary" id="hero-plan">Criar plano</button></div>
+      </div>`;
+    $('hero-plan').addEventListener('click', editPlan);
+  } else if (!sessions.length) {
     $('next-up').innerHTML = `<div class="hero done"><div class="hero-name">Dia livre</div><div class="hero-meta">Sem sessões planeadas para hoje.</div></div>`;
   } else if (!next) {
     $('next-up').innerHTML = `<div class="hero done"><div class="eyebrow">Tudo feito</div><div class="hero-name">Dia concluído</div><div class="hero-meta">${doneCount} sessões fechadas. Descansa — amanhã há mais.</div></div>`;
   } else {
     $('next-up').innerHTML = `
-      <div class="hero" style="--c:${next.sub.color}">
+      <div class="hero" style="--c:${esc(next.sub.color)}">
         <div class="row-between"><div class="eyebrow">A seguir</div>${tag(next.sub)}</div>
-        <div class="hero-name">${next.sub.name}</div>
-        <div class="hero-meta">${next.session}${next.reviewLabel ? ` · ${next.reviewLabel}` : ''}</div>
+        <div class="hero-name">${esc(next.sub.name)}</div>
+        <div class="hero-meta">${detail(next)}</div>
         <div class="hero-actions">
           <button class="btn btn-primary" id="hero-start">${icon('play')} Começar foco</button>
           <button class="btn btn-ghost" id="hero-done" aria-label="Marcar como feita">${icon('check')}</button>
         </div>
       </div>`;
-    $('hero-start').addEventListener('click', () => startStudying(next.subject === 'all' ? 'all' : next.subject));
+    $('hero-start').addEventListener('click', () => startStudying(next.subject));
     $('hero-done').addEventListener('click', () => toggleSession(next.id, true));
   }
 
-  // List
-  const groups = [['uni', 'Universidade'], ['lingua', 'Línguas']];
+  const groups = [['uni', 'Universidade'], ['lingua', 'Línguas'], ['outro', 'Outros']];
   $('today-sessions').innerHTML = sessions.length ? groups.map(([area, label]) => {
-    const items = withState.filter(s => s.area === area);
+    const items = sessions.filter(s => s.area === area);
     if (!items.length) return '';
     return `<div class="group-label">${label}</div>` + items.map(s => `
       <div class="session ${s.done ? 'done' : ''}">
-        <button class="session-main" data-subject="${s.subject}">
+        <button class="session-main" data-subject="${esc(s.subject)}">
           ${tag(s.sub)}
           <span class="session-text">
-            <span class="session-name">${s.sub.name}</span>
-            <span class="session-meta">${s.session}${s.reviewLabel ? ` · ${s.reviewLabel}` : ''}</span>
+            <span class="session-name">${esc(s.sub.name)}</span>
+            <span class="session-meta">${detail(s)}</span>
           </span>
         </button>
-        <button class="check ${s.done ? 'on' : ''}" data-id="${s.id}" aria-pressed="${s.done}" aria-label="${s.done ? 'Desmarcar' : 'Marcar como feita'}">${icon('check')}</button>
+        <button class="check ${s.done ? 'on' : ''}" data-id="${esc(s.id)}" aria-pressed="${s.done}" aria-label="${s.done ? 'Desmarcar' : 'Marcar como feita'}">${icon('check')}</button>
       </div>`).join('');
-  }).join('') : '<div class="empty">Nada planeado para hoje.</div>';
+  }).join('') : `<div class="empty">${hasPlan() ? 'Nada planeado para hoje.' : 'Ainda sem plano.'}</div>`;
 
   $('today-sessions').querySelectorAll('.check').forEach(btn => {
     btn.addEventListener('click', () => toggleSession(btn.dataset.id, btn.getAttribute('aria-pressed') !== 'true'));
@@ -307,47 +331,59 @@ function renderStats() {
   $('stat-sessions').textContent = s.totalSessions;
 }
 
+function allTips() {
+  return [...plan.tips, ...studyMethod];
+}
+
 function renderTip() {
-  const tips = [...Object.entries(studyMethod), ...Object.entries(languageMethod)];
+  const tips = allTips();
   const now = new Date();
   const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
-  const [key, text] = tips[dayOfYear % tips.length];
-  $('tip-title').textContent = `Dica · ${TIP_TITLES[key] || key}`;
-  $('tip-text').textContent = text;
+  const tip = tips[dayOfYear % tips.length];
+  $('tip-title').textContent = `Dica · ${tip.title}`;
+  $('tip-text').textContent = tip.text;
 }
 
 // ── Week ───────────────────────────────
 function renderWeek() {
   const now = new Date();
   const phase = getCurrentPhase(now);
-  $('days-until-exam').textContent = getDaysUntilExam(now);
-  $('phase-now').textContent = `Fase: ${phaseNames[phase.id]} · ${phase.ratio}`;
+  const days = getDaysUntilExam(now);
+  $('countdown-card').classList.toggle('hidden', days === null && !phases.length);
+  $('days-until-exam').textContent = days ?? '—';
+  $('phase-now').textContent = phase ? `Fase: ${phase.name}${phase.ratio ? ` · ${phase.ratio}` : ''}` : 'Define a data dos exames no plano.';
 
-  const start = new Date(phases[0].start + 'T00:00');
-  const end = new Date(phases[phases.length - 1].end + 'T23:59');
-  const span = end - start;
-  const nowPct = Math.min(100, Math.max(0, ((now - start) / span) * 100));
-  $('timeline').innerHTML = phases.map(p => {
-    const w = ((new Date(p.end + 'T23:59') - new Date(p.start + 'T00:00')) / span) * 100;
-    return `<div class="timeline-seg ${p.id === phase.id ? 'current' : ''}" style="--c:${p.color};flex:${w}"><span>${p.label}</span></div>`;
-  }).join('') + `<div class="timeline-now" style="left:${nowPct}%"></div>`;
+  if (phases.length) {
+    const start = new Date(phases[0].start + 'T00:00');
+    const end = new Date(phases[phases.length - 1].end + 'T23:59');
+    const span = end - start;
+    const nowPct = Math.min(100, Math.max(0, ((now - start) / span) * 100));
+    $('timeline').innerHTML = phases.map(p => {
+      const w = ((new Date(p.end + 'T23:59') - new Date(p.start + 'T00:00')) / span) * 100;
+      return `<div class="timeline-seg ${p.id === phase?.id ? 'current' : ''}" style="--c:${p.color};flex:${w}" title="${esc(p.name)}"><span>${esc(p.label)}</span></div>`;
+    }).join('') + `<div class="timeline-now" style="left:${nowPct}%"></div>`;
+  } else {
+    $('timeline').innerHTML = '';
+  }
 
+  if (!hasPlan()) {
+    $('week-list').innerHTML = `<div class="empty">Ainda não tens plano semanal. Carrega em “Editar plano”.</div>`;
+    return;
+  }
   const monday = startOfWeek(now);
-  const order = [1, 2, 3, 4, 5, 6, 0];
-  $('week-list').innerHTML = order.map((dow, i) => {
+  $('week-list').innerHTML = [1, 2, 3, 4, 5, 6, 0].map((dow, i) => {
     const date = new Date(monday);
     date.setDate(monday.getDate() + i);
     const isToday = date.toDateString() === now.toDateString();
-    const items = weeklyPlan.filter(s => Math.floor(s.day) === dow);
+    const items = getSessionsForDay(dow);
     return `
       <div class="day ${isToday ? 'today' : ''}">
         <div class="day-name"><b>${DAY_SHORT[dow]}</b><small>${date.getDate()}</small></div>
         <div class="day-items">
-          ${items.map(s => {
-            const sub = getSubject(s.subject);
-            const done = storage.isSessionDone(date, sessionId(s));
-            return `<div class="day-item ${done ? 'done' : ''}">${tag(sub)}<span class="day-item-text"><b>${s.session}</b>${s.reviewLabel ? ` · ${s.reviewLabel}` : ''}</span></div>`;
-          }).join('')}
+          ${items.length ? items.map(s => {
+            const done = storage.isSessionDone(date, s.id);
+            return `<div class="day-item ${done ? 'done' : ''}">${tag(getSubject(s.subject))}<span class="day-item-text"><b>${esc(s.session)}</b>${s.focus ? ` · ${esc(s.focus)}` : ''}</span></div>`;
+          }).join('') : '<span class="muted small">Descanso</span>'}
         </div>
       </div>`;
   }).join('');
@@ -363,12 +399,11 @@ function renderProgress() {
   });
   const data = storage.getMinutesByDay(days);
   const max = Math.max(60, ...data.map(d => d.total));
-  const weekTotal = data.reduce((a, d) => a + d.total, 0);
-  $('week-total').textContent = formatMinutes(weekTotal);
+  $('week-total').textContent = formatMinutes(data.reduce((a, d) => a + d.total, 0));
   $('chart-days').innerHTML = data.map((d, i) => `
     <div class="chart-col ${i === 6 ? 'today' : ''}" title="${formatMinutes(d.total)}">
       <div class="chart-bar">
-        ${Object.entries(d.bySubject).map(([id, m]) => `<i style="height:${(m / max) * 100}%;background:${getSubject(id)?.color || 'var(--muted)'}"></i>`).join('')}
+        ${Object.entries(d.bySubject).map(([id, m]) => `<i style="height:${(m / max) * 100}%;background:${esc(getSubject(id).color)}"></i>`).join('')}
       </div>
       <small>${DAY_SHORT[d.date.getDay()][0]}</small>
     </div>`).join('');
@@ -382,8 +417,8 @@ function renderProgress() {
   const rows = Object.entries(bySubject).sort((a, b) => b[1] - a[1]);
   const subMax = Math.max(1, ...rows.map(r => r[1]));
   $('by-subject').innerHTML = rows.length ? rows.map(([id, m]) => {
-    const sub = getSubject(id) || { short: id, color: 'var(--muted)' };
-    return `<div class="subj-row">${tag(sub)}<div class="subj-bar" style="--c:${sub.color}"><i style="width:${(m / subMax) * 100}%"></i></div><span class="subj-min">${formatMinutes(m)}</span></div>`;
+    const sub = getSubject(id);
+    return `<div class="subj-row">${tag(sub)}<div class="subj-bar" style="--c:${esc(sub.color)}"><i style="width:${(m / subMax) * 100}%"></i></div><span class="subj-min">${formatMinutes(m)}</span></div>`;
   }).join('') : '<div class="empty">Ainda sem tempo registado esta semana. Os minutos entram aqui sempre que terminas um bloco de estudo no timer.</div>';
 
   renderChecklist();
@@ -395,7 +430,7 @@ function renderChecklist() {
   $('checklist-week').textContent = `semana ${week}`;
   $('checklist-container').innerHTML = checklist.map((q, i) => `
     <button class="check-row" data-idx="${i}" aria-pressed="${!!checks[i]}">
-      <span class="check ${checks[i] ? 'on' : ''}">${icon('check')}</span>${q}
+      <span class="check ${checks[i] ? 'on' : ''}">${icon('check')}</span>${esc(q)}
     </button>`).join('');
   $('checklist-container').querySelectorAll('.check-row').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -408,11 +443,11 @@ function renderChecklist() {
 }
 
 function renderMethod() {
-  const block = (entries) => entries.map(([key, text]) => `
-    <details><summary>${TIP_TITLES[key] || key}${icon('chevron').replace('class="ico"', 'class="ico chev"')}</summary><p>${text}</p></details>`).join('');
+  const block = (list) => list.map(t => `
+    <details><summary>${esc(t.title)}${icon('chevron').replace('class="ico"', 'class="ico chev"')}</summary><p>${esc(t.text)}</p></details>`).join('');
   $('method-cards').innerHTML =
-    `<div class="accordion-group">Estudo</div>${block(Object.entries(studyMethod))}` +
-    `<div class="accordion-group">Línguas</div>${block(Object.entries(languageMethod))}`;
+    `<div class="accordion-group">Método</div>${block(studyMethod)}` +
+    (plan.tips.length ? `<div class="accordion-group">O teu plano</div>${block(plan.tips)}` : '');
 }
 
 // ── Account / settings ─────────────────
@@ -427,15 +462,17 @@ function setupSettings() {
   $('settings-panel').addEventListener('click', (e) => { if (e.target === $('settings-panel')) openSettings(false); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') openSettings(false); });
 
+  $('btn-settings-plan').addEventListener('click', () => { openSettings(false); editPlan(); });
+
   $('btn-toggle-sound').addEventListener('click', () => {
-    const on = storage.getSetting('sound') === false;
-    storage.setSetting('sound', on);
+    storage.setSetting('sound', storage.getSetting('sound') === false);
     renderSoundSwitch();
   });
 
   $('btn-clear-data').addEventListener('click', () => {
     if (confirm('Apagar os dados guardados neste dispositivo? O que está na tua conta volta a descarregar quando entrares.')) {
       localStorage.removeItem('estudar_data');
+      localStorage.removeItem(storage.TIMER_KEY);
       location.reload();
     }
   });
@@ -444,7 +481,7 @@ function setupSettings() {
     if (timer.isRunning) timer.pause();
     await storage.signOut();
     openSettings(false);
-    lockApp();
+    location.reload();
   });
 }
 
@@ -452,16 +489,23 @@ function renderSoundSwitch() {
   $('btn-toggle-sound').setAttribute('aria-checked', String(storage.getSetting('sound') !== false));
 }
 
-function renderAccount(offline = false) {
+function renderAccount(mode) {
   const user = storage.getCurrentUser();
-  const synced = !!user && !offline;
+  const synced = !!user && mode === 'online';
   $('sync-dot').classList.toggle('connected', synced);
-  $('sync-dot').title = synced ? 'Sincronizado' : 'Offline';
-  $('user-sync').textContent = synced ? 'Sincronizado' : 'Offline — sincroniza quando voltares a ter ligação';
+  $('sync-dot').title = synced ? 'Sincronizado' : mode === 'local' ? 'Modo local' : 'Offline';
+  $('user-sync').textContent = synced ? 'Sincronizado'
+    : mode === 'local' ? 'Modo local: os dados ficam só neste dispositivo (Supabase não configurado).'
+    : 'Offline — sincroniza quando voltares a ter ligação.';
   $('user-sync').classList.toggle('off', !synced);
-  if (!user) return;
-  $('user-name').textContent = user.displayName || 'Utilizador';
-  $('user-email').textContent = user.email || '';
+  $('btn-sign-out').classList.toggle('hidden', mode === 'local');
+  if (!user) {
+    $('user-name').textContent = mode === 'local' ? 'Modo local' : '—';
+    $('user-email').textContent = '';
+    return;
+  }
+  $('user-name').textContent = user.displayName;
+  $('user-email').textContent = user.email;
   $('topbar-initial').textContent = (user.displayName || user.email || '·')[0].toUpperCase();
   if (user.photoURL) {
     for (const id of ['user-avatar', 'topbar-avatar']) {
@@ -474,46 +518,79 @@ function renderAccount(offline = false) {
 }
 
 // ── Login gate ─────────────────────────
-async function setupLoginGate() {
-  const btn = $('btn-login-google');
-  const error = $('login-error');
-  const showError = (msg) => {
-    error.textContent = msg || '';
-    error.classList.toggle('hidden', !msg);
-  };
+function showLoginError(msg) {
+  $('login-error').textContent = msg || '';
+  $('login-error').classList.toggle('hidden', !msg);
+}
 
-  btn.addEventListener('click', async () => {
+function showLoginStep(step) {
+  $('login-loading').classList.toggle('hidden', step !== 'loading');
+  $('login-email-form').classList.toggle('hidden', step !== 'email' || !AUTH_METHODS.email);
+  $('login-code-form').classList.toggle('hidden', step !== 'code');
+  $('btn-login-google').classList.toggle('hidden', step !== 'email' || !AUTH_METHODS.google);
+}
+
+function setupLoginForms() {
+  let email = '';
+
+  $('login-email-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    email = $('login-email').value.trim();
+    if (!email) return;
+    const btn = e.submitter || $('login-email-form').querySelector('button');
     btn.disabled = true;
-    showError(null);
-    const result = await storage.signIn();
+    showLoginError(null);
+    const r = await storage.sendEmailCode(email);
     btn.disabled = false;
-    if (result.ok) unlockApp();
-    else showError(result.message);
+    if (!r.ok) return showLoginError(r.message);
+    $('login-code-hint').textContent = `Enviámos um código para ${email}. Escreve-o aqui, ou abre o link do email neste dispositivo.`;
+    showLoginStep('code');
+    $('login-code').focus();
   });
 
-  const loggedIn = await storage.autoInit();
-  $('login-loading').classList.add('hidden');
+  $('login-code-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = $('login-code').value.replace(/\s/g, '');
+    if (!code) return;
+    const btn = e.submitter || $('login-code-form').querySelector('button');
+    btn.disabled = true;
+    showLoginError(null);
+    const r = await storage.verifyEmailCode(email, code);
+    btn.disabled = false;
+    if (!r.ok) return showLoginError(r.message);
+    unlockApp('online');
+  });
 
-  if (loggedIn) {
-    unlockApp();
-  } else if (loggedIn === null && storage.hadPreviousLogin()) {
-    unlockApp(true);
-  } else {
-    if (loggedIn === null) showError('Sem ligação. Liga-te à internet para iniciar sessão.');
-    btn.classList.remove('hidden');
-  }
+  $('login-back').addEventListener('click', () => { showLoginError(null); showLoginStep('email'); });
+
+  $('btn-login-google').addEventListener('click', async () => {
+    showLoginError(null);
+    const r = await storage.signInWithGoogle();
+    if (!r.ok) showLoginError(r.message);
+  });
 }
 
-function unlockApp(offline = false) {
+async function setupLoginGate() {
+  setupLoginForms();
+  storage.onAuthChange((user) => {
+    if (user) unlockApp('online');
+    else location.reload();
+  });
+
+  const state = await storage.init();
+  if (state === 'local') return unlockApp('local');
+  if (state === 'signed-in') return unlockApp('online');
+  if (state === 'offline' && storage.hadPreviousLogin()) return unlockApp('offline');
+
+  showLoginStep('email');
+  if (state === 'offline') showLoginError('Sem ligação. Liga-te à internet para iniciar sessão.');
+}
+
+function unlockApp(mode) {
   document.body.classList.remove('locked');
+  loadPlan();
   renderAll();
-  renderAccount(offline);
-}
-
-function lockApp() {
-  document.body.classList.add('locked');
-  $('btn-login-google').classList.remove('hidden');
-  renderAccount();
+  renderAccount(mode);
 }
 
 // ── Boot ───────────────────────────────
@@ -532,15 +609,18 @@ function renderAll() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  loadPlan();
   applyTimerConfig();
   restoreTimer();
   setupNav();
   setupTimer();
   setupFocus();
   setupSettings();
+  setupPlanner();
   renderAll();
 
   storage.onSync(() => {
+    loadPlan();
     applyTimerConfig();
     renderAll();
   });

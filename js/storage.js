@@ -1,21 +1,18 @@
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+
 const STORAGE_KEY = 'estudar_data';
 const LAST_UID_KEY = 'estudar_last_uid';
-const SDK = 'https://www.gstatic.com/firebasejs/12.19.0';
+export const TIMER_KEY = 'estudar_timer';
+const SUPABASE_SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
-const FIREBASE_CONFIG = {
-  apiKey: "AIza...",
-  authDomain: "estudar-xxxxx.firebaseapp.com",
-  projectId: "estudar-xxxxx",
-  storageBucket: "estudar-xxxxx.firebasestorage.app",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:0000000000000000000000",
-};
-
-let firebaseDb = null;
-let firebaseAuth = null;
+let supabase = null;
 let currentUser = null;
-let unsubscribe = null;
+let channel = null;
+let pushTimer = null;
 let onSyncCallback = null;
+let onAuthCallback = null;
+
+export const isConfigured = () => !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 // Local calendar date (not UTC), so a session at 00:30 counts for the day you're living in.
 export function dateKey(date = new Date()) {
@@ -27,9 +24,11 @@ export function dateKey(date = new Date()) {
 
 function getDefaults() {
   return {
+    owner: null,    // user id the local copy belongs to
+    plan: null,     // { subjects, weeklyPlan, phases, ... } — null until the user sets one up
     sessions: {},   // { '2026-09-25': { fp: { done: true, timestamp } } }
     focus: {},      // { '2026-09-25': { fp: 80 } }  minutes studied per subject
-    checklist: {},  // { '2026-W01': [bool x5] }
+    checklist: {},  // { 'W01': [bool x5] }
     timerConfig: { work: 40, break: 10, longBreak: 15, sessionsBeforeLong: 4 },
     settings: { sound: true },
     updatedAt: 0,
@@ -58,7 +57,18 @@ export function loadData() {
 export function saveData(data) {
   data.updatedAt = Date.now();
   setLocal(data);
-  if (firebaseDb && currentUser) syncToFirebase(data);
+  schedulePush();
+}
+
+// ── Plan ───────────────────────────────
+export function getPlan() {
+  return loadData().plan;
+}
+
+export function savePlan(plan) {
+  const data = loadData();
+  data.plan = plan;
+  saveData(data);
 }
 
 // ── Sessions ───────────────────────────
@@ -154,123 +164,168 @@ export function getMinutesByDay(days) {
   });
 }
 
-// ── Firebase ───────────────────────────
-export async function autoInit() {
-  try {
-    const { initializeApp } = await import(`${SDK}/firebase-app.js`);
-    const { getFirestore } = await import(`${SDK}/firebase-firestore.js`);
-    const { getAuth, onAuthStateChanged } = await import(`${SDK}/firebase-auth.js`);
-
-    const app = initializeApp(FIREBASE_CONFIG);
-    firebaseDb = getFirestore(app);
-    firebaseAuth = getAuth(app);
-
-    return await new Promise((resolve) => {
-      onAuthStateChanged(firebaseAuth, (user) => {
-        currentUser = user;
-        if (user) {
-          localStorage.setItem(LAST_UID_KEY, user.uid);
-          listenToFirebase();
-        }
-        resolve(!!user);
-      });
-    });
-  } catch (e) {
-    console.warn('Firebase init failed:', e);
-    return null;
-  }
+// ── Auth ───────────────────────────────
+function toUser(u) {
+  if (!u) return null;
+  const meta = u.user_metadata || {};
+  return {
+    id: u.id,
+    email: u.email || '',
+    displayName: meta.full_name || meta.name || (u.email || '').split('@')[0],
+    photoURL: meta.avatar_url || meta.picture || '',
+  };
 }
 
-// Firebase SDK unreachable (offline) but this device was signed in before.
+// Returns 'local' (no backend configured), 'signed-in', 'signed-out' or 'offline' (SDK unreachable).
+export async function init() {
+  if (!isConfigured()) return 'local';
+  try {
+    const { createClient } = await import(SUPABASE_SDK);
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    });
+  } catch (e) {
+    console.warn('Supabase SDK failed to load:', e);
+    return 'offline';
+  }
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session?.user) await afterSignIn(session.user);
+
+  // Magic links and OAuth redirects land here too.
+  supabase.auth.onAuthStateChange((event, s) => {
+    if (event === 'SIGNED_IN' && s?.user && s.user.id !== currentUser?.id) {
+      afterSignIn(s.user).then(() => onAuthCallback?.(toUser(s.user)));
+    }
+    if (event === 'SIGNED_OUT' && currentUser) {
+      currentUser = null;
+      onAuthCallback?.(null);
+    }
+  });
+
+  return session?.user ? 'signed-in' : 'signed-out';
+}
+
 export function hadPreviousLogin() {
   return !!localStorage.getItem(LAST_UID_KEY);
 }
 
-const AUTH_ERRORS = {
-  'auth/unauthorized-domain': `Este domínio (${location.hostname}) não está autorizado no Firebase. Adiciona-o em Authentication → Settings → Authorized domains.`,
-  'auth/network-request-failed': 'Sem ligação à internet. Tenta de novo quando estiveres online.',
-  'auth/operation-not-allowed': 'O login com Google não está ativo no Firebase (Authentication → Sign-in method).',
-  'auth/internal-error': 'O Firebase devolveu um erro interno. Tenta de novo daqui a pouco.',
-};
+const AUTH_ERRORS = [
+  [/rate limit|security purposes|only request this after/i, 'Pediste códigos demasiadas vezes. Espera um minuto e tenta de novo.'],
+  [/expired|invalid/i, 'Código inválido ou expirado. Pede um novo código.'],
+  [/signups not allowed|not allowed for otp/i, 'Esta instalação não aceita novas contas. Pede um convite ao administrador.'],
+  [/fetch|network/i, 'Sem ligação à internet. Tenta de novo quando estiveres online.'],
+  [/provider is not enabled/i, 'Este método de login não está ativo no Supabase (Authentication → Providers).'],
+];
 
-export async function signIn() {
-  if (!firebaseAuth) return { ok: false, message: 'Não foi possível carregar o Firebase. Verifica a ligação.' };
-  const { signInWithPopup, signInWithRedirect, GoogleAuthProvider } = await import(`${SDK}/firebase-auth.js`);
-  const provider = new GoogleAuthProvider();
-  const failure = (e) => {
-    console.warn('Sign in failed:', e);
-    return { ok: false, message: AUTH_ERRORS[e.code] || `Não foi possível iniciar sessão (${e.code || e.message}).` };
-  };
-  try {
-    const result = await signInWithPopup(firebaseAuth, provider);
-    currentUser = result.user;
-  } catch (e) {
-    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') {
-      return { ok: false, message: null };
-    }
-    if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
-      try {
-        await signInWithRedirect(firebaseAuth, provider);
-        return { ok: false, message: null };
-      } catch (redirectError) {
-        return failure(redirectError);
-      }
-    }
-    return failure(e);
-  }
+function authMessage(error) {
+  const msg = error?.message || String(error);
+  const hit = AUTH_ERRORS.find(([re]) => re.test(msg));
+  return hit ? hit[1] : `Não foi possível iniciar sessão (${msg}).`;
+}
 
-  localStorage.setItem(LAST_UID_KEY, currentUser.uid);
-  // Merge with the cloud copy before writing, so a fresh device doesn't wipe it.
-  try {
-    const { doc, getDoc } = await import(`${SDK}/firebase-firestore.js`);
-    const snap = await getDoc(doc(firebaseDb, 'users', currentUser.uid));
-    const data = snap.exists() ? mergeData(loadData(), snap.data()) : loadData();
-    setLocal(data);
-    await syncToFirebase(data);
-  } catch (e) {
-    console.warn('Initial sync failed:', e);
-  }
-  listenToFirebase();
+const redirectTo = () => location.origin + location.pathname;
+
+export async function sendEmailCode(email) {
+  if (!supabase) return { ok: false, message: 'Sem ligação ao servidor.' };
+  const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo() } });
+  return error ? { ok: false, message: authMessage(error) } : { ok: true };
+}
+
+export async function verifyEmailCode(email, token) {
+  if (!supabase) return { ok: false, message: 'Sem ligação ao servidor.' };
+  const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+  if (error) return { ok: false, message: authMessage(error) };
+  await afterSignIn(data.user);
   return { ok: true };
 }
 
+export async function signInWithGoogle() {
+  if (!supabase) return { ok: false, message: 'Sem ligação ao servidor.' };
+  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: redirectTo() } });
+  return error ? { ok: false, message: authMessage(error) } : { ok: true, redirecting: true };
+}
+
 export async function signOut() {
-  if (unsubscribe) unsubscribe();
-  unsubscribe = null;
-  if (firebaseAuth) await firebaseAuth.signOut();
+  await flushPush();
+  if (channel) supabase?.removeChannel(channel);
+  channel = null;
   currentUser = null;
+  try { await supabase?.auth.signOut(); } catch {}
+  // Shared devices: don't leave one person's plan behind for the next.
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(TIMER_KEY);
   localStorage.removeItem(LAST_UID_KEY);
 }
 
-async function syncToFirebase(data) {
-  if (!firebaseDb || !currentUser) return;
-  try {
-    const { doc, setDoc } = await import(`${SDK}/firebase-firestore.js`);
-    await setDoc(doc(firebaseDb, 'users', currentUser.uid), { ...data, email: currentUser.email });
-  } catch (e) {
-    console.warn('Sync to Firebase failed:', e);
+async function afterSignIn(user) {
+  if (currentUser?.id === user.id) return;
+  currentUser = user;
+  localStorage.setItem(LAST_UID_KEY, user.id);
+
+  let local = loadData();
+  // Local copy belongs to someone else: never merge it into this account.
+  if (local.owner && local.owner !== user.id) {
+    local = getDefaults();
+    localStorage.removeItem(TIMER_KEY);
   }
+
+  try {
+    const { data: row, error } = await supabase.from('user_data').select('data').eq('user_id', user.id).maybeSingle();
+    if (error) throw error;
+    const merged = row?.data ? mergeData(local, row.data) : local;
+    merged.owner = user.id;
+    setLocal(merged);
+    await push(merged);
+  } catch (e) {
+    console.warn('Initial sync failed:', e);
+    local.owner = user.id;
+    setLocal(local);
+  }
+  subscribe();
 }
 
-async function listenToFirebase() {
-  if (!firebaseDb || !currentUser) return;
-  try {
-    const { doc, onSnapshot } = await import(`${SDK}/firebase-firestore.js`);
-    if (unsubscribe) unsubscribe();
-    unsubscribe = onSnapshot(doc(firebaseDb, 'users', currentUser.uid), (snap) => {
-      if (!snap.exists() || snap.metadata.hasPendingWrites) return;
-      const remote = snap.data();
+// ── Sync ───────────────────────────────
+function schedulePush() {
+  if (!supabase || !currentUser) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => push(loadData()), 800);
+}
+
+async function flushPush() {
+  if (!pushTimer) return;
+  clearTimeout(pushTimer);
+  pushTimer = null;
+  await push(loadData());
+}
+
+async function push(data) {
+  pushTimer = null;
+  if (!supabase || !currentUser) return;
+  const { error } = await supabase.from('user_data').upsert({
+    user_id: currentUser.id,
+    data,
+    updated_at: new Date(data.updatedAt || Date.now()).toISOString(),
+  });
+  if (error) console.warn('Sync failed:', error.message);
+}
+
+function subscribe() {
+  if (!supabase || !currentUser) return;
+  if (channel) supabase.removeChannel(channel);
+  channel = supabase
+    .channel(`user_data:${currentUser.id}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'user_data', filter: `user_id=eq.${currentUser.id}` }, (payload) => {
+      const remote = payload.new?.data;
+      if (!remote) return;
       const local = loadData();
       if ((remote.updatedAt || 0) <= (local.updatedAt || 0)) return;
-      // Remote is newer and was written by a device that already merged on sign-in:
-      // take it as-is so un-checking something on one device propagates.
-      const { email, ...next } = remote;
-      setLocal({ ...getDefaults(), ...next });
-      if (onSyncCallback) onSyncCallback(next);
-    });
-  } catch (e) {
-    console.warn('Listen to Firebase failed:', e);
-  }
+      // Remote came from a device that already merged on sign-in: take it as-is
+      // so un-checking something on one device propagates.
+      setLocal({ ...getDefaults(), ...remote, owner: currentUser.id });
+      onSyncCallback?.();
+    })
+    .subscribe();
 }
 
 function mergeData(local, remote) {
@@ -299,16 +354,37 @@ function mergeData(local, remote) {
     merged.checklist[week] = Array.from({ length: Math.max(l.length, r.length) }, (_, i) => !!(l[i] || r[i]));
   }
 
+  merged.plan = newer.plan || local.plan || remote.plan || null;
   merged.timerConfig = newer.timerConfig || merged.timerConfig;
   merged.settings = { ...getDefaults().settings, ...(newer.settings || {}) };
   merged.updatedAt = Math.max(local.updatedAt || 0, remote.updatedAt || 0);
   return merged;
 }
 
+// ── AI plan generation ─────────────────
+export async function generatePlan(input) {
+  if (!supabase || !currentUser) return { ok: false, message: 'Precisas de ter sessão iniciada e ligação à internet.' };
+  const { data, error } = await supabase.functions.invoke('generate-plan', { body: input });
+  if (error) {
+    let message = error.message;
+    try {
+      const body = await error.context?.json?.();
+      if (body?.error) message = body.error;
+    } catch {}
+    if (/Failed to send|fetch/i.test(message)) message = 'Não foi possível contactar o servidor. A função generate-plan está publicada?';
+    return { ok: false, message };
+  }
+  return { ok: true, plan: data.plan, remaining: data.remaining };
+}
+
 export function onSync(callback) {
   onSyncCallback = callback;
 }
 
+export function onAuthChange(callback) {
+  onAuthCallback = callback;
+}
+
 export function getCurrentUser() {
-  return currentUser;
+  return toUser(currentUser);
 }

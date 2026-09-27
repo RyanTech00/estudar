@@ -1,10 +1,12 @@
-const CACHE_NAME = 'estudar-v5';
+const CACHE_NAME = 'estudar-v6';
 const ASSETS = [
   '/',
   '/index.html',
   '/css/app.css',
   '/js/app.js',
+  '/js/config.js',
   '/js/data.js',
+  '/js/planner.js',
   '/js/timer.js',
   '/js/storage.js',
   '/js/focus.js',
@@ -41,10 +43,13 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = e.request.url;
 
-  // Versioned Firebase SDK files never change, so cache-first is safe and lets the app open offline.
-  if (url.startsWith('https://www.gstatic.com/firebasejs/')) {
+  // Supabase SDK from the CDN: serve cached copy instantly (so the app opens offline), refresh in background.
+  if (url.startsWith('https://cdn.jsdelivr.net/npm/@supabase/')) {
     e.respondWith(
-      caches.match(e.request).then(cached => cached || fetch(e.request).then(r => putInCache(e.request, r)))
+      caches.match(e.request).then(cached => {
+        const fresh = fetch(e.request).then(r => putInCache(e.request, r)).catch(() => cached);
+        return cached || fresh;
+      })
     );
     return;
   }

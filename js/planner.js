@@ -1,0 +1,273 @@
+import { EXAMPLE_PLAN, EMPTY_PLAN, AREAS, LOADS, PALETTE, normalizePlan } from './data.js';
+import * as storage from './storage.js';
+
+const $ = (id) => document.getElementById(id);
+const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Math.random().toString(36).slice(2, 8);
+
+let draft = null;
+let onSaved = null;
+
+const subjectById = (id) => id === 'all'
+  ? { id: 'all', short: 'REV', name: 'Revisão acumulada', color: '#d6d3cc' }
+  : draft.subjects.find(s => s.id === id) || { id, short: '—', name: '?', color: '#66645e' };
+
+// ── Evidence checks ───────────────────
+// Structural rules the plan must satisfy regardless of who (or what) wrote it.
+export function checkPlan(plan) {
+  const out = [];
+  const byDay = Array.from({ length: 7 }, () => []);
+  plan.weeklyPlan.forEach(s => byDay[s.day]?.push(s));
+
+  if (!plan.subjects.length) return [{ ok: false, text: 'Adiciona pelo menos uma disciplina.' }];
+  if (!plan.weeklyPlan.length) return [{ ok: false, text: 'O plano semanal está vazio. Gera-o com IA ou adiciona sessões.' }];
+
+  const over = byDay
+    .map((items, d) => ({ d, mins: items.reduce((a, s) => a + (s.minutes || 0), 0), cap: (plan.hoursPerDay[d] || 0) * 60 }))
+    .filter(x => x.mins > x.cap * 1.15 && x.mins > 0);
+  out.push(over.length
+    ? { ok: false, text: `Carga acima das horas disponíveis em: ${over.map(x => `${DAYS[x.d]} (${Math.round(x.mins / 6) / 10}h de ${x.cap / 60}h)`).join(', ')}. Excesso de carga prejudica sono e consolidação.` }
+    : { ok: true, text: 'A carga diária respeita as horas disponíveis.' });
+
+  // A subject also "appears" on a day when another session reviews it by acronym (e.g. "Rever SO").
+  const daysOf = (id) => {
+    const short = plan.subjects.find(s => s.id === id)?.short;
+    const mention = short ? new RegExp(`(^|[^A-Za-zÀ-ÿ])${short.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^A-Za-zÀ-ÿ]|$)`) : null;
+    return [...new Set(plan.weeklyPlan.filter(s => s.subject === id || (mention && mention.test(s.focus || ''))).map(s => s.day))];
+  };
+  const missing = plan.subjects.filter(s => !daysOf(s.id).length);
+  if (missing.length) out.push({ ok: false, text: `Sem nenhuma sessão: ${missing.map(s => s.short).join(', ')}.` });
+
+  const unspaced = plan.subjects.filter(s => s.load !== 'leve' && daysOf(s.id).length === 1);
+  out.push(unspaced.length
+    ? { ok: false, text: `Espaçamento: ${unspaced.map(s => s.short).join(', ')} só aparece(m) num dia. A prática distribuída pede pelo menos 2 dias não consecutivos.` }
+    : { ok: true, text: 'Espaçamento: as disciplinas médias e pesadas aparecem em vários dias.' });
+
+  const hasRetrieval = plan.weeklyPlan.some(s => s.subject === 'all' || /recall|recupera|test|simula|de memória|sem consultar|flashcard|pergunta/i.test(s.focus || ''));
+  out.push(hasRetrieval
+    ? { ok: true, text: 'Inclui prática de recuperação (testar-se, recall, simulações).' }
+    : { ok: false, text: 'Não há sessões de recuperação ativa. Testar-se é das técnicas com mais evidência — acrescenta uma revisão acumulada.' });
+
+  const passive = plan.weeklyPlan.filter(s => /\b(reler|sublinhar|resumir)\b/i.test(s.focus || ''));
+  if (passive.length) out.push({ ok: false, text: 'Há sessões baseadas em reler/sublinhar/resumir, técnicas de baixa eficácia. Troca por exercícios ou recuperação.' });
+
+  const langs = plan.subjects.filter(s => s.area === 'lingua' && plan.weeklyPlan.filter(x => x.subject === s.id).length < 3);
+  if (langs.length) out.push({ ok: false, text: `Línguas beneficiam de sessões curtas e frequentes (3+ por semana): ${langs.map(s => s.short).join(', ')}.` });
+
+  return out;
+}
+
+// ── Open / close ──────────────────────
+export function openPlanner(currentPlan, savedCallback) {
+  onSaved = savedCallback;
+  draft = structuredClone(currentPlan && currentPlan.subjects?.length ? currentPlan : EMPTY_PLAN);
+  $('planner').classList.add('active');
+  $('planner').setAttribute('aria-hidden', 'false');
+  document.body.classList.add('planner-open');
+  render();
+}
+
+function closePlanner() {
+  $('planner').classList.remove('active');
+  $('planner').setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('planner-open');
+}
+
+export function setupPlanner() {
+  $('planner-close').addEventListener('click', closePlanner);
+  $('planner-cancel').addEventListener('click', closePlanner);
+  $('planner-save').addEventListener('click', save);
+}
+
+function save() {
+  const plan = normalizePlan(draft);
+  if (!plan.subjects.length) return setStatus('Adiciona pelo menos uma disciplina antes de guardar.', true);
+  storage.savePlan(plan);
+  closePlanner();
+  onSaved?.(plan);
+}
+
+function setStatus(msg, error = false) {
+  const el = $('planner-status');
+  el.textContent = msg || '';
+  el.classList.toggle('error', error);
+  el.classList.toggle('hidden', !msg);
+}
+
+// ── Rendering ─────────────────────────
+function render() {
+  const empty = !draft.subjects.length && !draft.weeklyPlan.length;
+  $('planner-body').innerHTML = `
+    ${empty ? `
+      <div class="card planner-intro">
+        <h3 class="h2">Começa por aqui</h3>
+        <p class="muted small">Carrega o plano de exemplo (Engenharia Informática + línguas) para ver como funciona, ou adiciona as tuas disciplinas e deixa a IA montar a semana.</p>
+        <button class="btn btn-ghost" id="pl-example">Usar plano de exemplo</button>
+      </div>` : ''}
+
+    <section class="card">
+      <h3 class="h2">Datas</h3>
+      <div class="field-row">
+        <label class="field"><span>Início</span><input type="date" id="pl-start" value="${esc(draft.startDate)}"></label>
+        <label class="field"><span>Exames</span><input type="date" id="pl-exam" value="${esc(draft.examDate)}"></label>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="row-between"><h3 class="h2">Disciplinas</h3><span class="muted small">${draft.subjects.length}</span></div>
+      <div id="pl-subjects">${draft.subjects.map((s, i) => `
+        <div class="subject-edit" data-i="${i}">
+          <span class="tag" style="--c:${s.color}">${esc(s.short || '?')}</span>
+          <input class="se-name" data-k="name" placeholder="Nome da disciplina" value="${esc(s.name)}" aria-label="Nome">
+          <input class="se-short" data-k="short" placeholder="Sigla" maxlength="5" value="${esc(s.short)}" aria-label="Sigla">
+          <select data-k="area" aria-label="Tipo">${Object.entries(AREAS).map(([k, v]) => `<option value="${k}" ${s.area === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
+          <select data-k="load" aria-label="Carga">${Object.entries(LOADS).map(([k, v]) => `<option value="${k}" ${s.load === k ? 'selected' : ''}>Carga ${v.toLowerCase()}</option>`).join('')}</select>
+          <button class="icon-btn" data-remove-subject="${i}" aria-label="Remover disciplina"><svg class="ico"><use href="#i-close"/></svg></button>
+        </div>`).join('')}
+      </div>
+      <button class="btn btn-ghost btn-sm" id="pl-add-subject">+ Disciplina</button>
+    </section>
+
+    <section class="card">
+      <h3 class="h2">Horas disponíveis por dia</h3>
+      <div class="hours-grid">${WEEK_ORDER.map(d => `
+        <label class="field"><span>${DAYS[d].slice(0, 3)}</span><input type="number" min="0" max="16" step="0.5" data-hours="${d}" value="${draft.hoursPerDay[d]}"></label>`).join('')}
+      </div>
+    </section>
+
+    <section class="card">
+      <h3 class="h2">Gerar com IA</h3>
+      <p class="muted small">A IA monta a semana seguindo técnicas com evidência forte: prática de recuperação, espaçamento, intercalação e simulações perto dos exames. Depois podes ajustar à mão.</p>
+      <label class="field"><span>Notas (opcional)</span><textarea id="pl-notes" rows="3" maxlength="1000" placeholder="Ex.: trabalho às terças à tarde; o exame de FP é escrito; quero manter o alemão leve.">${esc(draft.notes || '')}</textarea></label>
+      <button class="btn btn-primary" id="pl-generate" ${storage.isConfigured() ? '' : 'disabled'}>Gerar plano semanal</button>
+      ${storage.isConfigured() ? '' : '<p class="muted small">Disponível quando a app está ligada a um projeto Supabase.</p>'}
+    </section>
+
+    <section class="card">
+      <div class="row-between"><h3 class="h2">Semana</h3><span class="muted small">${draft.weeklyPlan.length} sessões</span></div>
+      <div id="pl-week">${WEEK_ORDER.map(d => {
+        const items = draft.weeklyPlan.map((s, i) => ({ ...s, i })).filter(s => s.day === d);
+        const mins = items.reduce((a, s) => a + (s.minutes || 0), 0);
+        return `
+          <div class="pl-day">
+            <div class="row-between"><b>${DAYS[d]}</b><span class="muted small">${mins ? `${Math.round(mins / 6) / 10}h` : '—'} / ${draft.hoursPerDay[d]}h</span></div>
+            ${items.map(s => {
+              const sub = subjectById(s.subject);
+              return `<div class="pl-item"><span class="tag" style="--c:${sub.color}">${esc(sub.short)}</span>
+                <span class="pl-item-text"><b>${esc(s.session)}</b>${s.focus ? ` · ${esc(s.focus)}` : ''}</span>
+                <button class="icon-btn" data-remove-session="${s.i}" aria-label="Remover sessão"><svg class="ico"><use href="#i-close"/></svg></button></div>`;
+            }).join('')}
+          </div>`;
+      }).join('')}
+      </div>
+      <details class="pl-add">
+        <summary>+ Adicionar sessão à mão</summary>
+        <div class="field-row">
+          <label class="field"><span>Dia</span><select id="add-day">${WEEK_ORDER.map(d => `<option value="${d}">${DAYS[d]}</option>`).join('')}</select></label>
+          <label class="field"><span>Disciplina</span><select id="add-subject">${[...draft.subjects, subjectById('all')].map(s => `<option value="${esc(s.id)}">${esc(s.short)} — ${esc(s.name)}</option>`).join('')}</select></label>
+        </div>
+        <div class="field-row">
+          <label class="field"><span>Duração (min)</span><input type="number" id="add-minutes" min="10" max="600" step="5" value="50"></label>
+          <label class="field grow"><span>Atividade</span><input id="add-focus" placeholder="Ex.: exercícios mistos sem consultar"></label>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="add-session">Adicionar</button>
+      </details>
+    </section>
+
+    <section class="card">
+      <h3 class="h2">Verificação científica</h3>
+      <ul class="checks" id="pl-checks"></ul>
+    </section>
+  `;
+  bind();
+  renderChecks();
+}
+
+function renderChecks() {
+  $('pl-checks').innerHTML = checkPlan(normalizePlan(draft))
+    .map(c => `<li class="${c.ok ? 'ok' : 'warn'}"><span>${c.ok ? '✓' : '!'}</span>${esc(c.text)}</li>`).join('');
+}
+
+function bind() {
+  $('pl-example')?.addEventListener('click', () => { draft = structuredClone(EXAMPLE_PLAN); render(); });
+  $('pl-start').addEventListener('change', e => { draft.startDate = e.target.value; });
+  $('pl-exam').addEventListener('change', e => { draft.examDate = e.target.value; });
+  $('pl-notes').addEventListener('input', e => { draft.notes = e.target.value; });
+
+  $('pl-subjects').querySelectorAll('.subject-edit').forEach(row => {
+    const s = draft.subjects[Number(row.dataset.i)];
+    row.querySelectorAll('[data-k]').forEach(input => {
+      input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', () => {
+        s[input.dataset.k] = input.dataset.k === 'short' ? input.value.toUpperCase() : input.value;
+        if (input.dataset.k === 'short') row.querySelector('.tag').textContent = s.short || '?';
+        renderChecks();
+      });
+    });
+  });
+  $('pl-subjects').querySelectorAll('[data-remove-subject]').forEach(btn => btn.addEventListener('click', () => {
+    const [removed] = draft.subjects.splice(Number(btn.dataset.removeSubject), 1);
+    draft.weeklyPlan = draft.weeklyPlan.filter(s => s.subject !== removed.id);
+    render();
+  }));
+  $('pl-add-subject').addEventListener('click', () => {
+    draft.subjects.push({ id: uid(), name: '', short: '', area: 'uni', load: 'media', color: PALETTE[draft.subjects.length % PALETTE.length] });
+    render();
+    $('pl-subjects').lastElementChild?.querySelector('.se-name')?.focus();
+  });
+
+  document.querySelectorAll('[data-hours]').forEach(input => input.addEventListener('input', () => {
+    draft.hoursPerDay[Number(input.dataset.hours)] = Math.max(0, Math.min(16, Number(input.value) || 0));
+    renderChecks();
+  }));
+
+  document.querySelectorAll('[data-remove-session]').forEach(btn => btn.addEventListener('click', () => {
+    draft.weeklyPlan.splice(Number(btn.dataset.removeSession), 1);
+    render();
+  }));
+  $('add-session').addEventListener('click', () => {
+    const minutes = Math.max(10, Math.min(600, Number($('add-minutes').value) || 50));
+    draft.weeklyPlan.push({
+      day: Number($('add-day').value),
+      subject: $('add-subject').value,
+      minutes,
+      session: minutes >= 50 ? `${Math.round(minutes / 50)} bloco(s) 40+10` : `${minutes} min`,
+      focus: $('add-focus').value.trim(),
+    });
+    render();
+  });
+
+  $('pl-generate').addEventListener('click', generate);
+}
+
+async function generate() {
+  const plan = normalizePlan(draft);
+  if (!plan.subjects.length || plan.subjects.some(s => !s.name.trim() || s.name === 'Sem nome')) return setStatus('Dá um nome a todas as disciplinas.', true);
+  if (!plan.startDate || !plan.examDate || plan.startDate >= plan.examDate) return setStatus('Indica a data de início e a data dos exames.', true);
+
+  const btn = $('pl-generate');
+  btn.disabled = true;
+  btn.textContent = 'A gerar… (pode demorar até 1 min)';
+  setStatus(null);
+
+  // Keep ids stable so the AI's answer maps back onto these subjects.
+  draft.subjects = plan.subjects;
+  const result = await storage.generatePlan({
+    startDate: plan.startDate,
+    examDate: plan.examDate,
+    hoursPerDay: plan.hoursPerDay,
+    subjects: plan.subjects.map(({ id, name, short, load, area }) => ({ id, name, short, load, area })),
+    notes: draft.notes || '',
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Gerar plano semanal';
+  if (!result.ok) return setStatus(result.message, true);
+
+  const generated = normalizePlan({ ...plan, weeklyPlan: result.plan.weeklyPlan, phases: result.plan.phases, tips: result.plan.tips });
+  draft = { ...draft, weeklyPlan: generated.weeklyPlan, phases: generated.phases, tips: generated.tips };
+  render();
+  setStatus(`Plano gerado. Revê a verificação abaixo e guarda.${typeof result.remaining === 'number' ? ` (${result.remaining} gerações restantes hoje)` : ''}`);
+  $('pl-week').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
