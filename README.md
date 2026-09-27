@@ -85,7 +85,7 @@ npm run build        # compila e verifica links e âncoras
 
 ## Contribuir
 
-Issues e pull requests são bem-vindos. Antes de mexer numa regra de aprendizagem, lê [os princípios](docs/ciencia/index.md): são invariantes, e cada uma tem testes.
+Issues e pull requests são bem-vindos — vê o [guia de contribuição](CONTRIBUTING.md). Antes de mexer numa regra de aprendizagem, lê [os princípios](docs/ciencia/index.md): são invariantes, e cada uma tem testes.
 
 ## Licença
 
