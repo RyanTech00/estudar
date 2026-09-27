@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## v1.1.0 — on npm, in English and with backups
 
+- **One-command install**: `npx estudar` downloads and starts the app and the Server & keys screen, without cloning the repository. Keys are stored in `~/.estudar` (or the folder given in `ESTUDAR_HOME`). Options `--port`, `--no-open`, `--help` and `--version`.
 - **The app in English and Portuguese**: all interface text, server messages and AI-generated plans follow the language chosen in **Account → Language**, detected automatically from the browser.
 - **Bilingual documentation** (Portuguese and English), with screenshots in both languages.
 - A **Buy Me a Coffee** support link in the docs and the README.

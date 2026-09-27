@@ -6,12 +6,26 @@ Three steps: run it on your computer, connect the services **inside the app** an
 
 You need [Node.js](https://nodejs.org) 20 or later.
 
+In a terminal:
+
+```bash
+npx estudar
+```
+
+`npx` downloads the latest version and starts it; nothing is installed globally. If you'd rather have the command always at hand, run `npm install -g estudar` and then just `estudar`.
+
+::: details Prefer a copy of the repository?
+To change the code or contribute:
+
 ```bash
 git clone https://github.com/RyanTech00/estudar.git
 cd estudar
 npm install
 npm start
 ```
+
+It's the same server; the difference is where your keys are stored (see below).
+:::
 
 Your browser opens at `http://localhost:8787`. Click **Get started** on the welcome page.
 
@@ -20,7 +34,7 @@ With nothing else, the app already works in **local mode**: plan, timer, focus, 
 The app opens in your browser's language (English or Portuguese). To switch, go to **Account → Language**.
 
 ::: tip Port in use?
-If 8787 is taken, the server tries the next one (8788, 8789…) and prints the address in the terminal. You can also choose: `PORT=9000 npm start`.
+If 8787 is taken, the server tries the next one (8788, 8789…) and prints the address in the terminal. You can also choose: `npx estudar --port 9000`.
 :::
 
 ## 2. Connect Supabase and the AI
@@ -54,19 +68,19 @@ Choose the provider and paste the key:
 
 ### Test and save
 
-**Test** checks each connection with the values you've entered (without saving) and updates the status dots. **Save** writes them to `.dev.vars` (ignored by git) and reloads the app.
+**Test** checks each connection with the values you've entered (without saving) and updates the status dots. **Save** writes them to `.dev.vars` and reloads the app. With `npx estudar`, the file lives in the `.estudar` folder in your home directory (`~/.estudar`); in a copy of the repository, it lives in the project folder (ignored by git).
 
 ## 3. Publish to Cloudflare
 
 In step 4, **Where the app runs**, you choose:
 
-- **On this computer** — it's already working, as long as `npm start` is running.
+- **On this computer** — it's already working, as long as the terminal running Estudar is open.
 - **Cloudflare — access from anywhere**:
   1. **Connect Cloudflare account** opens the browser so you can authorise Wrangler.
   2. **Publish to Cloudflare** uploads the app to a Worker and the keys as **secrets** of that Worker. The log appears on screen.
   3. The app is live at `https://estudar.<your-account>.workers.dev` and the **Cloudflare** dot turns green.
 
-<Shot src="/screenshots/en/servidor-publicar.png" alt="Where the app runs section with Cloudflare publishing" caption="Publishing is one button. To change keys later: npm start → Server & keys → Save → Publish again." />
+<Shot src="/screenshots/en/servidor-publicar.png" alt="Where the app runs section with Cloudflare publishing" caption="Publishing is one button. To change keys later: npx estudar → Server & keys → Save → Publish again." />
 
 ::: warning First time on Cloudflare Workers?
 If your account doesn't have a `workers.dev` subdomain yet, publishing fails with a message explaining why. Open [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages**, pick a name and click **Publish** again.

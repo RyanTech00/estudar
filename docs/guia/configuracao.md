@@ -4,7 +4,7 @@ O ecrã **Conta → Servidor e chaves** é onde ligas a app aos serviços e vês
 
 | A app corre em… | O ecrã mostra |
 |---|---|
-| `npm start` no teu computador | Estado + formulários para as chaves + criação das tabelas + publicação |
+| `npx estudar` no teu computador | Estado + formulários para as chaves + criação das tabelas + publicação |
 | Cloudflare (publicada) | Estado, só leitura — as chaves são segredos do Worker e não podem ser lidas |
 | Só ficheiros estáticos | Aviso de modo local e como ligar um servidor |
 
@@ -34,11 +34,11 @@ Na folha **Conta** aparece um resumo com três pontos (Supabase, IA, Cloudflare)
 | *Modelo X não existe* | Corrige o campo **Modelo** ou deixa-o vazio para usar o padrão |
 | *Chave inválida ou sem acesso* | Confirma a chave e se tem acesso à API desse fornecedor |
 | *Conta Cloudflare não ligada* | **Ligar conta Cloudflare** e autoriza no browser |
-| *Wrangler não está instalado* | Corre `npm install` na pasta do projeto |
+| *Wrangler não está instalado* | Corre de novo com `npx estudar@latest`; numa cópia do repositório, `npm install` |
 
 ## Variáveis
 
-Localmente ficam em `.dev.vars`; no Cloudflare, como segredos do Worker. O ecrã escreve e envia estas por ti.
+Localmente ficam em `.dev.vars` (em `~/.estudar`, ou na pasta do projeto numa cópia do repositório); no Cloudflare, como segredos do Worker. O ecrã escreve e envia estas por ti.
 
 | Variável | Obrigatória | Para quê |
 |---|---|---|
@@ -54,7 +54,7 @@ Localmente ficam em `.dev.vars`; no Cloudflare, como segredos do Worker. O ecrã
 
 ## Segurança do ecrã de configuração
 
-As rotas de configuração (`/api/setup/*`) **só existem no `npm start`**, nunca no Worker publicado. Além disso:
+As rotas de configuração (`/api/setup/*`) **só existem no servidor local** (`npx estudar`), nunca no Worker publicado. Além disso:
 
 - o servidor local escuta só em `127.0.0.1`;
 - as rotas só aceitam pedidos com o `Host` e a `Origin` de `localhost` e com um cabeçalho próprio da app — outro site aberto no teu browser não as consegue usar;

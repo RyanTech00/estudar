@@ -58,7 +58,7 @@ Not for personal use: Supabase, Cloudflare Workers and Gemini have free tiers th
 
 ### Sign-in asks for an authorised domain
 
-Add the app's address under **Authentication → URL Configuration → Redirect URLs** in Supabase. The **Set up** button does this for `localhost`; the Worker's address is added automatically when you publish **if you pasted the token in that same `npm start` session** — otherwise, click **Set up** again after publishing.
+Add the app's address under **Authentication → URL Configuration → Redirect URLs** in Supabase. The **Set up** button does this for `localhost`; the Worker's address is added automatically when you publish **if you pasted the token in that same `npx estudar` session** — otherwise, click **Set up** again after publishing.
 
 ### I changed the code and can't see the changes
 

@@ -10,6 +10,7 @@
 
 <img src="docs/public/screenshots/en/hoje-desktop.png" alt="Estudar: the Today tab" width="820">
 
+[![npm](https://img.shields.io/npm/v/estudar.svg?color=cfe86a)](https://www.npmjs.com/package/estudar)
 [![License: MIT](https://img.shields.io/badge/License-MIT-cfe86a.svg)](LICENSE)
 [![PWA](https://img.shields.io/badge/PWA-offline-5fcdc2.svg)](docs/en/features/sync.md)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-f38020.svg)](https://workers.cloudflare.com)
@@ -52,13 +53,10 @@ An open-source study system for university students. It plans your week with AI,
 ## Quick start
 
 ```bash
-git clone https://github.com/RyanTech00/estudar.git
-cd estudar
-npm install
-npm start          # opens http://localhost:8787
+npx estudar        # opens http://localhost:8787 (needs Node.js 20+)
 ```
 
-In the app: **Account → Server & keys** → paste your Supabase details and AI key → **Test → Save** → **Connect Cloudflare account → Publish**. Full guide in [docs/en/guide/installation.md](docs/en/guide/installation.md).
+In the app: **Account → Server & keys** → paste your Supabase details and AI key → **Test → Save** → **Connect Cloudflare account → Publish**. Keys are stored in `~/.estudar`. Full guide in [docs/en/guide/installation.md](docs/en/guide/installation.md).
 
 With nothing configured, the app already works in local mode (data stays in the browser).
 
@@ -78,6 +76,10 @@ More in [Architecture](docs/en/architecture/index.md) and [Data model](docs/en/a
 ## Development
 
 ```bash
+git clone https://github.com/RyanTech00/estudar.git
+cd estudar
+npm install
+
 npm start            # app + API + setup screen
 npm test             # learning, degree-record and translation rules
 npm run check        # build the Worker without publishing
@@ -97,9 +99,9 @@ Issues and pull requests are welcome — see the [contributing guide](CONTRIBUTI
 
 Estudar is free and will stay free. If it saved you time — or a module — a coffee helps keep it going.
 
-<a href="https://buymeacoffee.com/ryanbarbosa"><img src="https://media.giphy.com/media/FoAQVAmLEsOz8DV2HS/giphy.gif" alt="Support me on Buy Me a Coffee" width="200"></a>
-
 <a href="https://www.buymeacoffee.com/ryanbarbosa"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=ryanbarbosa&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" alt="Buy me a coffee" /></a>
+
+<img src="docs/public/bmc-qr.webp" alt="QR code for buymeacoffee.com/ryanbarbosa" width="160">
 
 ## License
 

@@ -10,6 +10,7 @@
 
 <img src="docs/public/screenshots/hoje-desktop.png" alt="Estudar: o separador Hoje" width="820">
 
+[![npm](https://img.shields.io/npm/v/estudar.svg?color=cfe86a)](https://www.npmjs.com/package/estudar)
 [![Licença: MIT](https://img.shields.io/badge/Licen%C3%A7a-MIT-cfe86a.svg)](LICENSE)
 [![PWA](https://img.shields.io/badge/PWA-offline-5fcdc2.svg)](docs/funcionalidades/sincronizacao.md)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-f38020.svg)](https://workers.cloudflare.com)
@@ -52,13 +53,10 @@ Um sistema de estudo open source para o ensino superior. Organiza a semana com I
 ## Início rápido
 
 ```bash
-git clone https://github.com/RyanTech00/estudar.git
-cd estudar
-npm install
-npm start          # abre http://localhost:8787
+npx estudar        # abre http://localhost:8787 (precisa do Node.js 20+)
 ```
 
-Na app: **Conta → Servidor e chaves** → cola o Supabase e a chave de IA → **Testar → Guardar** → **Ligar conta Cloudflare → Publicar**. Guia completo em [docs/guia/instalacao.md](docs/guia/instalacao.md).
+Na app: **Conta → Servidor e chaves** → cola o Supabase e a chave de IA → **Testar → Guardar** → **Ligar conta Cloudflare → Publicar**. As chaves ficam em `~/.estudar`. Guia completo em [docs/guia/instalacao.md](docs/guia/instalacao.md).
 
 Sem configurar nada, a app já funciona em modo local (dados só no browser).
 
@@ -77,6 +75,10 @@ Mais em [Arquitetura](docs/arquitetura/index.md) e [Modelo de dados](docs/arquit
 ## Desenvolvimento
 
 ```bash
+git clone https://github.com/RyanTech00/estudar.git
+cd estudar
+npm install
+
 npm start            # app + API + ecrã de configuração
 npm test             # regras de aprendizagem e do percurso
 npm run check        # build do Worker sem publicar
@@ -96,9 +98,9 @@ Issues e pull requests são bem-vindos — vê o [guia de contribuição](CONTRI
 
 O Estudar é grátis e continua a ser. Se te poupou tempo — ou uma cadeira —, um café ajuda a mantê-lo.
 
-<a href="https://buymeacoffee.com/ryanbarbosa"><img src="https://media.giphy.com/media/FoAQVAmLEsOz8DV2HS/giphy.gif" alt="Apoia-me no Buy Me a Coffee" width="200"></a>
-
 <a href="https://www.buymeacoffee.com/ryanbarbosa"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=ryanbarbosa&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" alt="Buy me a coffee" /></a>
+
+<img src="docs/public/bmc-qr.webp" alt="Código QR para buymeacoffee.com/ryanbarbosa" width="160">
 
 ## Licença
 

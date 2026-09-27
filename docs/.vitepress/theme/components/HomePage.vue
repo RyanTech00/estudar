@@ -6,8 +6,7 @@ import { PT_TO_EN } from '../locale-paths'
 const REPO = 'https://github.com/RyanTech00/estudar'
 const BMC = 'https://buymeacoffee.com/ryanbarbosa'
 const BMC_BUTTON = 'https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=ryanbarbosa&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff'
-const BMC_GIF = 'https://media.giphy.com/media/FoAQVAmLEsOz8DV2HS/giphy.gif'
-const INSTALL = 'git clone https://github.com/RyanTech00/estudar && cd estudar && npm install && npm start'
+const INSTALL = 'npx estudar'
 
 const { lang } = useData()
 const en = computed(() => lang.value.startsWith('en'))
@@ -23,7 +22,7 @@ function copyInstall() {
 }
 
 const PT = {
-  pill: '✨ v1.0 — percurso académico, testes de controlo e configuração na app →',
+  pill: '✨ v1.1 — npx estudar, em inglês e com cópia de segurança →',
   subtitle: 'Estuda para lembrar no dia do exame — não só no dia em que estudas.',
   tagline: 'Um sistema de estudo open source que segue o que a investigação sobre aprendizagem mostra que funciona, e mede o que sabes <strong>sem ajuda</strong>.',
   start: 'Começar', github: 'Ver no GitHub', copy: 'copiar', copiedLabel: '✓ copiado', copyTitle: 'Copiar', copiedTitle: 'Copiado!',
@@ -71,7 +70,7 @@ const PT = {
   quickTitle: 'Início rápido',
   quick1: '1. Corre no teu computador',
   quickComment: '# abre http://localhost:8787',
-  quick1Note: 'Sem mais nada, a app já funciona em modo local (dados só no browser).',
+  quick1Note: 'Precisas do Node.js 20 ou mais recente. Sem mais nada, a app já funciona em modo local (dados só no browser).',
   quick2: '2. Liga o Supabase e a IA — dentro da app',
   quick2Text: 'Em <strong>Conta → Servidor e chaves</strong> colas o URL do Supabase e a chave da IA (o Gemini tem nível gratuito). Um botão cria as tabelas; o painel de estado fica verde.',
   quick3: '3. Publica no Cloudflare',
@@ -91,13 +90,12 @@ const PT = {
   supportTitle: 'Apoiar o projeto',
   supportText: 'O Estudar é grátis e continua a ser. Se te poupou tempo — ou uma cadeira —, um café ajuda a mantê-lo e a pagar as horas de desenvolvimento.',
   supportQr: 'Ou lê o código com o telemóvel',
-  altGif: 'Animação: apoia-me no Buy Me a Coffee',
   altQr: 'Código QR para buymeacoffee.com/ryanbarbosa',
 }
 
 type Copy = typeof PT
 const EN: Copy = {
-  pill: '✨ v1.0 — degree record, closed-book tests and in-app setup →',
+  pill: '✨ v1.1 — npx estudar, in English and with backups →',
   subtitle: 'Study to remember on exam day — not just on the day you study.',
   tagline: 'An open-source study system that follows what learning research shows actually works, and measures what you know <strong>unaided</strong>.',
   start: 'Get started', github: 'View on GitHub', copy: 'copy', copiedLabel: '✓ copied', copyTitle: 'Copy', copiedTitle: 'Copied!',
@@ -145,7 +143,7 @@ const EN: Copy = {
   quickTitle: 'Quick start',
   quick1: '1. Run it on your computer',
   quickComment: '# opens http://localhost:8787',
-  quick1Note: 'With nothing else, the app already works in local mode (data stays in the browser).',
+  quick1Note: 'You need Node.js 20 or newer. With nothing else, the app already works in local mode (data stays in the browser).',
   quick2: '2. Connect Supabase and the AI — inside the app',
   quick2Text: 'In <strong>Account → Server &amp; keys</strong>, paste your Supabase URL and AI key (Gemini has a free tier). One button creates the tables; the status panel turns green.',
   quick3: '3. Publish to Cloudflare',
@@ -165,7 +163,6 @@ const EN: Copy = {
   supportTitle: 'Support the project',
   supportText: 'Estudar is free and will stay free. If it saved you time — or a module — a coffee helps keep it going and pays for the development hours.',
   supportQr: 'Or scan the code with your phone',
-  altGif: 'Animation: support me on Buy Me a Coffee',
   altQr: 'QR code for buymeacoffee.com/ryanbarbosa',
 }
 
@@ -203,7 +200,7 @@ const cell = (v: boolean | string) => (v === true ? '✅' : v === false ? '—' 
           <a :href="REPO" class="btn alt" target="_blank" rel="noopener">{{ c.github }}</a>
         </div>
         <button class="install" @click="copyInstall" :title="copied ? c.copiedTitle : c.copyTitle">
-          <code>git clone … &amp;&amp; npm install &amp;&amp; npm start</code>
+          <code>$ npx estudar</code>
           <span>{{ copied ? c.copiedLabel : c.copy }}</span>
         </button>
         <div class="links">
@@ -296,10 +293,7 @@ const cell = (v: boolean | string) => (v === true ? '✅' : v === false ? '—' 
       <div class="container narrow">
         <h2>{{ c.quickTitle }}</h2>
         <h3>{{ c.quick1 }}</h3>
-        <div class="code"><pre><code>git clone https://github.com/RyanTech00/estudar.git
-cd estudar
-npm install
-npm start          {{ c.quickComment }}</code></pre></div>
+        <div class="code"><pre><code>npx estudar          {{ c.quickComment }}</code></pre></div>
         <p>{{ c.quick1Note }}</p>
         <h3>{{ c.quick2 }}</h3>
         <p v-html="c.quick2Text"></p>
@@ -345,8 +339,7 @@ npm start          {{ c.quickComment }}</code></pre></div>
         <p>{{ c.supportText }}</p>
         <div class="support">
           <a :href="BMC" target="_blank" rel="noopener" class="support-main">
-            <img class="bmc-gif" :src="BMC_GIF" :alt="c.altGif" width="240" height="240" loading="lazy" />
-            <img class="bmc-button" :src="BMC_BUTTON" alt="Buy me a coffee" height="50" loading="lazy" />
+            <img class="bmc-button" :src="BMC_BUTTON" alt="Buy me a coffee" height="60" loading="lazy" />
           </a>
           <div class="support-qr">
             <img :src="withBase('/bmc-qr.webp')" :alt="c.altQr" width="180" height="180" loading="lazy" />
@@ -448,10 +441,9 @@ table:has(th:nth-child(3):last-child) td { white-space: normal; }
 .code pre { margin: 0; padding: 16px 18px; }
 .code code { font-size: 13px; line-height: 1.7; background: none; color: var(--vp-c-text-1); }
 
-.support { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 32px; margin-top: 28px; }
+.support { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 40px; margin-top: 28px; }
 .support-main { display: flex; flex-direction: column; align-items: center; gap: 16px; text-decoration: none; }
-.bmc-gif { width: 200px; height: auto; border-radius: 16px; }
-.bmc-button { height: 50px; width: auto; transition: transform .12s; }
+.bmc-button { height: 60px; width: auto; transition: transform .12s; }
 .support-main:hover .bmc-button { transform: translateY(-2px); }
 .support-qr { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .support-qr img { width: 180px; height: auto; border-radius: 14px; background: #fff; padding: 8px; }

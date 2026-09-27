@@ -4,7 +4,16 @@ Três passos: correr no teu computador, ligar os serviços **dentro da app** e p
 
 ## 1. Correr no teu computador
 
-Precisas do [Node.js](https://nodejs.org) 20 ou mais recente.
+Precisas do [Node.js](https://nodejs.org) 20 ou mais recente. Num terminal:
+
+```bash
+npx estudar
+```
+
+O `npx` descarrega a versão mais recente e arranca-a; não fica nada instalado globalmente. Se preferires o comando sempre à mão, `npm install -g estudar` e depois só `estudar`.
+
+::: details Preferes uma cópia do repositório?
+Para mexer no código ou contribuir:
 
 ```bash
 git clone https://github.com/RyanTech00/estudar.git
@@ -13,6 +22,9 @@ npm install
 npm start
 ```
 
+É o mesmo servidor; a diferença é onde ficam as chaves (ver abaixo).
+:::
+
 O browser abre em `http://localhost:8787`. Carrega em **Começar** na página de apresentação.
 
 Sem mais nada, a app já funciona em **modo local**: plano, timer, foco, registos e percurso, com os dados guardados só neste browser. Para teres conta, sincronização e IA, continua.
@@ -20,7 +32,7 @@ Sem mais nada, a app já funciona em **modo local**: plano, timer, foco, registo
 A app abre na língua do browser (português ou inglês). Para mudar, vai a **Conta → Idioma**.
 
 ::: tip Porta ocupada?
-Se a 8787 estiver em uso, o servidor experimenta a seguinte (8788, 8789…) e mostra o endereço no terminal. Também podes escolher: `PORT=9000 npm start`.
+Se a 8787 estiver em uso, o servidor experimenta a seguinte (8788, 8789…) e mostra o endereço no terminal. Também podes escolher: `npx estudar --port 9000`.
 :::
 
 ## 2. Ligar o Supabase e a IA
@@ -54,19 +66,19 @@ Escolhe o fornecedor e cola a chave:
 
 ### Testar e guardar
 
-**Testar** verifica cada ligação com os valores escritos (sem guardar) e atualiza os pontos de estado. **Guardar** grava em `.dev.vars` (ignorado pelo git) e recarrega a app.
+**Testar** verifica cada ligação com os valores escritos (sem guardar) e atualiza os pontos de estado. **Guardar** grava em `.dev.vars` e recarrega a app. Com o `npx estudar`, o ficheiro fica na pasta `.estudar` da tua pasta pessoal (`~/.estudar`); numa cópia do repositório, fica na pasta do projeto (ignorado pelo git).
 
 ## 3. Publicar no Cloudflare
 
 No passo 4, **Onde a app corre**, escolhes:
 
-- **Neste computador** — já está a funcionar, enquanto o `npm start` estiver aberto.
+- **Neste computador** — já está a funcionar, enquanto o terminal com o Estudar estiver aberto.
 - **Cloudflare — acesso de qualquer lado**:
   1. **Ligar conta Cloudflare** abre o browser para autorizares o Wrangler.
   2. **Publicar no Cloudflare** envia a app para um Worker e as chaves como **segredos** desse Worker. O log aparece no ecrã.
   3. A app fica em `https://estudar.<a-tua-conta>.workers.dev` e o ponto **Cloudflare** fica verde.
 
-<Shot src="/screenshots/servidor-publicar.png" alt="Secção Onde a app corre com a publicação no Cloudflare" caption="Publicar é um botão. Para mudar chaves mais tarde: npm start → Servidor e chaves → Guardar → Publicar de novo." />
+<Shot src="/screenshots/servidor-publicar.png" alt="Secção Onde a app corre com a publicação no Cloudflare" caption="Publicar é um botão. Para mudar chaves mais tarde: npx estudar → Servidor e chaves → Guardar → Publicar de novo." />
 
 ::: warning Primeira vez no Cloudflare Workers?
 Se a tua conta ainda não tiver um subdomínio `workers.dev`, a publicação falha com uma mensagem a explicar. Abre [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages**, escolhe um nome e carrega outra vez em **Publicar**.

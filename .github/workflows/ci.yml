@@ -17,6 +17,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - run: npm pack --dry-run
 
   worker:
     name: Worker (build sem publicar)

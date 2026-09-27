@@ -133,7 +133,7 @@ function render() {
         <h3 class="h2">${t('Ligar um servidor')}</h3>
         <p class="muted small">${t('Esta cópia está a correr só com ficheiros estáticos, por isso os dados ficam apenas neste browser. Para teres conta, sincronização e IA:')}</p>
         <ol class="steps">
-          <li>${t('No teu computador, abre a pasta do projeto e corre <code>npm install</code> e depois <code>npm start</code>.')}</li>
+          <li>${t('No teu computador, corre <code>npx estudar</code> num terminal (precisas do <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> 20 ou mais recente).')}</li>
           <li>${t('Abre o endereço que aparece (ex. <code>http://localhost:8787</code>) e volta a este ecrã: vais poder colar as chaves e publicar no Cloudflare com um clique.')}</li>
         </ol>
       </section>`;
@@ -141,7 +141,7 @@ function render() {
     body.innerHTML = statusCard + `
       <section class="card">
         <h3 class="h2">${t('Alterar chaves')}</h3>
-        <p class="muted small">${t('As chaves estão guardadas como segredos no Worker do Cloudflare e não podem ser vistas daqui. Para as mudar, corre <code>npm start</code> no teu computador, abre <b>Conta → Servidor e chaves</b>, altera e carrega em <b>Publicar</b> outra vez.')}</p>
+        <p class="muted small">${t('As chaves estão guardadas como segredos no Worker do Cloudflare e não podem ser vistas daqui. Para as mudar, corre <code>npx estudar</code> no teu computador, abre <b>Conta → Servidor e chaves</b>, altera e carrega em <b>Publicar</b> outra vez.')}</p>
       </section>`;
   } else {
     body.innerHTML = statusCard + renderForms();
@@ -226,7 +226,7 @@ function renderForms() {
       <div class="where">
         <div class="where-card on">
           <b>${t('Neste computador')}</b>
-          <p class="muted small">${t('Já está a correr em <code>{url}</code>. Só funciona enquanto o <code>npm start</code> estiver aberto e só neste computador.', { url: esc(state?.localUrl || location.origin) })}</p>
+          <p class="muted small">${t('Já está a correr em <code>{url}</code>. Só funciona enquanto o terminal com o Estudar estiver aberto e só neste computador.', { url: esc(state?.localUrl || location.origin) })}</p>
         </div>
         <div class="where-card ${deploy?.url ? 'on' : ''}">
           <b>${t('Cloudflare — acesso de qualquer lado')}</b>

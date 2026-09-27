@@ -2,6 +2,7 @@ import { defineConfig, type DefaultTheme } from 'vitepress'
 
 const REPO = 'https://github.com/RyanTech00/estudar'
 const BMC = 'https://buymeacoffee.com/ryanbarbosa'
+const SITE = 'https://estudar.ryanbarbosa.com'
 
 // ── Portuguese (root) ────────────────────────────────────────────
 const ptNav: DefaultTheme.NavItem[] = [
@@ -154,6 +155,7 @@ export default defineConfig({
   cleanUrls: true,
   lastUpdated: true,
   appearance: 'dark',
+  sitemap: { hostname: SITE },
 
   locales: {
     root: {
@@ -205,7 +207,8 @@ export default defineConfig({
     ['meta', { name: 'theme-color', content: '#0d0e10' }],
     ['meta', { property: 'og:title', content: 'Estudar — estuda para lembrar no dia do exame' }],
     ['meta', { property: 'og:description', content: 'Plano semanal com IA, modo foco, testes de controlo sem consulta e percurso académico. Open source, grátis de alojar.' }],
-    ['meta', { property: 'og:image', content: '/screenshots/hoje-desktop.png' }],
+    ['meta', { property: 'og:image', content: `${SITE}/screenshots/hoje-desktop.png` }],
+    ['meta', { property: 'og:url', content: SITE }],
   ],
 
   themeConfig: {

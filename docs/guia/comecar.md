@@ -45,7 +45,7 @@ A explicação completa, com as referências, está em [Ciência da aprendizagem
 
 | Para… | Precisas de |
 |---|---|
-| Experimentar (dados só no browser) | [Node.js](https://nodejs.org) 20+ e `npm start` |
+| Experimentar (dados só no browser) | [Node.js](https://nodejs.org) 20+ e `npx estudar` |
 | Conta, sincronização entre dispositivos | Um projeto [Supabase](https://supabase.com) (nível gratuito) |
 | Gerar planos e ler o plano de estudos por foto | Uma chave de IA — o [Gemini](https://aistudio.google.com/apikey) tem nível gratuito |
 | Aceder de qualquer lado, instalar no telemóvel | Uma conta [Cloudflare](https://dash.cloudflare.com) (nível gratuito) |
@@ -56,6 +56,6 @@ A app está em português e em inglês. Na primeira abertura segue a língua do 
 
 ## Próximos passos
 
-- [Instalação](/guia/instalacao) — do `git clone` à app publicada, em minutos.
+- [Instalação](/guia/instalacao) — do `npx estudar` à app publicada, em minutos.
 - [O primeiro plano](/guia/primeiro-plano) — do plano de exemplo ao teu, gerado pela IA.
 - [O dia a dia](/guia/dia-a-dia) — como usar a app para tirar o máximo do método.

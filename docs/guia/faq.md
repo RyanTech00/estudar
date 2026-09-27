@@ -58,7 +58,7 @@ Não, para uso pessoal: Supabase, Cloudflare Workers e Gemini têm níveis gratu
 
 ### O login pede um domínio autorizado
 
-Adiciona o endereço da app em **Authentication → URL Configuration → Redirect URLs** no Supabase. O botão **Configurar** faz isto para `localhost`; o endereço do Worker é acrescentado automaticamente ao publicar **se tiveres colado o token nessa mesma sessão** do `npm start` — senão, carrega em **Configurar** outra vez depois de publicar.
+Adiciona o endereço da app em **Authentication → URL Configuration → Redirect URLs** no Supabase. O botão **Configurar** faz isto para `localhost`; o endereço do Worker é acrescentado automaticamente ao publicar **se tiveres colado o token nessa mesma sessão** do `npx estudar` — senão, carrega em **Configurar** outra vez depois de publicar.
 
 ### Mudei o código e não vejo as alterações
 

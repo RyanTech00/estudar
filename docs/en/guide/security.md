@@ -24,9 +24,9 @@ Both tables have *Row Level Security* enabled. In `user_data`, all four operatio
 | Supabase **publishable/anon** | Worker secret; served by `/api/config` | Yes — it's made for that; RLS protects the data |
 | Supabase **secret/service_role** | Worker secret (`.dev.vars` locally) | **Never** |
 | **AI** key | Worker secret (`.dev.vars` locally) | **Never** |
-| Supabase personal token (`sbp_…`) | `npm start` memory, only during the session | **Never**, and it's never written to disk |
+| Supabase personal token (`sbp_…`) | Local server (`npx estudar`) memory, only during the session | **Never**, and it's never written to disk |
 
-`.dev.vars` and `.deploy.json` are in `.gitignore`. Only the `public/` folder is published as static files, so a secrets file in the root is never served.
+`.dev.vars` and `.deploy.json` live in `~/.estudar` (or, in a copy of the repository, in the project folder, where they are in `.gitignore`). Only the `public/` folder is published as static files, so a secrets file in the root is never served.
 
 ## What the AI sees
 

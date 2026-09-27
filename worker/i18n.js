@@ -44,7 +44,7 @@ const EN = {
   'Pedido recusado.': 'Request refused.',
   'O token deve começar por sbp_.': 'The token must start with sbp_.',
   '{k} não pode ter quebras de linha.': '{k} can\'t contain line breaks.',
-  'Wrangler não está instalado. Corre "npm install" nesta pasta.': 'Wrangler isn\'t installed. Run "npm install" in this folder.',
+  'Wrangler não está instalado. Corre de novo com "npx estudar@latest" ou, numa cópia do repositório, "npm install".': 'Wrangler isn\'t installed. Run "npx estudar@latest" again or, in a copy of the repository, "npm install".',
   'Conta Cloudflare não ligada': 'Cloudflare account not connected',
   'Ligado como {email}': 'Connected as {email}',
   'Conta ligada': 'Account connected',

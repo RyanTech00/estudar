@@ -1,23 +1,55 @@
-// Local server: `npm start`
+#!/usr/bin/env node
+// Local server: `npx estudar` (or `npm start` in a clone of the repository)
 // - serves the app from public/ and the same /api routes the Cloudflare Worker has
 // - adds /api/setup/* so the in-app "Servidor" screen can save keys, create the
 //   Supabase tables and publish to Cloudflare. These routes only exist here, never on the Worker.
 import http from 'node:http';
-import { readFile, writeFile, unlink, stat } from 'node:fs/promises';
+import { readFile, writeFile, unlink, stat, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { spawn, exec } from 'node:child_process';
-import { tmpdir } from 'node:os';
+import { tmpdir, homedir } from 'node:os';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleApi, health, readEnv } from '../worker/api.js';
 import { tr, langFrom } from '../worker/i18n.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const PKG = JSON.parse(await readFile(path.join(ROOT, 'package.json'), 'utf8'));
 const PUBLIC = path.join(ROOT, 'public');
-const DEV_VARS = path.join(ROOT, '.dev.vars');
-const DEPLOY_FILE = path.join(ROOT, '.deploy.json');
 const MIGRATION = path.join(ROOT, 'supabase', 'migrations', '20260927000000_init.sql');
-let PORT = Number(process.env.PORT || 8787);
+
+// In a clone of the repository, keys and deploy state live next to the code (both are in .gitignore).
+// Installed from npm, the code folder may be read-only or replaced on update, so they live in ~/.estudar.
+const IS_CHECKOUT = existsSync(path.join(ROOT, '.git'));
+const DATA = process.env.ESTUDAR_HOME ? path.resolve(process.env.ESTUDAR_HOME) : IS_CHECKOUT ? ROOT : path.join(homedir(), '.estudar');
+const DEV_VARS = path.join(DATA, '.dev.vars');
+const DEPLOY_FILE = path.join(DATA, '.deploy.json');
+
+const argv = process.argv.slice(2);
+const argValue = (name) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : undefined; };
+if (argv.includes('--version') || argv.includes('-v')) { console.log(PKG.version); process.exit(0); }
+if (argv.includes('--help') || argv.includes('-h')) {
+  console.log(`
+  estudar ${PKG.version} — ${PKG.homepage}
+
+  Usage: npx estudar [options]
+
+  Starts the app and the setup screen at http://localhost:8787.
+  Arranca a app e o ecrã de configuração em http://localhost:8787.
+
+  Options:
+    --port <n>     port to use (default 8787, or $PORT)
+    --no-open      don't open the browser
+    -v, --version  print the version
+    -h, --help     show this help
+
+  Keys and deploy state are stored in: ${DATA}
+  (set ESTUDAR_HOME to use another folder)
+`);
+  process.exit(0);
+}
+let PORT = Number(argValue('--port') || process.env.PORT || 8787);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -53,12 +85,13 @@ async function readVars() {
 }
 
 async function writeVars(vars) {
-  const lines = ['# Written by the Estudar setup screen. Keep this file private (it is in .gitignore).'];
+  const lines = ['# Written by the Estudar setup screen. Keep this file private: it holds your keys.'];
   for (const [k, v] of Object.entries(vars)) {
     if (v === undefined || v === '') continue;
     lines.push(`${k}="${String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`);
   }
-  await writeFile(DEV_VARS, lines.join('\n') + '\n', 'utf8');
+  await mkdir(DATA, { recursive: true, mode: 0o700 });
+  await writeFile(DEV_VARS, lines.join('\n') + '\n', { encoding: 'utf8', mode: 0o600 });
 }
 
 const mask = (v) => (v ? `••••${v.slice(-4)}` : '');
@@ -92,9 +125,38 @@ async function readDeploy() {
 }
 
 // ── Wrangler ─────────────────────────────────────────────────
+// Wrangler is a dependency; run its CLI with this same Node, with no shell and no npx lookup.
+function wranglerBin() {
+  try {
+    const require = createRequire(import.meta.url);
+    return path.join(path.dirname(require.resolve('wrangler/package.json')), 'bin', 'wrangler.js');
+  } catch { return null; }
+}
+
+// In a clone, wrangler.jsonc is used as is. Installed from npm, a copy with absolute paths is written
+// to DATA, so Wrangler's own cache (.wrangler/) goes there and not into the package folder.
+async function wranglerConfig() {
+  const src = path.join(ROOT, 'wrangler.jsonc');
+  if (DATA === ROOT) return src;
+  const cfg = JSON.parse((await readFile(src, 'utf8')).replace(/^\s*\/\/.*$/gm, ''));
+  delete cfg.$schema;
+  cfg.main = path.join(ROOT, cfg.main);
+  cfg.assets.directory = path.join(ROOT, cfg.assets.directory);
+  const out = path.join(DATA, 'wrangler.json');
+  await mkdir(DATA, { recursive: true, mode: 0o700 });
+  await writeFile(out, JSON.stringify(cfg, null, 2));
+  return out;
+}
+
+async function wranglerWithConfig(args, opts) {
+  return wrangler([...args, '--config', await wranglerConfig()], opts);
+}
+
 function wrangler(args, { onData } = {}) {
   return new Promise((resolve) => {
-    const child = spawn('npx', ['--no-install', 'wrangler', ...args], { cwd: ROOT, shell: true, env: { ...process.env, CI: '1', FORCE_COLOR: '0' } });
+    const bin = wranglerBin();
+    if (!bin) return resolve({ code: 1, out: 'wrangler not installed' });
+    const child = spawn(process.execPath, [bin, ...args], { cwd: DATA, env: { ...process.env, CI: '1', FORCE_COLOR: '0' } });
     let out = '';
     const onChunk = (d) => { const s = d.toString().replace(/\x1b\[[0-9;]*m/g, ''); out += s; onData?.(s); };
     child.stdout.on('data', onChunk);
@@ -109,13 +171,13 @@ async function cloudflareStatus(force = false, lang = 'pt') {
   if (!cloudflareCache || force || Date.now() - cloudflareCache.at > 60000) {
     const { code, out } = await wrangler(['whoami']);
     let value;
-    if (/not installed|could not determine executable|npm ERR/i.test(out) && code !== 0) value = { state: 'missing' };
+    if (/wrangler not installed/i.test(out) && code !== 0) value = { state: 'missing' };
     else if (/not logged in|not authenticated/i.test(out) || code !== 0) value = { state: 'out' };
     else value = { state: 'in', email: out.match(/email\s+([^\s]+@[^\s.]+\.[^\s]+)/i)?.[1] || out.match(/([\w.+-]+@[\w-]+\.[\w.]+)/)?.[1] || '' };
     cloudflareCache = { at: Date.now(), value };
   }
   const v = cloudflareCache.value;
-  if (v.state === 'missing') return { ok: false, loggedIn: false, message: tr(lang, 'Wrangler não está instalado. Corre "npm install" nesta pasta.') };
+  if (v.state === 'missing') return { ok: false, loggedIn: false, message: tr(lang, 'Wrangler não está instalado. Corre de novo com "npx estudar@latest" ou, numa cópia do repositório, "npm install".') };
   if (v.state === 'out') return { ok: false, loggedIn: false, message: tr(lang, 'Conta Cloudflare não ligada') };
   return { ok: true, loggedIn: true, message: v.email ? tr(lang, 'Ligado como {email}', { email: v.email }) : tr(lang, 'Conta ligada') };
 }
@@ -143,7 +205,7 @@ async function startDeploy(lang = 'pt') {
 
   (async () => {
     log(`${tr(lang, '▶ A publicar a app no Cloudflare…')}\n`);
-    const deploy = await wrangler(['deploy'], { onData: log });
+    const deploy = await wranglerWithConfig(['deploy'], { onData: log });
     if (deploy.code !== 0) {
       if (/workers\.dev subdomain/i.test(deploy.out)) {
         log(`\n${tr(lang, '→ A tua conta ainda não tem um subdomínio workers.dev. Abre dash.cloudflare.com → Workers & Pages, escolhe um nome e tenta de novo.')}\n`);
@@ -158,7 +220,7 @@ async function startDeploy(lang = 'pt') {
     for (const k of Object.keys(FIELDS)) if (vars[k]) secrets[k] = vars[k];
     const file = path.join(tmpdir(), `estudar-secrets-${process.pid}-${Date.now()}.json`);
     await writeFile(file, JSON.stringify(secrets), { encoding: 'utf8', mode: 0o600 });
-    const bulk = await wrangler(['secret', 'bulk', `"${file}"`], { onData: (s) => log(s.replace(/"[^"]{20,}"/g, '"••••"')) });
+    const bulk = await wranglerWithConfig(['secret', 'bulk', file], { onData: (s) => log(s.replace(/"[^"]{20,}"/g, '"••••"')) });
     await unlink(file).catch(() => {});
     if (bulk.code !== 0) {
       Object.assign(job, { running: false, ok: false });
@@ -166,6 +228,7 @@ async function startDeploy(lang = 'pt') {
     }
 
     if (job.url) {
+      await mkdir(DATA, { recursive: true, mode: 0o700 });
       await writeFile(DEPLOY_FILE, JSON.stringify({ url: job.url, deployedAt: new Date().toISOString() }, null, 2));
       if (sessionAccessToken) {
         log(`\n${tr(lang, '▶ A autorizar o novo endereço no Supabase…')}\n`);
@@ -393,8 +456,10 @@ function listen(attempt = 0) {
     const url = `http://localhost:${PORT}`;
     console.log(`\n  Estudar: ${url}`);
     console.log('  PT: abre a app e vai a Conta → Servidor e chaves.');
-    console.log('  EN: open the app and go to Account → Server & keys.\n');
-    if (!process.argv.includes('--no-open')) {
+    console.log('  EN: open the app and go to Account → Server & keys.');
+    if (DATA !== ROOT) console.log(`  ${DATA}`);
+    console.log('');
+    if (!argv.includes('--no-open')) {
       const opener = process.platform === 'win32' ? `start "" "${url}"` : process.platform === 'darwin' ? `open "${url}"` : `xdg-open "${url}"`;
       exec(opener);
     }

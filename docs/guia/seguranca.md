@@ -24,9 +24,9 @@ As duas tabelas têm *Row Level Security* ativa. Em `user_data`, as quatro opera
 | Supabase **publishable/anon** | Segredo do Worker; entregue por `/api/config` | Sim — foi feita para isso; a RLS protege os dados |
 | Supabase **secret/service_role** | Segredo do Worker (`.dev.vars` localmente) | **Nunca** |
 | Chave da **IA** | Segredo do Worker (`.dev.vars` localmente) | **Nunca** |
-| Token pessoal do Supabase (`sbp_…`) | Memória do `npm start`, só durante a sessão | **Nunca** e nunca é gravado |
+| Token pessoal do Supabase (`sbp_…`) | Memória do servidor local (`npx estudar`), só durante a sessão | **Nunca** e nunca é gravado |
 
-`.dev.vars` e `.deploy.json` estão no `.gitignore`. Só a pasta `public/` é publicada como ficheiros estáticos, por isso um ficheiro de segredos na raiz nunca é servido.
+`.dev.vars` e `.deploy.json` ficam em `~/.estudar` (ou, numa cópia do repositório, na pasta do projeto, onde estão no `.gitignore`). Só a pasta `public/` é publicada como ficheiros estáticos, por isso um ficheiro de segredos na raiz nunca é servido.
 
 ## O que a IA vê
 

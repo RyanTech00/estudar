@@ -1,7 +1,8 @@
 # Changelog
 
-## Por publicar
+## v1.1.0 — no npm, em inglês e com cópia de segurança
 
+- **Instalação com um comando**: `npx estudar` descarrega e arranca a app e o ecrã Servidor e chaves, sem clonar o repositório. As chaves ficam em `~/.estudar` (ou na pasta indicada em `ESTUDAR_HOME`). Opções `--port`, `--no-open`, `--help` e `--version`.
 - **A app em português e inglês**: todo o texto da interface, as mensagens do servidor e os planos gerados pela IA seguem o idioma escolhido em **Conta → Idioma**, detetado automaticamente pelo browser.
 - **Documentação bilingue** (português e inglês), com capturas de ecrã nas duas línguas.
 - Ligação de apoio **Buy Me a Coffee** na documentação e no README.
