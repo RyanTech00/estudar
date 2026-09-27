@@ -42,6 +42,18 @@ Offline, tudo funciona com a cópia local: plano, timer, registos, percurso. A s
 - **iPhone (Safari)**: Partilhar → **Adicionar ao ecrã principal**.
 - **Computador (Chrome/Edge)**: ícone de instalar na barra de endereço.
 
+## Cópia de segurança
+
+Em **Conta → Exportar cópia** descarregas um ficheiro `estudar-AAAA-MM-DD.json` com tudo: plano, registos, percurso e definições (sem o identificador da conta). **Importar cópia** junta-o ao que tens, com as mesmas regras de quando entras num dispositivo novo:
+
+- os registos de tentativas juntam-se — importar duas vezes não duplica nada;
+- sessões, minutos e checklist juntam-se por dia;
+- no plano, no percurso e nas definições fica a versão mais recente.
+
+Antes de juntar, a app mostra o que o ficheiro traz e pede confirmação. O ficheiro é tratado como não confiável: linhas inválidas (acertos acima das tentativas, notas fora de 0–20, datas mal formadas) são descartadas.
+
+Serve para guardar uma cópia fora do Supabase, para mudar de projeto Supabase ou para passar os dados de modo local para uma conta.
+
 ## Terminar sessão
 
 Apaga a cópia local neste dispositivo (dados, timer e sessão). Os dados continuam na tua conta.

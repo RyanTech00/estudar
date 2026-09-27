@@ -163,6 +163,15 @@ export async function importCurriculumImage(dataUrl) {
   }
 }
 
+// ── Backup import ──────────────────────
+// Same merge rules as signing in on a new device: attempts are unioned, nothing is blindly replaced.
+export function importData(imported) {
+  const local = loadData();
+  const merged = mergeData(local, { ...getDefaults(), ...imported });
+  merged.owner = local.owner;
+  saveData(merged);
+}
+
 // ── Checklist / config ─────────────────
 export function getWeekChecklist(weekNum) {
   const key = `W${String(weekNum).padStart(2, '0')}`;

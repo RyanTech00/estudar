@@ -8,6 +8,7 @@ import { setupLog, openBlockLog, openProbeSetup, openExamGrade } from './logshee
 import { subjectPriorities, eveOfExam, examDateOf, daysUntil, FINAL_WINDOW_DAYS } from './learning.js';
 import { enrichWithCurriculum, planSubjectsFromCurriculum, needsRetakeDate } from './curriculum.js';
 import { setupPercurso, openPercurso, openSemester, renderPercursoCard } from './percurso.js';
+import { buildBackup, parseBackup, backupFilename } from './backup.js';
 
 const $ = (id) => document.getElementById(id);
 const RING_C = 2 * Math.PI * 118;
@@ -588,6 +589,37 @@ function setupSettings() {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') openSettings(false); });
 
   $('btn-settings-plan').addEventListener('click', () => { openSettings(false); editPlan(); });
+
+  $('btn-export').addEventListener('click', () => {
+    const blob = new Blob([buildBackup(storage.loadData())], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = backupFilename();
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast('Cópia de segurança exportada');
+  });
+
+  $('btn-import').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const r = parseBackup(await file.text());
+    if (!r.ok) return toast(r.message);
+    const s = r.summary;
+    const when = r.exportedAt ? ` de ${new Date(r.exportedAt).toLocaleDateString('pt-PT')}` : '';
+    if (!confirm(`Juntar esta cópia${when} ao que já tens?
+
+${s.attempts} registos · ${s.days} dias de estudo · ${s.subjects} disciplinas no plano · ${s.ucs} UCs no percurso
+
+Nada é apagado: os registos juntam-se e, no plano e no percurso, fica a versão mais recente.`)) return;
+    storage.importData(r.data);
+    openSettings(false);
+    loadPlan();
+    applyTimerConfig();
+    renderAll();
+    toast('Cópia importada');
+  });
   $('btn-settings-server').addEventListener('click', () => { openSettings(false); openServerScreen(); });
 
   $('btn-toggle-sound').addEventListener('click', () => {

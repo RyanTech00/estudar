@@ -10,6 +10,7 @@ Os testes cobrem as regras que decidem **o que conta como aprendizagem** e **as 
 |---|---|
 | `tests/learning.test.mjs` | Domínio só de testes sem ajuda (R7); prática com ajuda à parte; aviso de dependência; excesso de confiança (R6) e a ordem do Progresso; distribuição ECTS × défice com mínimo de 10% (R9); prioridade do exame próximo e véspera (R3); base fraca dá tempo sem mexer no domínio |
 | `tests/curriculum.test.mjs` | Média por ECTS truncada (verificada contra um histórico real: 16,57 com 78 ECTS); nota para não baixar e para um objetivo; grupos de escolha; arredondamento oficial; avaliação distribuída com mínimos; recurso e época especial; próxima prova; pré-requisitos; ligação percurso → plano |
+| `tests/backup.test.mjs` | A cópia de segurança recupera tudo menos o dono; ficheiros de outra app, não-JSON ou de versões futuras são recusados; linhas inválidas descartadas |
 | `tests/import.test.mjs` | A saída da IA na importação por foto é limpa (notas 0–20, datas ISO, linhas vazias fora); só imagens JPEG/PNG/WebP |
 
 ## Mutações

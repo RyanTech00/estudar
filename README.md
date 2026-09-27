@@ -33,7 +33,7 @@ Um sistema de estudo open source para o ensino superior. Organiza a semana com I
 - **Calibração** — as disciplinas onde a confiança te engana sobem para o topo.
 - **Percurso académico** — importação por foto, média por ECTS, nota para não baixar, provas com pesos e mínimos, recurso e época especial, pré-requisitos, relatório de semestre.
 - **Configuração dentro da app** — chaves, tabelas e publicação no Cloudflare num ecrã, com um ponto de estado por serviço.
-- **Sincronização e offline** — telemóvel ↔ computador em tempo real; PWA instalável.
+- **Sincronização e offline** — telemóvel ↔ computador em tempo real; PWA instalável; cópia de segurança em JSON.
 
 <table>
   <tr>

@@ -1,5 +1,10 @@
 # Changelog
 
+## Por publicar
+
+- **Cópia de segurança**: exportar todos os dados para um ficheiro JSON e importá-lo, juntando com o que já existe (sem duplicar registos). O ficheiro é validado e as linhas inválidas são descartadas.
+- A folha da Conta passa a deslizar em ecrãs pequenos.
+
 ## v1.0.0 — primeira versão pública
 
 ### Aprendizagem

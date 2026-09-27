@@ -317,7 +317,7 @@ body.focus-active { overflow: hidden; }
 .sheet {
   width: 100%; max-width: 480px; background: var(--surface); border: 1px solid var(--line); border-bottom: 0;
   border-radius: 24px 24px 0 0; padding: 20px 20px calc(var(--safe-b) + 20px);
-  display: flex; flex-direction: column; gap: 14px;
+  display: flex; flex-direction: column; gap: 14px; max-height: 92dvh; overflow-y: auto;
   transform: translateY(24px); transition: transform .25s ease;
 }
 #settings-panel.active .sheet { transform: none; }
@@ -651,3 +651,6 @@ body.intro { overflow: hidden; }
 .pc-report-lines { margin-top: 10px; color: #cfccc4; line-height: 1.55; }
 .spark { display: flex; align-items: flex-end; gap: 3px; height: 36px; margin-top: 10px; }
 .spark i { flex: 1; max-width: 14px; border-radius: 3px 3px 0 0; }
+
+.backup-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.backup-row .btn { width: 100%; }

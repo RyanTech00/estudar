@@ -43,6 +43,7 @@ public/                  a app — a única pasta publicada como ficheiros está
   js/logsheet.js         registo do bloco, testes de controlo, nota de exame
   js/percurso.js         percurso: importação por foto, editor de UCs, relatório
   js/setup.js            ecrã Servidor e chaves + painel de estado
+  js/backup.js           formato da cópia de segurança (exportar / validar)
   js/storage.js          dados locais + Supabase (auth, sync, realtime)
   js/data.js             plano de exemplo, normalização, datas
   js/timer.js            timer pelo relógio (sobrevive a segundo plano e fecho)
