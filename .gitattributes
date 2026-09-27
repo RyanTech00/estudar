@@ -1,0 +1,2 @@
+# The npm bin needs an LF shebang line to run on macOS and Linux.
+setup/server.mjs text eol=lf
