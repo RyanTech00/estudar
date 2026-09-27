@@ -11,3 +11,9 @@ Thumbs.db
 .deploy.json
 .wrangler/
 supabase/.temp/
+
+# Docs site
+docs/node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+/.vitepress/

@@ -1,0 +1,146 @@
+/**
+ * Estudar docs — same palette as the app (graphite + lime accent)
+ * Typography: Fira Code (headings/mono) + Fira Sans (body)
+ */
+
+:root {
+  --vp-c-brand-1: #5b7a0f;
+  --vp-c-brand-2: #6d9112;
+  --vp-c-brand-3: #86b01a;
+  --vp-c-brand-soft: rgba(109, 145, 18, 0.14);
+
+  --vp-c-bg: #fbfaf7;
+  --vp-c-bg-soft: #f2f0ea;
+  --vp-c-bg-alt: #f2f0ea;
+  --vp-c-bg-elv: #ffffff;
+
+  --vp-c-text-1: #16171a;
+  --vp-c-text-2: #3d3f45;
+  --vp-c-text-3: #6b6962;
+
+  --vp-c-border: #e4e1d8;
+  --vp-c-divider: #e4e1d8;
+  --vp-c-gutter: #f2f0ea;
+
+  --vp-c-tip-1: #5b7a0f;
+  --vp-c-tip-soft: rgba(109, 145, 18, 0.12);
+  --vp-c-warning-1: #9a6a10;
+  --vp-c-warning-soft: rgba(232, 182, 90, 0.18);
+  --vp-c-danger-1: #b3412c;
+  --vp-c-danger-soft: rgba(239, 122, 98, 0.14);
+
+  --vp-font-family-base: 'Fira Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --vp-font-family-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-text: #151809;
+  --vp-button-brand-bg: #cfe86a;
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-hover-text: #151809;
+  --vp-button-brand-hover-bg: #dcf07f;
+  --vp-button-brand-active-border: transparent;
+  --vp-button-brand-active-text: #151809;
+  --vp-button-brand-active-bg: #bcd65a;
+
+  --estudar-accent: #6d9112;
+  --estudar-ok: #2f8f4e;
+}
+
+.dark {
+  --vp-c-brand-1: #cfe86a;
+  --vp-c-brand-2: #dcf07f;
+  --vp-c-brand-3: #bcd65a;
+  --vp-c-brand-soft: rgba(207, 232, 106, 0.14);
+
+  --vp-c-bg: #0d0e10;
+  --vp-c-bg-soft: #15161a;
+  --vp-c-bg-alt: #111215;
+  --vp-c-bg-elv: #1c1e22;
+
+  --vp-c-text-1: #ece9e3;
+  --vp-c-text-2: #c9c6be;
+  --vp-c-text-3: #8c897f;
+
+  --vp-c-border: #272a30;
+  --vp-c-divider: #22252a;
+  --vp-c-gutter: #0a0b0c;
+
+  --vp-c-tip-1: #cfe86a;
+  --vp-c-tip-soft: rgba(207, 232, 106, 0.1);
+  --vp-c-warning-1: #e8b65a;
+  --vp-c-warning-soft: rgba(232, 182, 90, 0.12);
+  --vp-c-danger-1: #ef7a62;
+  --vp-c-danger-soft: rgba(239, 122, 98, 0.12);
+
+  --estudar-accent: #cfe86a;
+  --estudar-ok: #6fd08c;
+}
+
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.vp-doc h4 {
+  font-family: 'Fira Code', var(--vp-font-family-mono);
+  letter-spacing: -0.01em;
+}
+
+/* ── Screenshots ─────────────────────── */
+.shot {
+  margin: 24px auto;
+  max-width: 320px;
+  text-align: center;
+}
+.shot.wide { max-width: 100%; }
+.shot img {
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid var(--vp-c-border);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+.shot.wide img { border-radius: 12px; }
+.shot figcaption {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--vp-c-text-3);
+  line-height: 1.5;
+}
+.shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+.shots .shot { margin: 0; max-width: none; }
+
+/* ── Status pills in tables ──────────── */
+.st { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; white-space: nowrap; }
+.st.ok { background: rgba(111, 208, 140, 0.15); color: var(--estudar-ok); }
+.st.part { background: var(--vp-c-warning-soft); color: var(--vp-c-warning-1); }
+.st.no { background: var(--vp-c-default-soft); color: var(--vp-c-text-3); }
+
+/* ── Homepage full-width ─────────────── */
+.custom-home .VPDoc .container,
+.custom-home .VPDoc .content,
+.custom-home .VPDoc .content-container,
+.custom-home .vp-doc {
+  max-width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.custom-home .VPDoc { padding: 0 !important; }
+.custom-home .aside { display: none !important; }
+
+a:focus-visible,
+button:focus-visible,
+.VPButton:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

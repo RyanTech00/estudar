@@ -1,5 +1,8 @@
 {
   "name": "estudar",
+  "version": "1.0.0",
+  "description": "Sistema de estudo open source baseado em ciência da aprendizagem.",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {

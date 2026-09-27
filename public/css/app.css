@@ -615,7 +615,7 @@ body.intro { overflow: hidden; }
 .pc-assess .mini { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--faint); }
 .pc-assess .mini:has([data-af="date"]) { grid-column: 3 / 5; }
 @media (min-width: 640px) {
-  .pc-assess { grid-template-columns: 1.4fr .9fr .9fr 1.1fr .6fr .6fr .6fr 36px; }
+  .pc-assess { grid-template-columns: 1.3fr .95fr 1.05fr 1.25fr .55fr .55fr .55fr 36px; }
   .pc-assess [data-af="name"], .pc-assess .icon-btn, .pc-assess .mini:has([data-af="date"]) { grid-column: auto; grid-row: auto; }
 }
 .pc-computed { color: #cfccc4; line-height: 1.5; }

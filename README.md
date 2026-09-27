@@ -1,121 +1,92 @@
+<div align="center">
+
+<img src="public/icons/icon.svg" alt="Estudar" width="88">
+
 # Estudar
 
-PWA de estudo focado: plano semanal por utilizador, timer de blocos (40+10), modo foco em ecrã inteiro, progresso por disciplina e sincronização entre telemóvel e computador. O plano semanal pode ser gerado por IA a partir das tuas disciplinas, seguindo técnicas de estudo com evidência científica.
+**Estuda para lembrar no dia do exame — não só no dia em que estudas.**
 
-- **Tudo configurável dentro da app:** chaves, criação das tabelas e publicação no Cloudflare são feitas no ecrã **Conta → Servidor e chaves**, com um painel de estado (ponto verde / vermelho) para cada serviço.
-- **Corre onde quiseres:** no teu computador (`npm start`) ou publicada num Cloudflare Worker gratuito, acessível de qualquer lado.
-- **Backend:** [Supabase](https://supabase.com) para contas (login por código no email), dados e sincronização em tempo real. O nível gratuito chega.
-- **IA configurável:** Gemini (por defeito, tem nível gratuito), Claude, ou qualquer API compatível com OpenAI (OpenAI, OpenRouter, Groq…).
+<img src="docs/public/screenshots/hoje-desktop.png" alt="Estudar: o separador Hoje" width="820">
 
-## Começar (5 minutos)
+[![Licença: MIT](https://img.shields.io/badge/Licen%C3%A7a-MIT-cfe86a.svg)](LICENSE)
+[![PWA](https://img.shields.io/badge/PWA-offline-5fcdc2.svg)](docs/funcionalidades/sincronizacao.md)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-f38020.svg)](https://workers.cloudflare.com)
+[![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20Postgres-3ecf8e.svg)](https://supabase.com)
+[![Testes](https://img.shields.io/badge/testes-npm%20test-8ea7ff.svg)](docs/arquitetura/testes.md)
 
-Precisas do [Node.js](https://nodejs.org) 20 ou mais recente.
+[Documentação](docs/) · [Começar](docs/guia/comecar.md) · [A ciência](docs/ciencia/index.md) · [Arquitetura](docs/arquitetura/index.md)
+
+</div>
+
+---
+
+## O que é
+
+Um sistema de estudo open source para o ensino superior. Organiza a semana com IA, guia cada sessão em blocos de foco e mede o que sabes **sem ajuda** — porque a investigação mostra que horas de estudo e desempenho durante a prática são maus sinais de aprendizagem (Roediger & Karpicke, 2006; Rohrer & Taylor, 2007; Bastani et al.).
+
+## Funcionalidades
+
+- **Plano semanal com IA** — a partir das disciplinas, datas e horas livres, com recuperação, espaçamento e intercalação; uma **verificação científica** fixa avisa o que ajustar. Gemini, Claude ou qualquer API compatível com OpenAI.
+- **Modo foco** — blocos 40+10 em ecrã inteiro, ecrã sempre ligado, timer que sobrevive ao telemóvel fechar a app.
+- **Registo do bloco** — tentativas, confiança e ajuda usada **antes** de corrigir; acertos depois.
+- **Domínio sem ajuda** — só de testes de controlo em papel, sem consulta; prática com ajuda à parte, com aviso de dependência.
+- **Calibração** — as disciplinas onde a confiança te engana sobem para o topo.
+- **Percurso académico** — importação por foto, média por ECTS, nota para não baixar, provas com pesos e mínimos, recurso e época especial, pré-requisitos, relatório de semestre.
+- **Configuração dentro da app** — chaves, tabelas e publicação no Cloudflare num ecrã, com um ponto de estado por serviço.
+- **Sincronização e offline** — telemóvel ↔ computador em tempo real; PWA instalável.
+
+<table>
+  <tr>
+    <td><img src="docs/public/screenshots/progresso.png" alt="Domínio sem ajuda" width="200"></td>
+    <td><img src="docs/public/screenshots/registo-bloco.png" alt="Registo do bloco" width="200"></td>
+    <td><img src="docs/public/screenshots/relatorio-semestre.png" alt="Relatório de semestre" width="200"></td>
+    <td><img src="docs/public/screenshots/servidor-estado.png" alt="Servidor e chaves" width="200"></td>
+  </tr>
+</table>
+
+## Início rápido
 
 ```bash
-git clone https://github.com/<tu>/estudar.git
+git clone https://github.com/RyanTech00/estudar.git
 cd estudar
 npm install
-npm start
+npm start          # abre http://localhost:8787
 ```
 
-O browser abre em `http://localhost:8787`. Na app, vai a **Conta → Servidor e chaves** (ou carrega em **Ligar servidor** no ecrã inicial) e segue os passos:
+Na app: **Conta → Servidor e chaves** → cola o Supabase e a chave de IA → **Testar → Guardar** → **Ligar conta Cloudflare → Publicar**. Guia completo em [docs/guia/instalacao.md](docs/guia/instalacao.md).
 
-1. **Supabase:** cria um projeto grátis em [supabase.com](https://supabase.com/dashboard/new) e cola o *Project URL* e a chave pública (*publishable/anon*). Para criar as tabelas e configurar o email de login automaticamente, cola também um [token pessoal](https://supabase.com/dashboard/account/tokens) (`sbp_…`, usado só nesse momento e nunca guardado). Se preferires, o ecrã deixa copiar o SQL para o colares no *SQL Editor*.
-2. **IA:** escolhe o fornecedor e cola a chave. Para o Gemini, cria-a em [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
-3. **Testar → Guardar.** O painel de estado mostra se cada serviço responde.
-4. **Onde a app corre:**
-   - **Neste computador:** já está a funcionar, enquanto o `npm start` estiver aberto.
-   - **Cloudflare:** carrega em **Ligar conta Cloudflare** (abre o browser para autorizares) e depois em **Publicar no Cloudflare**. A app fica em `https://estudar.<a-tua-conta>.workers.dev`, com as chaves guardadas como segredos do Worker. Instala-a no telemóvel a partir desse endereço.
+Sem configurar nada, a app já funciona em modo local (dados só no browser).
 
-Para mudar chaves mais tarde, repete: `npm start` → Servidor e chaves → Guardar → Publicar de novo.
+## Como está feito
 
-### Painel de estado
-
-| Ponto | O que verifica |
+| Peça | Tecnologia |
 |---|---|
-| App | O servidor está a responder (local ou Cloudflare) |
-| Supabase | O projeto responde e a chave pública é válida |
-| Base de dados | As tabelas existem |
-| IA | A chave e o modelo são válidos (consulta os metadados do modelo, sem gastar tokens) |
-| Limite de uso | Se há chave secreta do Supabase para limitar gerações por pessoa por dia |
-| Cloudflare | Se a app está publicada e o endereço público responde |
+| App | PWA sem build — HTML, CSS, ES modules (`public/`) |
+| Servidor | Um Cloudflare Worker serve a app e a API; `npm start` corre a mesma API localmente |
+| Dados | Supabase: login por código no email, um documento JSON por utilizador com RLS, Realtime |
+| IA | Configurável; a chave só existe no servidor |
+| Regras | `learning.js` e `curriculum.js`, funções puras com testes verificados por mutação |
 
-### Notas
+Mais em [Arquitetura](docs/arquitetura/index.md) e [Modelo de dados](docs/arquitetura/dados.md).
 
-- **Onde ficam as chaves:** localmente em `.dev.vars` (ignorado pelo git); no Cloudflare como *secrets* do Worker. Só a URL e a chave pública do Supabase chegam ao browser; as regras RLS da base de dados protegem os dados de cada utilizador. Os ecrãs de configuração só existem no `npm start` e só aceitam pedidos da própria app em `localhost`.
-- **Email para outras pessoas:** o servidor de email incluído no Supabase só envia para membros da equipa do projeto e tem limites baixos. Se outras pessoas vão usar a tua instalação, configura um SMTP próprio em **Authentication → Emails → SMTP Settings** (ex. [Resend](https://resend.com), com nível gratuito).
-- **Instalação privada:** desliga *Allow new users to sign up* no Supabase e convida as pessoas em **Authentication → Users**.
-- **Login com Google (opcional):** ativa o provider no Supabase (precisa de um OAuth client na Google Cloud) e liga o interruptor no ecrã.
-- **Sem servidor:** se alojares só a pasta `public/` (ex. GitHub Pages), a app funciona em modo local: dados só no browser, sem conta nem IA.
-- **Linha de comandos:** `npm run deploy` publica sem passar pela app. Os segredos podem ser definidos com `npx wrangler secret put NOME`.
+## Desenvolvimento
 
-| Variável | Para quê |
-|---|---|
-| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Projeto Supabase (públicos) |
-| `SUPABASE_SERVICE_KEY` | Opcional: ativa o limite diário de gerações por pessoa |
-| `AI_PROVIDER` | `gemini` (padrão), `anthropic` ou `openai` |
-| `AI_API_KEY` | Chave do fornecedor de IA |
-| `AI_MODEL` | Opcional; padrão `gemini-2.5-flash` / `claude-opus-5`; obrigatório para `openai` |
-| `AI_BASE_URL` | Opcional, para APIs compatíveis com OpenAI (ex. `https://openrouter.ai/api/v1`) |
-| `MAX_PLANS_PER_DAY` | Limite por pessoa (padrão 10) |
-| `AUTH_GOOGLE` | `true` para mostrar o login com Google |
+```bash
+npm start            # app + API + ecrã de configuração
+npm test             # regras de aprendizagem e do percurso
+npm run check        # build do Worker sem publicar
 
-## Como o plano é construído (e porquê)
-
-A IA recebe as tuas disciplinas (tipo e carga), datas e horas por dia, e tem de seguir estes princípios:
-
-| Princípio | Evidência | Como aparece no plano |
-|---|---|---|
-| Prática de recuperação | Roediger & Karpicke (2006); Dunlosky et al. (2013): utilidade **alta** | Cada sessão tem uma atividade ativa (exercícios, responder sem apontamentos) e há uma sessão semanal de recuperação acumulada |
-| Prática distribuída (espaçamento) | Cepeda et al. (2006, 2008); Dunlosky et al. (2013): utilidade **alta** | Disciplinas médias e pesadas em pelo menos 2 dias não consecutivos, com revisões curtas 1 a 3 dias depois |
-| Intercalação | Rohrer & Taylor (2007); Brunmair & Richter (2019) | Exercícios mistos; sessão principal + revisão de outra disciplina no mesmo dia |
-| Evitar técnicas de baixa utilidade | Dunlosky et al. (2013): reler, sublinhar e resumir têm utilidade **baixa** | Não são propostas como atividade principal |
-| Treino em condições de exame | Morris, Bransford & Franks (1977) | Fases que passam de aprender → exercícios → simulações |
-| Carga sustentável e sono | Consolidação da memória durante o sono (Diekelmann & Born, 2010) | O plano respeita as horas que indicas |
-
-### Medir aprendizagem, não tempo
-
-A aprendizagem mede-se pela **recuperação sem ajuda, com atraso**, nunca pelo desempenho durante o estudo nem pelas horas.
-
-- **No fim de cada bloco** registas o que tentaste, **antes de corrigir**: quantos exercícios, quão seguro estás (1–4) e se usaste IA, apontamentos ou exemplos. Só depois corriges e dizes quantos acertaste. Ler matéria nova conta como primeira exposição, mas não para o domínio.
-- **Testes de controlo** (em papel, sem consulta, com tempo, com exercícios não resolvidos na última semana) são a única fonte do **domínio** de cada disciplina (0–100%).
-- **Progresso** mostra primeiro as disciplinas com **excesso de confiança** (esperavas acertar mais do que acertaste), depois as mais fracas e depois as de exame mais próximo; a prática com ajuda aparece à parte, com aviso quando há dependência.
-- **Datas de exame por disciplina** (opcionais): a véspera é só de revisão e a última semana dá prioridade a essa disciplina. Depois do exame, registas a nota para ver se os testes de controlo a previam.
-- **Distribuição do tempo** (heurística, não ciência da aprendizagem): ECTS × o que falta dominar, com mínimo de 10% por disciplina; enviada à IA ao gerar o plano.
-
-### Percurso académico
-
-Em **Progresso → Percurso** registas as UCs do curso: à mão, ou a partir de uma **fotografia/captura do plano de estudos** (a IA lê a tabela e tu confirmas antes de guardar).
-
-- **Média ponderada por ECTS**, truncada a 2 casas como nos serviços académicos, por curso, ano e semestre. Com um **objetivo de média**, a app diz que nota precisas em cada UC para não baixar e que média precisas nas que faltam.
-- **Provas por UC:** exame final ou avaliação distribuída (componentes com peso e nota mínima), e épocas normal, recurso e especial. A nota final calcula-se sozinha (arredondada como as notas oficiais); abaixo da aprovação (9,5 por defeito, ajustável por UC) ou de um mínimo, a UC passa a "reprovada" e a app pede a data do recurso. A próxima prova passa a ser a data de exame usada pelo plano.
-- **Pré-requisitos:** se a base de uma UC está por fazer, reprovada ou abaixo de 12, a UC recebe mais tempo e o plano inclui recuperação dessa base. O domínio da UC nova **não** é afetado: é matéria nova e mede-se com os seus próprios testes de controlo.
-- **"Estou a fazer esta UC agora"** põe a UC no plano; quando é aprovada, sai do plano e fica no histórico.
-- **Relatório de semestre:** média e variação face ao anterior, e por UC a nota, o domínio medido antes do exame (os testes previram bem?), a calibração, a prática com e sem ajuda e o tempo.
-
-As regras estão em `public/js/learning.js` e `public/js/curriculum.js` e têm testes (`npm test`).
-
-A IA pode errar, por isso a app não confia cegamente no resultado: o editor corre uma **verificação** determinística (carga por dia, espaçamento, presença de recuperação, técnicas passivas, frequência das línguas) e mostra avisos antes de guardares. A evidência apoia os princípios; cada plano concreto continua a merecer o teu ajuste.
-
-## Estrutura
-
+cd docs
+npm install
+npm run dev          # site de documentação
+npm run screenshots  # regenera as capturas com um estudante fictício
+npm run build        # compila e verifica links e âncoras
 ```
-public/                 a app (é a única pasta publicada como ficheiros estáticos)
-  index.html, css/, icons/, sw.js, manifest.json
-  js/app.js             controlador da UI
-  js/planner.js         editor de plano + verificação científica
-  js/learning.js        regras de aprendizagem (domínio, calibração, distribuição, datas)
-  js/logsheet.js        registo no fim do bloco, testes de controlo, nota do exame
-  js/curriculum.js      regras do percurso (médias, provas, épocas, pré-requisitos)
-  js/percurso.js        percurso: importação por foto, editor de UCs, relatório de semestre
-  js/setup.js           ecrã "Servidor e chaves" + painel de estado
-  js/storage.js         dados locais + Supabase (auth, sync, realtime)
-  js/data.js            plano de exemplo, normalização, datas
-  js/timer.js           timer baseado em relógio (sobrevive a background/fecho)
-worker/api.js           API partilhada: /api/config, /api/health, /api/generate-plan, /api/import-curriculum
-worker/index.js         entrada do Cloudflare Worker (API + ficheiros de public/)
-setup/server.mjs        npm start: app local + rotas de configuração e publicação
-supabase/migrations/    SQL das tabelas e regras de acesso (RLS)
-tests/                  testes das regras (npm test)
-wrangler.jsonc          configuração do Worker
-```
+
+## Contribuir
+
+Issues e pull requests são bem-vindos. Antes de mexer numa regra de aprendizagem, lê [os princípios](docs/ciencia/index.md): são invariantes, e cada uma tem testes.
+
+## Licença
+
+[MIT](LICENSE) © 2026 Ryan Barbosa

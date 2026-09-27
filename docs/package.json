@@ -1,0 +1,16 @@
+{
+  "name": "estudar-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build && node scripts/check-anchors.mjs",
+    "preview": "vitepress preview",
+    "screenshots": "node scripts/screenshots.mjs",
+    "deploy": "npm run build && npx wrangler pages deploy .vitepress/dist --project-name estudar-docs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.55.0",
+    "vitepress": "^1.6.3"
+  }
+}

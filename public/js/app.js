@@ -489,9 +489,11 @@ function renderMastery() {
       ? '<button class="link-btn" data-percurso>Registar notas no percurso</button>'
       : `<button class="link-btn" data-grade="${esc(s.id)}">Registar nota do exame</button>`;
     else if (p.days !== null) examLine = p.days === 0 ? 'exame hoje' : p.days === 1 ? 'exame amanhã' : `exame em ${p.days} dias`;
-    const practice = p.split.count
-      ? `Prática: ${p.split.unassisted !== null ? `${pct(p.split.unassisted)} sem ajuda` : '—'}${p.split.assisted !== null ? ` · ${pct(p.split.assisted)} com ajuda` : ''}`
-      : '';
+    const practiceParts = [
+      p.split.unassisted !== null ? `${pct(p.split.unassisted)} sem ajuda` : '',
+      p.split.assisted !== null ? `${pct(p.split.assisted)} com ajuda` : '',
+    ].filter(Boolean);
+    const practice = practiceParts.length ? `Prática: ${practiceParts.join(' · ')}` : '';
     return `
       <div class="mastery-row">
         <div class="mastery-head">

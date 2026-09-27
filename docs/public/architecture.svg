@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" font-family="Fira Sans, Segoe UI, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 10 5 0 10z" fill="#8c897f"/>
+    </marker>
+    <style>
+      .box { fill: #15161a; stroke: #2c2f36; stroke-width: 1.5; rx: 14; }
+      .hl { stroke: #cfe86a; }
+      .t { fill: #ece9e3; font-size: 17px; font-weight: 700; }
+      .s { fill: #9c998f; font-size: 13px; }
+      .c { fill: #cfe86a; font-size: 12.5px; font-family: Fira Code, ui-monospace, monospace; }
+      .l { fill: #8c897f; font-size: 12px; }
+      .line { stroke: #5a5d64; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+      .dash { stroke-dasharray: 5 5; }
+    </style>
+  </defs>
+  <rect width="960" height="560" rx="16" fill="#0d0e10"/>
+
+  <!-- Browser / PWA -->
+  <rect class="box hl" x="28" y="40" width="260" height="228"/>
+  <text class="t" x="48" y="72">PWA no browser</text>
+  <text class="s" x="48" y="94">telemóvel e computador</text>
+  <text class="c" x="48" y="126">public/js/app.js</text>
+  <text class="s" x="48" y="146">plano · timer · foco · progresso</text>
+  <text class="c" x="48" y="174">learning.js · curriculum.js</text>
+  <text class="s" x="48" y="194">regras (testadas, sem DOM)</text>
+  <text class="c" x="48" y="222">localStorage + sw.js</text>
+  <text class="s" x="48" y="242">funciona offline</text>
+
+  <!-- Cloudflare Worker -->
+  <rect class="box hl" x="350" y="40" width="270" height="228"/>
+  <text class="t" x="370" y="72">Cloudflare Worker</text>
+  <text class="s" x="370" y="94">worker/index.js · worker/api.js</text>
+  <text class="c" x="370" y="126">GET  /api/config</text>
+  <text class="c" x="370" y="148">GET  /api/health</text>
+  <text class="c" x="370" y="170">POST /api/generate-plan</text>
+  <text class="c" x="370" y="192">POST /api/import-curriculum</text>
+  <text class="s" x="370" y="222">serve public/ como ficheiros estáticos</text>
+  <text class="s" x="370" y="242">chaves = segredos do Worker</text>
+
+  <!-- AI -->
+  <rect class="box" x="682" y="40" width="250" height="140"/>
+  <text class="t" x="702" y="72">Fornecedor de IA</text>
+  <text class="s" x="702" y="98">Gemini (padrão, nível grátis)</text>
+  <text class="s" x="702" y="120">Claude (Anthropic)</text>
+  <text class="s" x="702" y="142">API compatível com OpenAI</text>
+  <text class="l" x="702" y="166">JSON estruturado · nunca vê exercícios</text>
+
+  <!-- Supabase -->
+  <rect class="box" x="350" y="330" width="270" height="190"/>
+  <text class="t" x="370" y="362">Supabase</text>
+  <text class="s" x="370" y="388">Auth: código por email (+ Google)</text>
+  <text class="c" x="370" y="416">user_data</text>
+  <text class="s" x="460" y="416">1 linha JSON por utilizador</text>
+  <text class="c" x="370" y="440">ai_usage</text>
+  <text class="s" x="460" y="440">limite diário da IA</text>
+  <text class="s" x="370" y="466">RLS: cada um só vê os seus dados</text>
+  <text class="s" x="370" y="488">Realtime: sincroniza dispositivos</text>
+
+  <!-- Local setup -->
+  <rect class="box" x="28" y="330" width="260" height="190"/>
+  <text class="t" x="48" y="362">npm start (local)</text>
+  <text class="c" x="48" y="388">setup/server.mjs</text>
+  <text class="s" x="48" y="410">a mesma API + ecrã de configuração</text>
+  <text class="c" x="48" y="436">/api/setup/*  (só localhost)</text>
+  <text class="s" x="48" y="458">guarda chaves em .dev.vars</text>
+  <text class="s" x="48" y="478">cria tabelas · wrangler deploy</text>
+  <text class="s" x="48" y="498">e envia os segredos ao Worker</text>
+
+  <!-- Arrows -->
+  <path class="line" d="M288 130 H346"/>
+  <text class="l" x="296" y="122">API</text>
+  <path class="line" d="M620 110 H678"/>
+  <text class="l" x="630" y="102">prompt</text>
+  <path class="line" d="M240 268 V298 H330 V405 H346"/>
+  <text class="l" x="172" y="318">auth + dados (RLS)</text>
+  <path class="line" d="M485 268 V326"/>
+  <text class="l" x="494" y="302">verifica sessão · limite</text>
+  <path class="line dash" d="M120 330 V272"/>
+  <text class="l" x="40" y="304">serve a app</text>
+  <path class="line dash" d="M288 352 H310 V238 H346"/>
+  <text class="l" x="302" y="230">publica</text>
+  <path class="line dash" d="M288 470 H346"/>
+  <text class="l" x="296" y="462">SQL</text>
+
+  <text class="l" x="682" y="232">— pedidos da app</text>
+  <text class="l" x="682" y="252">- - configuração / publicação</text>
+</svg>

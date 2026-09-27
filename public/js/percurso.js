@@ -480,7 +480,8 @@ function ucReport(u, attempts, minutes) {
   if (m !== null && g !== null) lines.push(`Último domínio medido antes do exame: <b>${pct(m)}</b> → nota <b>${fmt(g, 1)}</b> (${pct(g / 20)} da escala). ${Math.abs(m - g / 20) <= 0.1 ? 'Os testes de controlo previram bem.' : m > g / 20 ? 'Os testes previam mais do que saiu: torna-os mais parecidos com o exame.' : 'Saiu melhor do que os testes previam.'}`);
   else if (m !== null) lines.push(`Domínio medido: <b>${pct(m)}</b>.`);
   if (cal.overconfident) lines.push(`Excesso de confiança: esperavas ~${pct(cal.expected)}, acertaste ${pct(cal.actual)}.`);
-  if (split.count) lines.push(`Prática: ${split.unassisted !== null ? `${pct(split.unassisted)} sem ajuda` : '—'}${split.assisted !== null ? ` · ${pct(split.assisted)} com ajuda` : ''}.`);
+  const practice = [split.unassisted !== null ? `${pct(split.unassisted)} sem ajuda` : '', split.assisted !== null ? `${pct(split.assisted)} com ajuda` : ''].filter(Boolean);
+  if (practice.length) lines.push(`Prática: ${practice.join(' · ')}.`);
   if (minutes) lines.push(`Tempo: ${Math.floor(minutes / 60)}h${String(minutes % 60).padStart(2, '0')}.`);
   const color = PALETTE[Math.abs([...u.id].reduce((h, c) => h * 31 + c.charCodeAt(0), 7)) % PALETTE.length];
   return `
