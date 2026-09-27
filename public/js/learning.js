@@ -71,7 +71,7 @@ const parseDate = (d) => (d ? new Date(d + 'T00:00') : null);
 const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 export function examDateOf(subject, plan) {
-  return subject.examDate || plan.examDate || '';
+  return subject.examDate || subject.derivedExamDate || plan.examDate || '';
 }
 
 export function daysUntil(dateStr, now = new Date()) {
@@ -106,7 +106,8 @@ function allocateActive(subjects, attempts, plan, floor, now) {
     if (calibration(attempts, s.id).overconfident) deficit = Math.min(1, deficit + 0.2);
     const days = daysUntil(examDateOf(s, plan), now);
     const inFinalWindow = days !== null && days >= 0 && days <= FINAL_WINDOW_DAYS;
-    const weight = Number(s.ects) > 0 ? Number(s.ects) : LOAD_WEIGHT[s.load] || 5;
+    // Weak foundations (prerequisite not done, failed or low) → more time. Heuristic multiplier.
+    const weight = (Number(s.ects) > 0 ? Number(s.ects) : LOAD_WEIGHT[s.load] || 5) * (s.prereqWeak?.length ? PREREQ_BOOST : 1);
     return { id: s.id, weight, mastery: m, deficit: Math.max(deficit, 0.05), inFinalWindow, days };
   });
 
@@ -126,6 +127,8 @@ function allocateActive(subjects, attempts, plan, floor, now) {
   }
   return rows.map((r, i) => ({ ...r, share: share[i] }));
 }
+
+export const PREREQ_BOOST = 1.25;
 
 // Used when a subject has no ECTS: rough workload equivalents.
 export const LOAD_WEIGHT = { leve: 3, media: 5, alta: 7 };

@@ -48,6 +48,7 @@ function getDefaults() {
     checklist: {},  // { 'W01': [bool x5] }
     attempts: [],   // append-only log of self-graded attempts and probes (see learning.js)
     examResults: {}, // { subjectId: { grade, at } } real exam grades, to check the probes predicted them
+    curriculum: null, // { degree, targetAverage, ucs: [...] } — see curriculum.js
     timerConfig: { work: 40, break: 10, longBreak: 15, sessionsBeforeLong: 4 },
     settings: { sound: true },
     updatedAt: 0,
@@ -132,6 +133,34 @@ export function setExamResult(subjectId, grade) {
   const data = loadData();
   data.examResults = { ...(data.examResults || {}), [subjectId]: { grade, at: Date.now() } };
   saveData(data);
+}
+
+// ── Degree record ──────────────────────
+export function getCurriculum() {
+  return loadData().curriculum || { degree: '', targetAverage: null, ucs: [] };
+}
+
+export function saveCurriculum(curriculum) {
+  const data = loadData();
+  data.curriculum = curriculum;
+  saveData(data);
+}
+
+export async function importCurriculumImage(dataUrl) {
+  if (!supabase || !currentUser) return { ok: false, message: 'Precisas de ter sessão iniciada e ligação à internet.' };
+  const { data: { session } } = await supabase.auth.getSession();
+  try {
+    const r = await fetch('/api/import-curriculum', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+      body: JSON.stringify({ image: dataUrl }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return { ok: false, message: data.error || `O servidor respondeu ${r.status}.` };
+    return { ok: true, result: data.result };
+  } catch {
+    return { ok: false, message: 'Não foi possível contactar o servidor.' };
+  }
 }
 
 // ── Checklist / config ─────────────────
@@ -408,6 +437,7 @@ function mergeData(local, remote) {
   }
 
   merged.plan = newer.plan || local.plan || remote.plan || null;
+  merged.curriculum = newer.curriculum || local.curriculum || remote.curriculum || null;
   merged.timerConfig = newer.timerConfig || merged.timerConfig;
   merged.settings = { ...getDefaults().settings, ...(newer.settings || {}) };
   merged.updatedAt = Math.max(local.updatedAt || 0, remote.updatedAt || 0);

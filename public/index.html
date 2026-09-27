@@ -213,6 +213,11 @@
           </div>
 
           <div class="card">
+            <h2 class="h2">Percurso</h2>
+            <div id="percurso-card"></div>
+          </div>
+
+          <div class="card">
             <div class="row-between">
               <h2 class="h2">Tempo de estudo · 7 dias</h2>
               <span class="muted small" id="week-total"></span>
@@ -282,6 +287,7 @@
       </button>
 
       <button class="btn btn-ghost btn-block" id="btn-settings-plan">Editar o meu plano</button>
+      <button class="btn btn-ghost btn-block" id="btn-settings-percurso">Percurso académico</button>
       <button class="btn btn-ghost btn-block" id="btn-settings-intro">Sobre o método e referências</button>
       <button class="btn btn-ghost btn-block" id="btn-sign-out">Terminar sessão</button>
       <button class="btn btn-danger-ghost btn-block" id="btn-clear-data">Apagar dados deste dispositivo</button>
@@ -314,6 +320,24 @@
         <button class="icon-btn" id="server-close" aria-label="Fechar"><svg class="ico"><use href="#i-close"/></svg></button>
       </header>
       <div id="server-body"></div>
+      <div class="server-bottom-space"></div>
+    </div>
+  </div>
+
+  <!-- ── Degree record ───────────────────── -->
+  <div id="percurso" aria-hidden="true">
+    <div class="planner-inner" role="dialog" aria-labelledby="percurso-title">
+      <header class="planner-head">
+        <h2 class="topbar-title" id="percurso-title">Percurso académico</h2>
+        <button class="icon-btn" id="percurso-close" aria-label="Fechar"><svg class="ico"><use href="#i-close"/></svg></button>
+      </header>
+      <div id="percurso-body"></div>
+      <footer class="planner-foot" id="percurso-foot">
+        <div class="planner-actions">
+          <button class="btn btn-ghost" id="percurso-cancel">Cancelar</button>
+          <button class="btn btn-primary" id="percurso-save">Guardar</button>
+        </div>
+      </footer>
       <div class="server-bottom-space"></div>
     </div>
   </div>

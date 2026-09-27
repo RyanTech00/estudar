@@ -1,6 +1,7 @@
 import { EXAMPLE_PLAN, EMPTY_PLAN, AREAS, LOADS, PALETTE, normalizePlan } from './data.js';
 import * as storage from './storage.js';
 import { allocation, FINAL_WINDOW_DAYS } from './learning.js';
+import { enrichWithCurriculum } from './curriculum.js';
 
 const $ = (id) => document.getElementById(id);
 const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -196,9 +197,13 @@ function render() {
   renderChecks();
 }
 
+function enrichedSubjects(plan) {
+  return enrichWithCurriculum(plan.subjects, storage.getCurriculum().ucs || []);
+}
+
 function currentAllocation() {
   const plan = normalizePlan(draft);
-  return allocation(plan.subjects, storage.getAttempts(), plan);
+  return allocation(enrichedSubjects(plan), storage.getAttempts(), plan);
 }
 
 function renderAllocation() {
@@ -210,11 +215,13 @@ function renderAllocation() {
   const planned = {};
   plan.weeklyPlan.forEach(s => { if (s.subject !== 'all') planned[s.subject] = (planned[s.subject] || 0) + (s.minutes || 0); });
   const totalPlanned = Object.values(planned).reduce((a, b) => a + b, 0);
+  const weakBy = Object.fromEntries(enrichedSubjects(plan).filter(s => s.prereqWeak?.length).map(s => [s.id, s.prereqWeak.map(w => w.short).join(', ')]));
   el.innerHTML = rows.sort((a, b) => b.share - a.share).map(r => {
     const sub = subjectById(r.id);
     const now = totalPlanned ? (planned[r.id] || 0) / totalPlanned : null;
     const why = [
       r.finished ? 'exame já feito' : r.mastery === null ? 'sem teste ainda' : `domínio ${Math.round(r.mastery * 100)}%`,
+      weakBy[r.id] ? `base fraca: ${weakBy[r.id]}` : '',
       r.inFinalWindow ? `exame em ${r.days} dia${r.days === 1 ? "" : "s"}` : '',
     ].filter(Boolean).join(' · ');
     return `<div class="alloc-row"><span class="tag" style="--c:${sub.color}">${esc(sub.short)}</span>
@@ -298,9 +305,13 @@ async function generate() {
     startDate: plan.startDate,
     examDate: plan.examDate,
     hoursPerDay: plan.hoursPerDay,
-    subjects: plan.subjects.map(({ id, name, short, load, area, ects, examDate }) => {
+    subjects: enrichedSubjects(plan).map(({ id, name, short, load, area, ects, examDate, derivedExamDate, prereqWeak }) => {
       const a = shares.find(r => r.id === id);
-      return { id, name, short, load, area, ects, examDate, share: a ? Math.round(a.share * 100) : null, mastery: a?.mastery ?? null };
+      return {
+        id, name, short, load, area, ects, examDate: examDate || derivedExamDate || '',
+        share: a ? Math.round(a.share * 100) : null, mastery: a?.mastery ?? null,
+        prereqWeak: (prereqWeak || []).map(w => `${w.name} (${w.reason}${w.grade !== null ? `, nota ${w.grade}` : ''})`).join('; '),
+      };
     }),
     notes: draft.notes || '',
   });

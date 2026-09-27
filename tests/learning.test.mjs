@@ -108,6 +108,13 @@ test('R9: a subject whose exam has passed gets no time and no floor', () => {
   assert.ok(Math.abs(rows.reduce((s, r) => s + r.share, 0) - 1) < 1e-9);
 });
 
+test('prerequisites: a weak foundation adds time but never changes mastery', () => {
+  const subjects = [{ id: 'ed', ects: 6, prereqWeak: [{ reason: 'nota baixa' }] }, { id: 'so', ects: 6 }];
+  const [ed, so] = allocation(subjects, [], {}, { now: NOW });
+  assert.ok(ed.share > so.share);
+  assert.equal(ed.mastery, null);
+});
+
 test('R3: the day before an exam is flagged review-only', () => {
   const subjects = [{ id: 'fp', examDate: '2026-11-11' }, { id: 'ed', examDate: '2026-11-20' }];
   assert.deepEqual(eveOfExam(subjects, {}, NOW).map(s => s.id), ['fp']);

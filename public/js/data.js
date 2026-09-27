@@ -153,6 +153,7 @@ export function normalizePlan(p) {
       color: s.color || PALETTE[i % PALETTE.length],
       ects: Number(s.ects) > 0 ? Math.min(60, Math.round(Number(s.ects) * 2) / 2) : null,
       examDate: isDate(s.examDate) ? s.examDate : '',
+      ucId: s.ucId ? String(s.ucId).slice(0, 20) : undefined,
     };
   });
   const ids = new Set([...subjectsOut.map(s => s.id), 'all']);

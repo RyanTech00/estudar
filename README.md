@@ -83,7 +83,17 @@ A aprendizagem mede-se pela **recuperação sem ajuda, com atraso**, nunca pelo 
 - **Datas de exame por disciplina** (opcionais): a véspera é só de revisão e a última semana dá prioridade a essa disciplina. Depois do exame, registas a nota para ver se os testes de controlo a previam.
 - **Distribuição do tempo** (heurística, não ciência da aprendizagem): ECTS × o que falta dominar, com mínimo de 10% por disciplina; enviada à IA ao gerar o plano.
 
-As regras estão em `public/js/learning.js` e têm testes (`npm test`).
+### Percurso académico
+
+Em **Progresso → Percurso** registas as UCs do curso: à mão, ou a partir de uma **fotografia/captura do plano de estudos** (a IA lê a tabela e tu confirmas antes de guardar).
+
+- **Média ponderada por ECTS**, truncada a 2 casas como nos serviços académicos, por curso, ano e semestre. Com um **objetivo de média**, a app diz que nota precisas em cada UC para não baixar e que média precisas nas que faltam.
+- **Provas por UC:** exame final ou avaliação distribuída (componentes com peso e nota mínima), e épocas normal, recurso e especial. A nota final calcula-se sozinha (arredondada como as notas oficiais); abaixo da aprovação (9,5 por defeito, ajustável por UC) ou de um mínimo, a UC passa a "reprovada" e a app pede a data do recurso. A próxima prova passa a ser a data de exame usada pelo plano.
+- **Pré-requisitos:** se a base de uma UC está por fazer, reprovada ou abaixo de 12, a UC recebe mais tempo e o plano inclui recuperação dessa base. O domínio da UC nova **não** é afetado: é matéria nova e mede-se com os seus próprios testes de controlo.
+- **"Estou a fazer esta UC agora"** põe a UC no plano; quando é aprovada, sai do plano e fica no histórico.
+- **Relatório de semestre:** média e variação face ao anterior, e por UC a nota, o domínio medido antes do exame (os testes previram bem?), a calibração, a prática com e sem ajuda e o tempo.
+
+As regras estão em `public/js/learning.js` e `public/js/curriculum.js` e têm testes (`npm test`).
 
 A IA pode errar, por isso a app não confia cegamente no resultado: o editor corre uma **verificação** determinística (carga por dia, espaçamento, presença de recuperação, técnicas passivas, frequência das línguas) e mostra avisos antes de guardares. A evidência apoia os princípios; cada plano concreto continua a merecer o teu ajuste.
 
@@ -96,11 +106,13 @@ public/                 a app (é a única pasta publicada como ficheiros estát
   js/planner.js         editor de plano + verificação científica
   js/learning.js        regras de aprendizagem (domínio, calibração, distribuição, datas)
   js/logsheet.js        registo no fim do bloco, testes de controlo, nota do exame
+  js/curriculum.js      regras do percurso (médias, provas, épocas, pré-requisitos)
+  js/percurso.js        percurso: importação por foto, editor de UCs, relatório de semestre
   js/setup.js           ecrã "Servidor e chaves" + painel de estado
   js/storage.js         dados locais + Supabase (auth, sync, realtime)
   js/data.js            plano de exemplo, normalização, datas
   js/timer.js           timer baseado em relógio (sobrevive a background/fecho)
-worker/api.js           API partilhada: /api/config, /api/health, /api/generate-plan
+worker/api.js           API partilhada: /api/config, /api/health, /api/generate-plan, /api/import-curriculum
 worker/index.js         entrada do Cloudflare Worker (API + ficheiros de public/)
 setup/server.mjs        npm start: app local + rotas de configuração e publicação
 supabase/migrations/    SQL das tabelas e regras de acesso (RLS)

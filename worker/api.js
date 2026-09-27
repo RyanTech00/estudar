@@ -40,6 +40,7 @@ export async function handleApi(request, env) {
     if (url.pathname === '/api/config' && request.method === 'GET') return json(publicConfig(cfg));
     if (url.pathname === '/api/health' && request.method === 'GET') return json(await health(cfg));
     if (url.pathname === '/api/generate-plan' && request.method === 'POST') return await generatePlanRoute(request, cfg);
+    if (url.pathname === '/api/import-curriculum' && request.method === 'POST') return await importCurriculumRoute(request, cfg);
     return json({ error: 'Não encontrado.' }, 404);
   } catch (e) {
     console.error(e);
@@ -148,8 +149,9 @@ Princípios obrigatórios (e a razão de cada um):
 6. Sono e carga: não empurres estudo para compensar dias sem horas; se as horas não chegam, reduz primeiro disciplinas leves e línguas para "manutenção" — nunca elimines o espaçamento das disciplinas pesadas.
 7. Línguas e competências de memória (vocabulário, etc.): sessões curtas e frequentes (20–40 min, 3–5x por semana) são melhores do que uma sessão longa.
 8. Distribuição do tempo: cada disciplina traz uma "fatia sugerida" (%) calculada a partir dos ECTS e do que falta dominar (medido em testes sem consulta). Distribui os minutos de matéria nova e prática aproximadamente segundo essas fatias; revisões curtas de espaçamento não contam para a fatia. Se uma disciplina tem exame próximo, dá-lhe prioridade nessa fase.
-9. Primeira exposição vs. prática: para matéria totalmente nova, a primeira sessão de um tópico pode ser em bloco (aprender o conceito com exemplos); a partir daí, prática mista e recuperação. Ler serve apenas para a primeira exposição.
-10. Fases até ao exame: começa com mais aprendizagem nova + recuperação e vai deslocando para exercícios e, nas últimas 1–2 semanas, simulações em condições de exame (transfer-appropriate processing — Morris, Bransford & Franks, 1977).
+9. Pré-requisitos: quando uma disciplina traz "BASE FRACA" (um pré-requisito por fazer, reprovado ou com nota baixa), acrescenta nas primeiras semanas sessões curtas (20–30 min) de recuperação dos tópicos desse pré-requisito de que a disciplina depende, feitas de memória e com exercícios, nunca a reler.
+10. Primeira exposição vs. prática: para matéria totalmente nova, a primeira sessão de um tópico pode ser em bloco (aprender o conceito com exemplos); a partir daí, prática mista e recuperação. Ler serve apenas para a primeira exposição.
+11. Fases até ao exame: começa com mais aprendizagem nova + recuperação e vai deslocando para exercícios e, nas últimas 1–2 semanas, simulações em condições de exame (transfer-appropriate processing — Morris, Bransford & Franks, 1977).
 
 Regras de saída:
 - "day": 0=domingo, 1=segunda, … 6=sábado.
@@ -243,6 +245,7 @@ function validate(body) {
       examDate: isDate(s.examDate) ? s.examDate : null,
       share: Number.isFinite(Number(s.share)) && s.share !== null ? Math.max(0, Math.min(100, Math.round(Number(s.share)))) : null,
       mastery: Number.isFinite(Number(s.mastery)) && s.mastery !== null ? Math.max(0, Math.min(1, Number(s.mastery))) : null,
+      prereqWeak: String(s.prereqWeak || '').slice(0, 200),
     })),
     notes: String(body.notes || '').slice(0, 1000),
   };
@@ -263,7 +266,8 @@ function userPrompt(input) {
       s.examDate ? `exame ${s.examDate}` : `exame na data geral`,
       s.share !== null ? `fatia ${s.share}%` : 'fatia n/d',
       s.mastery !== null ? `domínio ${Math.round(s.mastery * 100)}% em testes sem consulta` : 'ainda sem teste (tratar como matéria por aprender)',
-    ].join(' — ')),
+      s.prereqWeak ? `BASE FRACA: ${s.prereqWeak}` : '',
+    ].filter(Boolean).join(' — ')),
     '',
     'Horas disponíveis por dia:',
     ...input.hoursPerDay.map((h, i) => `- ${days[i]}: ${h} h`),
@@ -272,69 +276,75 @@ function userPrompt(input) {
   ].join('\n');
 }
 
-async function callGemini(input, cfg) {
+// One entry point per provider: system + user text (+ optional image) → JSON matching `schema`.
+async function llmJson({ system, text, image, schema, schemaName }, cfg) {
+  if (!cfg.aiKey) throw new Error('A IA ainda não está configurada no servidor.');
+  if (!cfg.model) throw new Error('Define o modelo de IA na configuração do servidor.');
+  if (cfg.provider === 'gemini') return geminiJson({ system, text, image, schema }, cfg);
+  if (cfg.provider === 'anthropic') return anthropicJson({ system, text, image, schema }, cfg);
+  if (cfg.provider === 'openai') return openaiJson({ system, text, image, schema, schemaName }, cfg);
+  throw new Error(`Fornecedor de IA desconhecido: ${cfg.provider}`);
+}
+
+async function geminiJson({ system, text, image, schema }, cfg) {
+  const parts = [];
+  if (image) parts.push({ inlineData: { mimeType: image.mediaType, data: image.data } });
+  parts.push({ text });
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cfg.model)}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.aiKey },
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{ role: 'user', parts: [{ text: userPrompt(input) }] }],
-      generationConfig: { responseMimeType: 'application/json', responseSchema: stripAdditional(PLAN_SCHEMA) },
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: 'user', parts }],
+      generationConfig: { responseMimeType: 'application/json', responseSchema: stripAdditional(schema) },
     }),
   });
   const data = await r.json();
   if (!r.ok) throw new Error(`Gemini: ${data?.error?.message || r.status}`);
-  const text = data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('');
-  if (!text) throw new Error('Gemini não devolveu um plano.');
-  return JSON.parse(text);
+  const out = data?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('');
+  if (!out) throw new Error('Gemini não devolveu resposta.');
+  return JSON.parse(out);
 }
 
-async function callAnthropic(input, cfg) {
+async function anthropicJson({ system, text, image, schema }, cfg) {
   const { default: Anthropic } = await import('@anthropic-ai/sdk');
   const client = new Anthropic({ apiKey: cfg.aiKey });
+  const content = image
+    ? [{ type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } }, { type: 'text', text }]
+    : text;
   const response = await client.beta.messages.create({
     model: cfg.model,
     max_tokens: 16000,
     // Server-side fallback: if the model declines, the API retries on a suitable model in the same call.
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default',
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userPrompt(input) }],
-    output_config: { format: { type: 'json_schema', schema: PLAN_SCHEMA } },
+    system,
+    messages: [{ role: 'user', content }],
+    output_config: { format: { type: 'json_schema', schema } },
   });
-  if (response.stop_reason === 'refusal') throw new Error('O modelo recusou gerar este plano.');
-  if (response.stop_reason === 'max_tokens') throw new Error('A resposta ficou incompleta. Tenta com menos disciplinas.');
-  const text = response.content.map(b => (b.type === 'text' ? b.text : '')).join('');
-  return JSON.parse(text);
+  if (response.stop_reason === 'refusal') throw new Error('O modelo recusou o pedido.');
+  if (response.stop_reason === 'max_tokens') throw new Error('A resposta ficou incompleta.');
+  return JSON.parse(response.content.map(b => (b.type === 'text' ? b.text : '')).join(''));
 }
 
-async function callOpenAICompatible(input, cfg) {
+async function openaiJson({ system, text, image, schema, schemaName }, cfg) {
+  const userContent = image
+    ? [{ type: 'image_url', image_url: { url: `data:${image.mediaType};base64,${image.data}` } }, { type: 'text', text }]
+    : text;
   const r = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.aiKey}` },
     body: JSON.stringify({
       model: cfg.model,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userPrompt(input) },
-      ],
-      response_format: { type: 'json_schema', json_schema: { name: 'study_plan', strict: true, schema: PLAN_SCHEMA } },
+      messages: [{ role: 'system', content: system }, { role: 'user', content: userContent }],
+      response_format: { type: 'json_schema', json_schema: { name: schemaName || 'result', strict: true, schema } },
     }),
   });
   const data = await r.json();
   if (!r.ok) throw new Error(`IA: ${data?.error?.message || r.status}`);
-  const text = data?.choices?.[0]?.message?.content;
-  if (!text) throw new Error('A IA não devolveu um plano.');
-  return JSON.parse(text);
-}
-
-function callProvider(input, cfg) {
-  if (!cfg.aiKey) throw new Error('A IA ainda não está configurada no servidor.');
-  if (!cfg.model) throw new Error('Define o modelo de IA na configuração do servidor.');
-  if (cfg.provider === 'gemini') return callGemini(input, cfg);
-  if (cfg.provider === 'anthropic') return callAnthropic(input, cfg);
-  if (cfg.provider === 'openai') return callOpenAICompatible(input, cfg);
-  throw new Error(`Fornecedor de IA desconhecido: ${cfg.provider}`);
+  const out = data?.choices?.[0]?.message?.content;
+  if (!out) throw new Error('A IA não devolveu resposta.');
+  return JSON.parse(out);
 }
 
 async function getUser(request, cfg) {
@@ -359,30 +369,121 @@ async function recordUsage(userId, day, count, cfg) {
   });
 }
 
-async function generatePlanRoute(request, cfg) {
+// Signed-in user + daily AI limit, shared by every AI route.
+async function withAiQuota(request, cfg, run) {
   const user = await getUser(request, cfg);
   if (!user?.id) return json({ error: 'Sessão inválida. Volta a entrar.' }, 401);
-
-  let input;
-  try {
-    input = validate(await request.json());
-  } catch (e) {
-    return json({ error: e.message }, 400);
-  }
 
   const day = new Date().toISOString().slice(0, 10);
   let used = 0;
   if (cfg.serviceKey) {
     used = await usageToday(user.id, day, cfg);
-    if (used >= cfg.maxPerDay) return json({ error: `Atingiste o limite de ${cfg.maxPerDay} planos gerados hoje. Tenta amanhã.` }, 429);
+    if (used >= cfg.maxPerDay) return json({ error: `Atingiste o limite de ${cfg.maxPerDay} pedidos à IA hoje. Tenta amanhã.` }, 429);
   }
-
   try {
-    const plan = await callProvider(input, cfg);
+    const result = await run();
+    if (result instanceof Response) return result;
     if (cfg.serviceKey) await recordUsage(user.id, day, used + 1, cfg);
-    return json({ plan, remaining: cfg.serviceKey ? cfg.maxPerDay - used - 1 : null });
+    return json({ ...result, remaining: cfg.serviceKey ? cfg.maxPerDay - used - 1 : null });
   } catch (e) {
     console.error(e);
-    return json({ error: e.message || 'A IA falhou ao gerar o plano.' }, 502);
+    return json({ error: e.message || 'A IA falhou.' }, 502);
   }
+}
+
+async function generatePlanRoute(request, cfg) {
+  let input;
+  try {
+    input = validate(await request.clone().json());
+  } catch (e) {
+    return json({ error: e.message }, 400);
+  }
+  return withAiQuota(request, cfg, async () => ({
+    plan: await llmJson({ system: SYSTEM_PROMPT, text: userPrompt(input), schema: PLAN_SCHEMA, schemaName: 'study_plan' }, cfg),
+  }));
+}
+
+// ── Degree record from a photo/screenshot ─────────────────────
+const CURRICULUM_PROMPT = `Recebes uma fotografia ou captura de ecrã do plano de estudos / percurso académico de um estudante do ensino superior (normalmente português).
+Extrai TODAS as unidades curriculares (UCs) visíveis, exatamente como aparecem. Não inventes nada: se um campo não estiver visível ou legível, deixa-o vazio.
+- "year" e "semester": números inteiros do cabeçalho do grupo (ex.: "2º Ano - 1º Semestre" → 2 e 1). 0 se não houver.
+- "name": nome completo da UC.
+- "ects": número de ECTS.
+- "grade": nota final como texto (ex. "17" ou "13.5"); vazio se não tiver nota.
+- "date": data da nota no formato AAAA-MM-DD; vazio se não houver.
+- "gradeType": tipo de nota (ex. "CC" para creditação/equivalência); vazio se não houver.
+- "group": se a UC pertence a um grupo de escolha (ex. "Opção", "Trabalho Final"), o nome do grupo; senão vazio.
+- "degree": nome do curso, se aparecer.`;
+
+const CURRICULUM_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['degree', 'units'],
+  properties: {
+    degree: { type: 'string' },
+    units: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['year', 'semester', 'name', 'ects', 'grade', 'date', 'gradeType', 'group'],
+        properties: {
+          year: { type: 'integer' },
+          semester: { type: 'integer' },
+          name: { type: 'string' },
+          ects: { type: 'number' },
+          grade: { type: 'string' },
+          date: { type: 'string' },
+          gradeType: { type: 'string' },
+          group: { type: 'string' },
+        },
+      },
+    },
+  },
+};
+
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+export function parseImageDataUrl(dataUrl) {
+  const m = /^data:([a-z/+]+);base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl || ''));
+  if (!m || !IMAGE_TYPES.includes(m[1])) throw new Error('Envia uma imagem JPEG, PNG ou WebP.');
+  if (m[2].length * 0.75 > MAX_IMAGE_BYTES) throw new Error('A imagem é demasiado grande (máx. 5 MB).');
+  return { mediaType: m[1], data: m[2] };
+}
+
+// The model's output is untrusted: keep only well-formed rows.
+export function cleanCurriculum(raw) {
+  const units = (Array.isArray(raw?.units) ? raw.units : []).slice(0, 80).map(u => {
+    const grade = Number(String(u.grade || '').replace(',', '.'));
+    return {
+      year: Math.max(0, Math.min(10, Math.round(Number(u.year) || 0))),
+      semester: Math.max(0, Math.min(4, Math.round(Number(u.semester) || 0))),
+      name: String(u.name || '').trim().slice(0, 120),
+      ects: Math.max(0, Math.min(60, Number(u.ects) || 0)),
+      grade: String(u.grade || '').trim() && grade >= 0 && grade <= 20 ? grade : null,
+      date: /^\d{4}-\d{2}-\d{2}$/.test(u.date || '') ? u.date : '',
+      gradeType: String(u.gradeType || '').trim().slice(0, 10),
+      group: String(u.group || '').trim().slice(0, 60),
+    };
+  }).filter(u => u.name);
+  return { degree: String(raw?.degree || '').trim().slice(0, 160), units };
+}
+
+async function importCurriculumRoute(request, cfg) {
+  let image;
+  try {
+    image = parseImageDataUrl((await request.clone().json())?.image);
+  } catch (e) {
+    return json({ error: e.message }, 400);
+  }
+  return withAiQuota(request, cfg, async () => ({
+    result: cleanCurriculum(await llmJson({
+      system: CURRICULUM_PROMPT,
+      text: 'Extrai as unidades curriculares desta imagem.',
+      image,
+      schema: CURRICULUM_SCHEMA,
+      schemaName: 'curriculum',
+    }, cfg)),
+  }));
 }

@@ -1,4 +1,4 @@
-import { plan, subjects, phases, checklist, studyMethod, EXAMPLE_PLAN, normalizePlan, setActivePlan, hasPlan, getCurrentPhase, getTodaySessions, getSessionsForDay, getSubject, getWeekNumber, getDaysUntilExam } from './data.js';
+import { plan, subjects, phases, checklist, studyMethod, EXAMPLE_PLAN, EMPTY_PLAN, normalizePlan, setActivePlan, hasPlan, getCurrentPhase, getTodaySessions, getSessionsForDay, getSubject, getWeekNumber, getDaysUntilExam } from './data.js';
 import { Timer } from './timer.js';
 import * as storage from './storage.js';
 import { openServerScreen, setupServerScreen, renderSummary } from './setup.js';
@@ -6,6 +6,8 @@ import { openPlanner, setupPlanner } from './planner.js';
 import { enterFocusMode, exitFocusMode, playSound } from './focus.js';
 import { setupLog, openBlockLog, openProbeSetup, openExamGrade } from './logsheet.js';
 import { subjectPriorities, eveOfExam, examDateOf, daysUntil, FINAL_WINDOW_DAYS } from './learning.js';
+import { enrichWithCurriculum, planSubjectsFromCurriculum, needsRetakeDate } from './curriculum.js';
+import { setupPercurso, openPercurso, openSemester, renderPercursoCard } from './percurso.js';
 
 const $ = (id) => document.getElementById(id);
 const RING_C = 2 * Math.PI * 118;
@@ -52,10 +54,34 @@ function loadPlan() {
     if (Object.keys(d.sessions || {}).length || Object.keys(d.focus || {}).length) storage.savePlan(normalizePlan(EXAMPLE_PLAN));
   }
   setActivePlan(storage.getPlan());
+  const enriched = enrichWithCurriculum(subjects, storage.getCurriculum().ucs || []);
+  subjects.forEach((s, i) => { s.derivedExamDate = enriched[i].derivedExamDate || ''; s.prereqWeak = enriched[i].prereqWeak || []; });
   const valid = new Set([...subjects.map(s => s.id), 'all']);
   if (!valid.has(selectedSubject)) {
     selectedSubject = getTodaySessions().find(s => s.subject !== 'all')?.subject || subjects[0]?.id || 'all';
   }
+}
+
+// Degree record → plan: UCs being taken now join the plan; approved or dropped ones leave it.
+function syncPlanWithCurriculum() {
+  const ucs = storage.getCurriculum().ucs || [];
+  const wanted = planSubjectsFromCurriculum(ucs);
+  const current = storage.getPlan() || normalizePlan({ ...EMPTY_PLAN });
+  const linked = new Set(ucs.map(u => u.id));
+  const kept = current.subjects.filter(s => !s.ucId || wanted.some(w => w.id === s.id) || !linked.has(s.ucId));
+  const added = wanted.filter(w => !kept.some(s => s.id === w.id));
+  if (added.length === 0 && kept.length === current.subjects.length) return;
+  storage.savePlan(normalizePlan({ ...current, subjects: [...kept, ...added] }));
+  if (added.length) toast(`${added.length} UC(s) adicionadas ao plano. Gera ou ajusta a semana em Editar plano.`);
+}
+
+function manageCurriculum() {
+  openPercurso(() => {
+    syncPlanWithCurriculum();
+    loadPlan();
+    renderAll();
+    toast('Percurso guardado');
+  });
 }
 
 function editPlan() {
@@ -287,10 +313,13 @@ function renderExamAlerts() {
     .map(s => ({ s, days: daysUntil(examDateOf(s, plan), now) }))
     .filter(x => x.days !== null && x.days > 1 && x.days <= FINAL_WINDOW_DAYS)
     .sort((a, b) => a.days - b.days);
+  const retakes = (storage.getCurriculum().ucs || []).filter(u => u.inPlan && needsRetakeDate(u, now));
   $('exam-alerts').innerHTML = [
+    ...retakes.map(u => `<div class="alert alert-strong"><b>${esc(u.name)}: reprovada na época normal.</b> Adiciona a data do recurso (ou época especial) no percurso para o plano se ajustar. <button class="link-btn" data-percurso>Abrir percurso</button></div>`),
     ...eve.map(s => `<div class="alert alert-strong"><b>Amanhã: exame de ${esc(s.short)}.</b> Hoje só recuperação e revisão — sem matéria nova. Faz um teste de controlo curto e dorme bem: o sono consolida o que estudaste.</div>`),
     ...soon.map(({ s, days }) => `<div class="alert"><b>${esc(s.short)}: exame em ${days} dias.</b> Esta disciplina passa à frente. <button class="link-btn" data-probe="${esc(s.id)}">Fazer teste de controlo</button></div>`),
   ].join('');
+  $('exam-alerts').querySelectorAll('[data-percurso]').forEach(b => b.addEventListener('click', manageCurriculum));
   $('exam-alerts').querySelectorAll('[data-probe]').forEach(b => b.addEventListener('click', () => openProbeSetup(subjects, b.dataset.probe, startProbe)));
 }
 
@@ -452,10 +481,13 @@ function renderMastery() {
     if (p.calibration.overconfident) flags.push(`<span class="flag warn">Excesso de confiança: esperavas ~${pct(p.calibration.expected)}, acertaste ${pct(p.calibration.actual)}</span>`);
     if (p.dependency) flags.push(`<span class="flag warn">Depende de ajuda: ${pct(p.split.assisted)} com ajuda vs ${pct(p.split.unassisted)} sem</span>`);
     if (p.probeDue && p.mastery !== null) flags.push('<span class="flag">Teste de controlo em falta esta semana</span>');
+    if (s.prereqWeak?.length) flags.push(`<span class="flag warn">Base fraca: ${s.prereqWeak.map(w => `${esc(w.short)} (${w.reason}${w.grade !== null ? `, ${w.grade}` : ''})`).join(', ')} — o plano inclui revisão</span>`);
     const exam = results[s.id];
     let examLine = '';
     if (exam) examLine = `Exame: ${exam.grade}/20${p.mastery !== null ? ` · último domínio medido ${pct(p.mastery)}` : ''}`;
-    else if (p.days !== null && p.days < 0) examLine = `<button class="link-btn" data-grade="${esc(s.id)}">Registar nota do exame</button>`;
+    else if (p.days !== null && p.days < 0) examLine = s.ucId
+      ? '<button class="link-btn" data-percurso>Registar notas no percurso</button>'
+      : `<button class="link-btn" data-grade="${esc(s.id)}">Registar nota do exame</button>`;
     else if (p.days !== null) examLine = p.days === 0 ? 'exame hoje' : p.days === 1 ? 'exame amanhã' : `exame em ${p.days} dias`;
     const practice = p.split.count
       ? `Prática: ${p.split.unassisted !== null ? `${pct(p.split.unassisted)} sem ajuda` : '—'}${p.split.assisted !== null ? ` · ${pct(p.split.assisted)} com ajuda` : ''}`
@@ -471,6 +503,7 @@ function renderMastery() {
         ${practice || examLine ? `<div class="mastery-meta muted small">${[practice, examLine].filter(Boolean).join(' · ')}</div>` : ''}
       </div>`;
   }).join('');
+  $('mastery-list').querySelectorAll('[data-percurso]').forEach(b => b.addEventListener('click', manageCurriculum));
   $('mastery-list').querySelectorAll('[data-grade]').forEach(b => b.addEventListener('click', () => {
     const s = getSubject(b.dataset.grade);
     openExamGrade(s, results[s.id]?.grade, (g) => { storage.setExamResult(s.id, g); renderMastery(); });
@@ -479,6 +512,7 @@ function renderMastery() {
 
 function renderProgress() {
   renderMastery();
+  renderPercursoCard($('percurso-card'), { onManage: manageCurriculum, onSemester: openSemester });
   const now = new Date();
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -732,6 +766,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupPlanner();
   setupServerScreen();
   setupLog();
+  setupPercurso();
+  $('btn-settings-percurso').addEventListener('click', () => { openSettings(false); manageCurriculum(); });
   $('btn-probe').addEventListener('click', () => {
     if (!hasPlan()) return editPlan();
     openProbeSetup(subjects, subjects.some(s => s.id === selectedSubject) ? selectedSubject : subjects[0].id, startProbe);
