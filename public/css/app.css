@@ -510,3 +510,72 @@ body.intro { overflow: hidden; }
   background: linear-gradient(to top, var(--bg) 70%, transparent);
 }
 .intro-cta .btn { max-width: 620px; margin: 0 auto; display: flex; min-height: 54px; font-size: 16px; }
+
+/* ── Block log / probes ──────────────── */
+.backdrop {
+  position: fixed; inset: 0; z-index: 190; display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(0, 0, 0, .6); opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.backdrop.active { opacity: 1; pointer-events: auto; }
+.backdrop.active .sheet { transform: none; }
+.sheet.log { max-height: 92dvh; overflow-y: auto; gap: 12px; }
+@media (min-width: 900px) { .backdrop { align-items: center; } }
+.log-title { font-size: 20px; margin-top: 2px; }
+.log-q { font-weight: 600; font-size: 15px; margin-top: 6px; }
+.log-step { display: flex; flex-direction: column; gap: 10px; }
+.log-step.locked { opacity: .55; }
+.log-skip { align-self: center; color: var(--muted); font-size: 13px; margin-top: 4px; }
+.log-feedback-text { font-size: 15px; line-height: 1.55; color: #e6e3dc; padding: 14px; background: var(--surface-2); border-radius: var(--r-md); }
+.choice-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.choice-row.four { grid-template-columns: repeat(4, 1fr); }
+.choice {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 8px; min-height: 52px;
+  border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--line); font-weight: 600; text-align: center;
+}
+.choice small { font-weight: 400; font-size: 11px; color: var(--muted); }
+.choice.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.choice.on small { color: var(--accent); }
+.choice:disabled { cursor: default; }
+.stepper.big { justify-content: center; gap: 14px; }
+.stepper.big button { width: 48px; height: 48px; font-size: 22px; }
+.stepper.big output { font-size: 28px; min-width: 60px; }
+.stepper.big output::after { content: ''; }
+.rules { margin: 4px 0 0 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: #cfccc4; }
+.chips.left { justify-content: flex-start; }
+
+/* ── Alerts / mastery ────────────────── */
+#exam-alerts { display: flex; flex-direction: column; gap: 10px; }
+#exam-alerts:empty { display: none; }
+.alert { padding: 12px 14px; border-radius: var(--r-md); border: 1px solid rgba(232, 182, 90, .35); background: rgba(232, 182, 90, .08); font-size: 14px; color: #eadcc0; }
+.alert b { color: #f3d596; }
+.alert-strong { border-color: rgba(239, 122, 98, .45); background: rgba(239, 122, 98, .1); color: #f1d2ca; }
+.alert-strong b { color: #ffb4a3; }
+.mastery-note { margin-top: 6px; }
+.mastery-row { padding: 12px 0; border-top: 1px solid var(--line); }
+.mastery-row:first-child { border-top: 0; margin-top: 8px; }
+.mastery-head { display: grid; grid-template-columns: 44px 1fr 46px; gap: 12px; align-items: center; }
+.mastery-bar { height: 10px; border-radius: 99px; background: var(--surface-2); overflow: hidden; display: flex; align-items: center; }
+.mastery-bar:has(span) { height: auto; background: none; }
+.mastery-bar i { display: block; height: 100%; border-radius: inherit; }
+.mastery-pct { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.flags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0 56px; }
+.flag { font-size: 12px; padding: 3px 9px; border-radius: 99px; background: var(--surface-2); color: var(--muted); }
+.flag.warn { background: rgba(232, 182, 90, .14); color: #f0cf8a; }
+.mastery-meta { margin: 6px 0 0 56px; }
+
+/* ── Planner: ECTS, exam date, allocation ── */
+.subject-edit { grid-template-areas: "tag name name del" "short area load load" "ects exam exam exam"; }
+.subject-edit [data-k="ects"] { min-width: 0; }
+.subject-edit .mini { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--faint); }
+.subject-edit .mini:has([data-k="ects"]) { grid-area: ects; }
+.subject-edit .mini:has([data-k="examDate"]) { grid-area: exam; }
+@media (min-width: 640px) {
+  .subject-edit { grid-template-columns: 44px 1fr 70px 130px 130px 40px; grid-template-areas: "tag name short area load del" ". ects exam exam . ."; }
+}
+.alloc-row { display: grid; grid-template-columns: 44px 1fr 44px; grid-template-areas: "tag bar pct" ". why why"; gap: 4px 12px; align-items: center; padding: 8px 0; }
+.alloc-row:first-child { margin-top: 10px; }
+.alloc-row .tag { grid-area: tag; }
+.alloc-bar { grid-area: bar; height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.alloc-bar i { display: block; height: 100%; border-radius: inherit; }
+.alloc-pct { grid-area: pct; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.alloc-why { grid-area: why; }

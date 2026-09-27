@@ -73,6 +73,18 @@ A IA recebe as tuas disciplinas (tipo e carga), datas e horas por dia, e tem de 
 | Treino em condições de exame | Morris, Bransford & Franks (1977) | Fases que passam de aprender → exercícios → simulações |
 | Carga sustentável e sono | Consolidação da memória durante o sono (Diekelmann & Born, 2010) | O plano respeita as horas que indicas |
 
+### Medir aprendizagem, não tempo
+
+A aprendizagem mede-se pela **recuperação sem ajuda, com atraso**, nunca pelo desempenho durante o estudo nem pelas horas.
+
+- **No fim de cada bloco** registas o que tentaste, **antes de corrigir**: quantos exercícios, quão seguro estás (1–4) e se usaste IA, apontamentos ou exemplos. Só depois corriges e dizes quantos acertaste. Ler matéria nova conta como primeira exposição, mas não para o domínio.
+- **Testes de controlo** (em papel, sem consulta, com tempo, com exercícios não resolvidos na última semana) são a única fonte do **domínio** de cada disciplina (0–100%).
+- **Progresso** mostra primeiro as disciplinas com **excesso de confiança** (esperavas acertar mais do que acertaste), depois as mais fracas e depois as de exame mais próximo; a prática com ajuda aparece à parte, com aviso quando há dependência.
+- **Datas de exame por disciplina** (opcionais): a véspera é só de revisão e a última semana dá prioridade a essa disciplina. Depois do exame, registas a nota para ver se os testes de controlo a previam.
+- **Distribuição do tempo** (heurística, não ciência da aprendizagem): ECTS × o que falta dominar, com mínimo de 10% por disciplina; enviada à IA ao gerar o plano.
+
+As regras estão em `public/js/learning.js` e têm testes (`npm test`).
+
 A IA pode errar, por isso a app não confia cegamente no resultado: o editor corre uma **verificação** determinística (carga por dia, espaçamento, presença de recuperação, técnicas passivas, frequência das línguas) e mostra avisos antes de guardares. A evidência apoia os princípios; cada plano concreto continua a merecer o teu ajuste.
 
 ## Estrutura
@@ -82,6 +94,8 @@ public/                 a app (é a única pasta publicada como ficheiros estát
   index.html, css/, icons/, sw.js, manifest.json
   js/app.js             controlador da UI
   js/planner.js         editor de plano + verificação científica
+  js/learning.js        regras de aprendizagem (domínio, calibração, distribuição, datas)
+  js/logsheet.js        registo no fim do bloco, testes de controlo, nota do exame
   js/setup.js           ecrã "Servidor e chaves" + painel de estado
   js/storage.js         dados locais + Supabase (auth, sync, realtime)
   js/data.js            plano de exemplo, normalização, datas
@@ -90,5 +104,6 @@ worker/api.js           API partilhada: /api/config, /api/health, /api/generate-
 worker/index.js         entrada do Cloudflare Worker (API + ficheiros de public/)
 setup/server.mjs        npm start: app local + rotas de configuração e publicação
 supabase/migrations/    SQL das tabelas e regras de acesso (RLS)
+tests/                  testes das regras (npm test)
 wrangler.jsonc          configuração do Worker
 ```

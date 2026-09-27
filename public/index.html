@@ -42,6 +42,7 @@
       <h2 class="intro-h2">Como te ajuda</h2>
       <ul class="intro-points">
         <li><b>Testar-te em vez de reler.</b> Recuperar a matéria da memória fixa-a melhor do que voltar a ler, mesmo quando reler parece mais eficaz. <cite>Roediger &amp; Karpicke, 2006; Karpicke &amp; Blunt, 2011</cite></li>
+        <li><b>Medir o que sabes sem ajuda.</b> O teu domínio vem de testes de controlo em papel, sem consulta, feitos dias depois de estudares — não das horas nem do que acertas com apoio. Antes de corrigires dizes quão seguro estás, e a app mostra onde a confiança engana. <cite>Roediger &amp; Karpicke, 2006; Bjork, 1994; Bastani et al.</cite></li>
         <li><b>Espaçar as revisões até ao exame.</b> Cada disciplina volta ao longo da semana, com revisões curtas dias depois, em vez de tudo de uma vez. <cite>Ebbinghaus, 1885; Cepeda et al., 2006, 2008</cite></li>
         <li><b>Misturar matérias e tipos de problema.</b> Obriga-te a reconhecer que método usar, que é o que o exame pede. <cite>Rohrer &amp; Taylor, 2007</cite></li>
         <li><b>Desconfiar da sensação de facilidade.</b> Reler, sublinhar e resumir parecem produtivos mas rendem pouco; o plano não os usa como forma de estudar. <cite>Bjork, 1994; Dunlosky et al., 2013</cite></li>
@@ -122,6 +123,7 @@
       <main>
         <!-- TAB: Hoje -->
         <section id="tab-today" class="tab active">
+          <div id="exam-alerts"></div>
           <div id="next-up"></div>
 
           <div class="card">
@@ -136,7 +138,7 @@
           <div class="stats">
             <div class="stat"><div class="stat-num" id="stat-streak">0</div><div class="stat-label">dias seguidos</div></div>
             <div class="stat"><div class="stat-num" id="stat-hours">0h</div><div class="stat-label">de foco</div></div>
-            <div class="stat"><div class="stat-num" id="stat-sessions">0</div><div class="stat-label">sessões feitas</div></div>
+            <div class="stat"><div class="stat-num" id="stat-sessions">0</div><div class="stat-label">testes (7 dias)</div></div>
           </div>
 
           <div class="card tip">
@@ -203,7 +205,16 @@
         <section id="tab-progress" class="tab">
           <div class="card">
             <div class="row-between">
-              <h2 class="h2">Últimos 7 dias</h2>
+              <h2 class="h2">Domínio sem ajuda</h2>
+              <button class="btn btn-primary btn-sm" id="btn-probe">Teste de controlo</button>
+            </div>
+            <p class="muted small mastery-note">O que acertas em testes de controlo: em papel, sem consulta, dias depois de estudares. É a única medida que conta. A prática com ajuda aparece à parte e nunca aumenta o domínio.</p>
+            <div id="mastery-list"></div>
+          </div>
+
+          <div class="card">
+            <div class="row-between">
+              <h2 class="h2">Tempo de estudo · 7 dias</h2>
               <span class="muted small" id="week-total"></span>
             </div>
             <div class="chart" id="chart-days"></div>
@@ -305,6 +316,11 @@
       <div id="server-body"></div>
       <div class="server-bottom-space"></div>
     </div>
+  </div>
+
+  <!-- ── Block log / probe sheet ─────────── -->
+  <div id="log-panel" class="backdrop" aria-hidden="true">
+    <div class="sheet log" id="log-sheet" role="dialog" aria-label="Registo"></div>
   </div>
 
   <div id="toast" role="status" aria-live="polite"></div>

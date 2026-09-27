@@ -147,7 +147,9 @@ Princípios obrigatórios (e a razão de cada um):
 5. Blocos com pausas: sessões expressas em blocos de 40+10 min (ou 25–50 min), com pausa maior após 3–4 blocos. Não excedas as horas disponíveis de cada dia.
 6. Sono e carga: não empurres estudo para compensar dias sem horas; se as horas não chegam, reduz primeiro disciplinas leves e línguas para "manutenção" — nunca elimines o espaçamento das disciplinas pesadas.
 7. Línguas e competências de memória (vocabulário, etc.): sessões curtas e frequentes (20–40 min, 3–5x por semana) são melhores do que uma sessão longa.
-8. Fases até ao exame: começa com mais aprendizagem nova + recuperação e vai deslocando para exercícios e, nas últimas 1–2 semanas, simulações em condições de exame (transfer-appropriate processing — Morris, Bransford & Franks, 1977).
+8. Distribuição do tempo: cada disciplina traz uma "fatia sugerida" (%) calculada a partir dos ECTS e do que falta dominar (medido em testes sem consulta). Distribui os minutos de matéria nova e prática aproximadamente segundo essas fatias; revisões curtas de espaçamento não contam para a fatia. Se uma disciplina tem exame próximo, dá-lhe prioridade nessa fase.
+9. Primeira exposição vs. prática: para matéria totalmente nova, a primeira sessão de um tópico pode ser em bloco (aprender o conceito com exemplos); a partir daí, prática mista e recuperação. Ler serve apenas para a primeira exposição.
+10. Fases até ao exame: começa com mais aprendizagem nova + recuperação e vai deslocando para exercícios e, nas últimas 1–2 semanas, simulações em condições de exame (transfer-appropriate processing — Morris, Bransford & Franks, 1977).
 
 Regras de saída:
 - "day": 0=domingo, 1=segunda, … 6=sábado.
@@ -237,6 +239,10 @@ function validate(body) {
       short: String(s.short).slice(0, 5),
       load: ['leve', 'media', 'alta'].includes(s.load) ? s.load : 'media',
       area: ['uni', 'lingua', 'outro'].includes(s.area) ? s.area : 'uni',
+      ects: Number(s.ects) > 0 ? Math.min(60, Number(s.ects)) : null,
+      examDate: isDate(s.examDate) ? s.examDate : null,
+      share: Number.isFinite(Number(s.share)) && s.share !== null ? Math.max(0, Math.min(100, Math.round(Number(s.share)))) : null,
+      mastery: Number.isFinite(Number(s.mastery)) && s.mastery !== null ? Math.max(0, Math.min(1, Number(s.mastery))) : null,
     })),
     notes: String(body.notes || '').slice(0, 1000),
   };
@@ -250,8 +256,14 @@ function userPrompt(input) {
     `Data de início: ${input.startDate}`,
     `Data dos exames: ${input.examDate}`,
     '',
-    'Disciplinas (id — nome — tipo — carga):',
-    ...input.subjects.map(s => `- ${s.id} — ${s.name} — ${areaName[s.area]} — carga ${loadName[s.load]}`),
+    'Disciplinas (id — nome — tipo — carga — ECTS — exame — fatia sugerida — domínio medido):',
+    ...input.subjects.map(s => [
+      `- ${s.id} — ${s.name} — ${areaName[s.area]} — carga ${loadName[s.load]}`,
+      s.ects ? `${s.ects} ECTS` : 'ECTS n/d',
+      s.examDate ? `exame ${s.examDate}` : `exame na data geral`,
+      s.share !== null ? `fatia ${s.share}%` : 'fatia n/d',
+      s.mastery !== null ? `domínio ${Math.round(s.mastery * 100)}% em testes sem consulta` : 'ainda sem teste (tratar como matéria por aprender)',
+    ].join(' — ')),
     '',
     'Horas disponíveis por dia:',
     ...input.hoursPerDay.map((h, i) => `- ${days[i]}: ${h} h`),

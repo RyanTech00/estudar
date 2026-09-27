@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node setup/server.mjs",
+    "test": "node --test tests/",
     "deploy": "wrangler deploy",
     "check": "wrangler deploy --dry-run --outdir .wrangler/dry-run"
   },

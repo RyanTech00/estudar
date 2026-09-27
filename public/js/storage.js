@@ -46,6 +46,8 @@ function getDefaults() {
     sessions: {},   // { '2026-09-25': { fp: { done: true, timestamp } } }
     focus: {},      // { '2026-09-25': { fp: 80 } }  minutes studied per subject
     checklist: {},  // { 'W01': [bool x5] }
+    attempts: [],   // append-only log of self-graded attempts and probes (see learning.js)
+    examResults: {}, // { subjectId: { grade, at } } real exam grades, to check the probes predicted them
     timerConfig: { work: 40, break: 10, longBreak: 15, sessionsBeforeLong: 4 },
     settings: { sound: true },
     updatedAt: 0,
@@ -108,6 +110,27 @@ export function logFocus(subjectId, minutes, date = new Date()) {
   const key = dateKey(date);
   data.focus[key] = data.focus[key] || {};
   data.focus[key][subjectId] = (data.focus[key][subjectId] || 0) + minutes;
+  saveData(data);
+}
+
+// ── Attempts (append-only) and exam results ──
+export function getAttempts() {
+  return loadData().attempts || [];
+}
+
+export function addAttempt(attempt) {
+  const data = loadData();
+  data.attempts = [...(data.attempts || []), { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, at: Date.now(), ...attempt }];
+  saveData(data);
+}
+
+export function getExamResults() {
+  return loadData().examResults || {};
+}
+
+export function setExamResult(subjectId, grade) {
+  const data = loadData();
+  data.examResults = { ...(data.examResults || {}), [subjectId]: { grade, at: Date.now() } };
   saveData(data);
 }
 
@@ -340,7 +363,9 @@ function subscribe() {
       if ((remote.updatedAt || 0) <= (local.updatedAt || 0)) return;
       // Remote came from a device that already merged on sign-in: take it as-is
       // so un-checking something on one device propagates.
-      setLocal({ ...getDefaults(), ...remote, owner: currentUser.id });
+      const byId = new Map();
+      for (const a of [...(remote.attempts || []), ...(local.attempts || [])]) if (a?.id) byId.set(a.id, a);
+      setLocal({ ...getDefaults(), ...remote, attempts: [...byId.values()].sort((a, b) => a.at - b.at), owner: currentUser.id });
       onSyncCallback?.();
     })
     .subscribe();
@@ -370,6 +395,16 @@ function mergeData(local, remote) {
     const l = local.checklist?.[week] || [];
     const r = remote.checklist?.[week] || [];
     merged.checklist[week] = Array.from({ length: Math.max(l.length, r.length) }, (_, i) => !!(l[i] || r[i]));
+  }
+
+  // Append-only log: union by id, so no device can erase another's attempts.
+  const byId = new Map();
+  for (const a of [...(remote.attempts || []), ...(local.attempts || [])]) if (a?.id) byId.set(a.id, a);
+  merged.attempts = [...byId.values()].sort((a, b) => a.at - b.at);
+
+  merged.examResults = { ...(remote.examResults || {}) };
+  for (const [k, v] of Object.entries(local.examResults || {})) {
+    if (!merged.examResults[k] || (v?.at || 0) > (merged.examResults[k].at || 0)) merged.examResults[k] = v;
   }
 
   merged.plan = newer.plan || local.plan || remote.plan || null;

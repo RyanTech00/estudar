@@ -1,5 +1,6 @@
 import { EXAMPLE_PLAN, EMPTY_PLAN, AREAS, LOADS, PALETTE, normalizePlan } from './data.js';
 import * as storage from './storage.js';
+import { allocation, FINAL_WINDOW_DAYS } from './learning.js';
 
 const $ = (id) => document.getElementById(id);
 const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -125,10 +126,19 @@ function render() {
           <input class="se-short" data-k="short" placeholder="Sigla" maxlength="5" value="${esc(s.short)}" aria-label="Sigla">
           <select data-k="area" aria-label="Tipo">${Object.entries(AREAS).map(([k, v]) => `<option value="${k}" ${s.area === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
           <select data-k="load" aria-label="Carga">${Object.entries(LOADS).map(([k, v]) => `<option value="${k}" ${s.load === k ? 'selected' : ''}>Carga ${v.toLowerCase()}</option>`).join('')}</select>
+          <label class="mini"><span>ECTS</span><input data-k="ects" type="number" min="0" max="60" step="0.5" value="${esc(s.ects ?? '')}" placeholder="—"></label>
+          <label class="mini grow"><span>Exame</span><input data-k="examDate" type="date" value="${esc(s.examDate || '')}" aria-label="Data do exame (opcional)"></label>
           <button class="icon-btn" data-remove-subject="${i}" aria-label="Remover disciplina"><svg class="ico"><use href="#i-close"/></svg></button>
         </div>`).join('')}
       </div>
       <button class="btn btn-ghost btn-sm" id="pl-add-subject">+ Disciplina</button>
+      <p class="muted small">Sem data de exame? Deixa vazio: usa a data geral acima. Quando souberes, põe-na e o plano ajusta-se.</p>
+    </section>
+
+    <section class="card">
+      <h3 class="h2">Distribuição sugerida do tempo</h3>
+      <p class="muted small">Quanto tempo de matéria nova e prática cada disciplina deve ter: ECTS × o que te falta dominar (medido nos testes de controlo, sem ajuda). Sem testes ainda, segue só os ECTS. Nenhuma desce abaixo de 10%, e a disciplina com exame nos próximos ${FINAL_WINDOW_DAYS} dias passa à frente. É uma heurística de planeamento, não ciência da aprendizagem: afina-a com os teus resultados.</p>
+      <div id="pl-allocation"></div>
     </section>
 
     <section class="card">
@@ -186,7 +196,36 @@ function render() {
   renderChecks();
 }
 
+function currentAllocation() {
+  const plan = normalizePlan(draft);
+  return allocation(plan.subjects, storage.getAttempts(), plan);
+}
+
+function renderAllocation() {
+  const el = $('pl-allocation');
+  if (!el) return;
+  const rows = currentAllocation();
+  if (!rows.length) { el.innerHTML = '<div class="empty">Adiciona disciplinas.</div>'; return; }
+  const plan = normalizePlan(draft);
+  const planned = {};
+  plan.weeklyPlan.forEach(s => { if (s.subject !== 'all') planned[s.subject] = (planned[s.subject] || 0) + (s.minutes || 0); });
+  const totalPlanned = Object.values(planned).reduce((a, b) => a + b, 0);
+  el.innerHTML = rows.sort((a, b) => b.share - a.share).map(r => {
+    const sub = subjectById(r.id);
+    const now = totalPlanned ? (planned[r.id] || 0) / totalPlanned : null;
+    const why = [
+      r.finished ? 'exame já feito' : r.mastery === null ? 'sem teste ainda' : `domínio ${Math.round(r.mastery * 100)}%`,
+      r.inFinalWindow ? `exame em ${r.days} dia${r.days === 1 ? "" : "s"}` : '',
+    ].filter(Boolean).join(' · ');
+    return `<div class="alloc-row"><span class="tag" style="--c:${sub.color}">${esc(sub.short)}</span>
+      <div class="alloc-bar"><i style="width:${Math.round(r.share * 100)}%;background:${sub.color}"></i></div>
+      <span class="alloc-pct">${Math.round(r.share * 100)}%</span>
+      <span class="alloc-why muted small">${esc(why)}${now !== null ? ` · no plano: ${Math.round(now * 100)}%` : ''}</span></div>`;
+  }).join('');
+}
+
 function renderChecks() {
+  renderAllocation();
   $('pl-checks').innerHTML = checkPlan(normalizePlan(draft))
     .map(c => `<li class="${c.ok ? 'ok' : 'warn'}"><span>${c.ok ? '✓' : '!'}</span>${esc(c.text)}</li>`).join('');
 }
@@ -254,11 +293,15 @@ async function generate() {
 
   // Keep ids stable so the AI's answer maps back onto these subjects.
   draft.subjects = plan.subjects;
+  const shares = currentAllocation();
   const result = await storage.generatePlan({
     startDate: plan.startDate,
     examDate: plan.examDate,
     hoursPerDay: plan.hoursPerDay,
-    subjects: plan.subjects.map(({ id, name, short, load, area }) => ({ id, name, short, load, area })),
+    subjects: plan.subjects.map(({ id, name, short, load, area, ects, examDate }) => {
+      const a = shares.find(r => r.id === id);
+      return { id, name, short, load, area, ects, examDate, share: a ? Math.round(a.share * 100) : null, mastery: a?.mastery ?? null };
+    }),
     notes: draft.notes || '',
   });
 

@@ -4,6 +4,8 @@ import * as storage from './storage.js';
 import { openServerScreen, setupServerScreen, renderSummary } from './setup.js';
 import { openPlanner, setupPlanner } from './planner.js';
 import { enterFocusMode, exitFocusMode, playSound } from './focus.js';
+import { setupLog, openBlockLog, openProbeSetup, openExamGrade } from './logsheet.js';
+import { subjectPriorities, eveOfExam, examDateOf, daysUntil, FINAL_WINDOW_DAYS } from './learning.js';
 
 const $ = (id) => document.getElementById(id);
 const RING_C = 2 * Math.PI * 118;
@@ -15,6 +17,7 @@ const MONTH_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'se
 
 let selectedSubject = 'all';
 let focusActive = false;
+let probe = null; // { minutes } while a closed-book probe is running
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const icon = (name) => `<svg class="ico"><use href="#i-${name}"/></svg>`;
@@ -74,7 +77,7 @@ function applyTimerConfig() {
 // Survives the OS killing the PWA in the background mid-block.
 let lastSavedState = '';
 function persistTimer() {
-  const snap = JSON.stringify({ ...timer.snapshot(), subject: selectedSubject });
+  const snap = JSON.stringify({ ...timer.snapshot(), subject: selectedSubject, probe });
   if (snap === lastSavedState) return;
   lastSavedState = snap;
   try { localStorage.setItem(storage.TIMER_KEY, snap); } catch {}
@@ -85,24 +88,51 @@ function restoreTimer() {
     const saved = JSON.parse(localStorage.getItem(storage.TIMER_KEY) || 'null');
     if (!saved) return;
     if (saved.subject) selectedSubject = saved.subject;
+    if (saved.probe && saved.phase === 'work' && saved.state !== 'idle') {
+      probe = saved.probe;
+      timer.configure({ work: probe.minutes * 60 });
+    }
     timer.restore(saved);
   } catch {}
 }
 
-function onPhaseEnd({ finished, next, natural, workedSeconds }) {
+function onPhaseEnd({ finished, natural, workedSeconds }) {
   if (finished === 'work') {
     const minutes = Math.round(workedSeconds / 60);
+    const subject = getSubject(selectedSubject);
     storage.logFocus(selectedSubject, minutes);
     if (natural && storage.getSetting('sound') !== false) playSound('complete');
-    if (minutes > 0) toast(`+${minutes} min de ${getSubject(selectedSubject).short} · ${PHASE_LABEL[next]} a seguir`);
     renderStats();
     renderProgress();
+
+    if (probe) {
+      // A probe is one sitting: back to normal durations, no automatic break.
+      probe = null;
+      applyTimerConfig();
+      timer.reset();
+      if (focusActive) closeFocus();
+      openBlockLog({ subject, probe: true, minutes }, renderAll);
+      return;
+    }
     // Breaks start by themselves; the next study block waits for you.
     if (natural) timer.start();
+    // Time alone isn't learning: ask what was attempted, before any correcting.
+    if (minutes >= 5) openBlockLog({ subject, minutes }, renderAll);
   } else if (natural) {
     if (storage.getSetting('sound') !== false) playSound('break');
     toast('Pausa terminada — carrega ▶ quando estiveres pronto');
   }
+}
+
+function startProbe(subjectId, minutes) {
+  if (!timer.isIdle && !confirm('Há um bloco a decorrer. Terminá-lo e começar o teste de controlo? O bloco atual não será contado.')) return;
+  selectedSubject = subjectId;
+  renderTimerSubjects();
+  probe = { minutes };
+  timer.reset();
+  timer.configure({ work: minutes * 60 });
+  timer.start();
+  openFocus();
 }
 
 function renderTimer() {
@@ -194,7 +224,7 @@ function renderTimerSubjects() {
 async function openFocus() {
   focusActive = true;
   const sub = getSubject(selectedSubject);
-  $('focus-subject').textContent = sub.name;
+  $('focus-subject').textContent = probe ? `Teste de controlo · ${sub.short} — sem consulta` : sub.name;
   $('focus-subject').style.setProperty('--c', sub.color);
   $('focus-overlay').classList.add('active');
   $('focus-overlay').setAttribute('aria-hidden', 'false');
@@ -250,7 +280,22 @@ function renderHeader() {
 }
 
 // ── Today ──────────────────────────────
+function renderExamAlerts() {
+  const now = new Date();
+  const eve = eveOfExam(subjects, plan, now);
+  const soon = subjects
+    .map(s => ({ s, days: daysUntil(examDateOf(s, plan), now) }))
+    .filter(x => x.days !== null && x.days > 1 && x.days <= FINAL_WINDOW_DAYS)
+    .sort((a, b) => a.days - b.days);
+  $('exam-alerts').innerHTML = [
+    ...eve.map(s => `<div class="alert alert-strong"><b>Amanhã: exame de ${esc(s.short)}.</b> Hoje só recuperação e revisão — sem matéria nova. Faz um teste de controlo curto e dorme bem: o sono consolida o que estudaste.</div>`),
+    ...soon.map(({ s, days }) => `<div class="alert"><b>${esc(s.short)}: exame em ${days} dias.</b> Esta disciplina passa à frente. <button class="link-btn" data-probe="${esc(s.id)}">Fazer teste de controlo</button></div>`),
+  ].join('');
+  $('exam-alerts').querySelectorAll('[data-probe]').forEach(b => b.addEventListener('click', () => openProbeSetup(subjects, b.dataset.probe, startProbe)));
+}
+
 function renderToday() {
+  renderExamAlerts();
   const today = new Date();
   const sessions = getTodaySessions(today).map(s => ({ ...s, sub: getSubject(s.subject), done: storage.isSessionDone(today, s.id) }));
   const doneCount = sessions.filter(s => s.done).length;
@@ -332,7 +377,8 @@ function renderStats() {
   const s = storage.getStats();
   $('stat-streak').textContent = s.streak;
   $('stat-hours').textContent = formatMinutes(s.totalMinutes);
-  $('stat-sessions').textContent = s.totalSessions;
+  const weekAgo = Date.now() - 7 * 86400000;
+  $('stat-sessions').textContent = storage.getAttempts().filter(a => a.kind === 'probe' && a.at >= weekAgo).length;
 }
 
 function allTips() {
@@ -394,7 +440,45 @@ function renderWeek() {
 }
 
 // ── Progress ───────────────────────────
+function renderMastery() {
+  const now = new Date();
+  if (!hasPlan()) { $('mastery-list').innerHTML = '<div class="empty">Cria o teu plano primeiro.</div>'; return; }
+  const attempts = storage.getAttempts();
+  const results = storage.getExamResults();
+  const pct = (x) => `${Math.round(x * 100)}%`;
+  $('mastery-list').innerHTML = subjectPriorities(subjects, attempts, plan, now).map(p => {
+    const s = p.subject;
+    const flags = [];
+    if (p.calibration.overconfident) flags.push(`<span class="flag warn">Excesso de confiança: esperavas ~${pct(p.calibration.expected)}, acertaste ${pct(p.calibration.actual)}</span>`);
+    if (p.dependency) flags.push(`<span class="flag warn">Depende de ajuda: ${pct(p.split.assisted)} com ajuda vs ${pct(p.split.unassisted)} sem</span>`);
+    if (p.probeDue && p.mastery !== null) flags.push('<span class="flag">Teste de controlo em falta esta semana</span>');
+    const exam = results[s.id];
+    let examLine = '';
+    if (exam) examLine = `Exame: ${exam.grade}/20${p.mastery !== null ? ` · último domínio medido ${pct(p.mastery)}` : ''}`;
+    else if (p.days !== null && p.days < 0) examLine = `<button class="link-btn" data-grade="${esc(s.id)}">Registar nota do exame</button>`;
+    else if (p.days !== null) examLine = p.days === 0 ? 'exame hoje' : p.days === 1 ? 'exame amanhã' : `exame em ${p.days} dias`;
+    const practice = p.split.count
+      ? `Prática: ${p.split.unassisted !== null ? `${pct(p.split.unassisted)} sem ajuda` : '—'}${p.split.assisted !== null ? ` · ${pct(p.split.assisted)} com ajuda` : ''}`
+      : '';
+    return `
+      <div class="mastery-row">
+        <div class="mastery-head">
+          ${tag(s)}
+          <div class="mastery-bar">${p.mastery === null ? '<span class="muted small">Ainda sem teste — por aprender</span>' : `<i style="width:${pct(p.mastery)};background:${esc(s.color)}"></i>`}</div>
+          <span class="mastery-pct">${p.mastery === null ? '—' : pct(p.mastery)}</span>
+        </div>
+        ${flags.length ? `<div class="flags">${flags.join('')}</div>` : ''}
+        ${practice || examLine ? `<div class="mastery-meta muted small">${[practice, examLine].filter(Boolean).join(' · ')}</div>` : ''}
+      </div>`;
+  }).join('');
+  $('mastery-list').querySelectorAll('[data-grade]').forEach(b => b.addEventListener('click', () => {
+    const s = getSubject(b.dataset.grade);
+    openExamGrade(s, results[s.id]?.grade, (g) => { storage.setExamResult(s.id, g); renderMastery(); });
+  }));
+}
+
 function renderProgress() {
+  renderMastery();
   const now = new Date();
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -647,6 +731,11 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSettings();
   setupPlanner();
   setupServerScreen();
+  setupLog();
+  $('btn-probe').addEventListener('click', () => {
+    if (!hasPlan()) return editPlan();
+    openProbeSetup(subjects, subjects.some(s => s.id === selectedSubject) ? selectedSubject : subjects[0].id, startProbe);
+  });
   renderAll();
 
   storage.onSync(() => {

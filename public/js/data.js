@@ -9,11 +9,11 @@ export const EXAMPLE_PLAN = {
   examDate: '2027-01-04',
   hoursPerDay: [3.5, 3.5, 3.5, 3.5, 4, 3.5, 3],
   subjects: [
-    { id: 'fp', name: 'Fundamentos da Programação', short: 'FP', load: 'alta', color: '#8ea7ff', area: 'uni' },
-    { id: 'ed', name: 'Estruturas de Dados', short: 'ED', load: 'alta', color: '#c39cff', area: 'uni' },
-    { id: 'pei', name: 'Processamento Estruturado de Informação', short: 'PEI', load: 'media', color: '#5fcdc2', area: 'uni' },
-    { id: 'so', name: 'Sistemas Operativos', short: 'SO', load: 'media', color: '#8fd37e', area: 'uni' },
-    { id: 'eli', name: 'Ética e Legislação Informática', short: 'ELI', load: 'leve', color: '#e8b65a', area: 'uni' },
+    { id: 'fp', ects: 7, name: 'Fundamentos da Programação', short: 'FP', load: 'alta', color: '#8ea7ff', area: 'uni' },
+    { id: 'ed', ects: 7, name: 'Estruturas de Dados', short: 'ED', load: 'alta', color: '#c39cff', area: 'uni' },
+    { id: 'pei', ects: 5, name: 'Processamento Estruturado de Informação', short: 'PEI', load: 'media', color: '#5fcdc2', area: 'uni' },
+    { id: 'so', ects: 5, name: 'Sistemas Operativos', short: 'SO', load: 'media', color: '#8fd37e', area: 'uni' },
+    { id: 'eli', ects: 2, name: 'Ética e Legislação Informática', short: 'ELI', load: 'leve', color: '#e8b65a', area: 'uni' },
     { id: 'c2', name: 'Cambridge C2 Proficiency', short: 'C2', load: 'media', color: '#f28b8b', area: 'lingua' },
     { id: 'de', name: 'Alemão Básico (A1)', short: 'DE', load: 'leve', color: '#e0a47a', area: 'lingua' },
   ],
@@ -137,6 +137,7 @@ export function getDaysUntilExam(date = new Date()) {
 
 // Accepts plans from storage, the example, or the AI and makes them safe to render.
 export function normalizePlan(p) {
+  const isDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
   const subjectsIn = Array.isArray(p.subjects) ? p.subjects : [];
   const usedIds = new Set();
   const subjectsOut = subjectsIn.slice(0, 20).map((s, i) => {
@@ -150,10 +151,11 @@ export function normalizePlan(p) {
       load: LOADS[s.load] ? s.load : 'media',
       area: AREAS[s.area] ? s.area : 'uni',
       color: s.color || PALETTE[i % PALETTE.length],
+      ects: Number(s.ects) > 0 ? Math.min(60, Math.round(Number(s.ects) * 2) / 2) : null,
+      examDate: isDate(s.examDate) ? s.examDate : '',
     };
   });
   const ids = new Set([...subjectsOut.map(s => s.id), 'all']);
-  const isDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
 
   const weekly = (Array.isArray(p.weeklyPlan) ? p.weeklyPlan : [])
     .map(s => ({ day: Math.floor(Number(s.day)), subject: String(s.subject), session: String(s.session || '').slice(0, 60), minutes: Math.max(0, Math.min(600, Math.round(Number(s.minutes) || 0))), focus: s.focus ? String(s.focus).slice(0, 160) : '' }))
