@@ -1,4 +1,4 @@
-const CACHE_NAME = 'estudar-v14';
+const CACHE_NAME = 'estudar-v19';
 const ASSETS = [
   '/',
   '/index.html',
@@ -16,6 +16,8 @@ const ASSETS = [
   '/js/setup.js',
   '/js/timer.js',
   '/js/storage.js',
+  '/js/roles.js',
+  '/vendor/supabase.js',
   '/js/focus.js',
   '/manifest.json',
   '/icons/icon.svg',
@@ -50,20 +52,10 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = e.request.url;
 
-  // Supabase SDK from the CDN: serve cached copy instantly (so the app opens offline), refresh in background.
-  if (url.startsWith('https://cdn.jsdelivr.net/npm/@supabase/')) {
-    e.respondWith(
-      caches.match(e.request).then(cached => {
-        const fresh = fetch(e.request).then(r => putInCache(e.request, r)).catch(() => cached);
-        return cached || fresh;
-      })
-    );
-    return;
-  }
-
-  if (!url.startsWith(self.location.origin)) return;
-  // API answers must be live (status, config); the app caches /api/config itself for offline starts.
-  if (new URL(url).pathname.startsWith('/api/')) return;
+  // Only this app's own files. Never other origins, never the API (live and per-user), and never URLs with a
+  // query string (e.g. a sign-in ?code=…), so nothing personal ends up in the cache.
+  const u = new URL(url);
+  if (u.origin !== self.location.origin || u.pathname.startsWith('/api/') || u.search) return;
 
   // App files: network first so deploys show up immediately; cache only as offline fallback.
   e.respondWith(

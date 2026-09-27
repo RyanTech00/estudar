@@ -27,7 +27,11 @@ npm start
 It's the same server; the difference is where your keys are stored (see below).
 :::
 
-Your browser opens at `http://localhost:8787`. Click **Get started** on the welcome page.
+Your browser opens by itself at the address shown in the terminal. Click **Get started** on the welcome page.
+
+::: tip The link from the terminal
+The **Server & keys** screen only opens from the link the terminal shows (`http://localhost:8787/#setup=…`): it carries a key that changes on every start and protects your keys from other programs. If you close the tab, copy the link from the terminal again.
+:::
 
 With nothing else, the app already works in **local mode**: plan, timer, focus, logs and degree record, with data stored only in this browser. For an account, sync and AI, read on.
 
@@ -46,10 +50,15 @@ In the app, open **Account** (the circle in the top-right corner) → **Server &
 ### Supabase — accounts and data
 
 1. Create a free project at [supabase.com/dashboard/new](https://supabase.com/dashboard/new).
-2. In **Project Settings → API Keys**, copy the **publishable** (or **anon**) key and, optionally, the **secret** (or **service_role**) key. The **Project URL** is under **Data API**.
+2. On the project's home page, the **Copy** button next to the address gives you the **Project URL** and the **Publishable key**. The **secret** key (optional) is under **Project Settings → API Keys**, in the *Publishable and secret API keys* tab; the older **anon** and **service_role** keys (*Legacy* tab) work too.
+   If you're going to use **Automatic** in step 4, pasting the **Project URL** is enough: both keys are filled in for you.
 3. Paste them into step 1 on the screen.
 4. Open **Create the tables and set up the sign-in email**:
-   - **Automatic** — create a [personal token](https://supabase.com/dashboard/account/tokens) (`sbp_…`), paste it and click **Set up**. The app creates the tables and access rules, authorises the app's addresses and puts the **6-digit code** in the sign-in email. The token is used only at that moment and is never stored.
+   - **Automatic** — enter **your email**, create a [personal token](https://supabase.com/dashboard/account/tokens) (`sbp_…`), paste it and click **Set up**. The app creates the tables and access rules, authorises the app's addresses, puts the **6-digit code** in the sign-in email, creates your account and **closes sign-ups**: only you can get in (add more people in step 3, *Who can sign in*). The token is used only at that moment and is never stored.
+
+   ::: warning Free Supabase projects created since June 2026
+   With Supabase's built-in email you can't change the sign-in email (you get a link instead of the code), and only 2 emails are sent per hour. Set up your own SMTP first — see [the FAQ](/en/guide/faq#it-says-supabase-has-already-sent-the-maximum-number-of-emails-this-hour) — and then click **Set up**.
+   :::
    - **Manual** — **copy the SQL**, paste it into the Supabase *SQL Editor* and run it. Then, in **Authentication → Emails → Magic Link**, add <code v-pre>{{ .Token }}</code> to the email text.
 
 ::: info What is the secret key for?
@@ -99,7 +108,7 @@ The app opens full screen, works offline and syncs when it's back online.
 
 - **Email**: the email server built into Supabase only sends to members of the project's team and has low limits. For other people, set up your own SMTP in **Authentication → Emails → SMTP Settings** (for example, [Resend](https://resend.com), which has a free tier).
 - **Private installation**: turn off *Allow new users to sign up* and invite people in **Authentication → Users**.
-- **Sign in with Google** (optional): enable the provider in Supabase (it needs an OAuth client in Google Cloud) and turn on the switch in step 3 of the screen.
+- **Sign in with Google**: coming soon. For now, sign-in is by email code only.
 
 ## From the command line
 

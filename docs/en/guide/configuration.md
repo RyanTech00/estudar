@@ -29,7 +29,7 @@ The **Account** sheet shows a summary with three dots (Supabase, AI, Cloudflare)
 
 | Message | What to do |
 |---|---|
-| *Invalid public (anon/publishable) key* | Copy the **publishable/anon** key again from Project Settings → API Keys |
+| *Invalid public (anon/publishable) key* | Copy the **Publishable key** again (**Copy** button on the project page) or the **anon** key from Project Settings → API Keys → Legacy |
 | *Tables not created yet* | Use **Set up** (with a token) or **copy the SQL** |
 | *Model X doesn't exist* | Fix the **Model** field or leave it empty to use the default |
 | *Invalid key or no access* | Check the key and that it has access to that provider's API |
@@ -50,7 +50,7 @@ Locally they live in `.dev.vars` (in `~/.estudar`, or in the project folder in a
 | `AI_MODEL` | only for `openai` | Overrides the default model |
 | `AI_BASE_URL` | no | For OpenAI-compatible APIs (e.g. `https://openrouter.ai/api/v1`) |
 | `MAX_PLANS_PER_DAY` | no | AI requests per person per day (default 10) |
-| `AUTH_GOOGLE` | no | `true` to show sign-in with Google |
+| `AUTH_GOOGLE` | no | Reserved for sign-in with Google (coming soon) |
 
 ## Security of the setup screen
 

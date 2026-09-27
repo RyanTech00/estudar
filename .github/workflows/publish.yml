@@ -17,14 +17,15 @@ jobs:
     name: npm stage publish
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
-      # Staged publishing needs npm 11.15.0+; the npm bundled with Node may be older.
-      - run: npm install -g npm@11
+      # Staged publishing needs npm 11.15.0+; the npm bundled with Node may be older. Exact version: nothing
+      # unreviewed runs in the job that holds the publishing credential.
+      - run: npm install -g npm@11.20.0
 
       - name: Tag matches package.json
         run: |
@@ -38,6 +39,7 @@ jobs:
             exit 1
           fi
 
-      - run: npm ci
+      # --ignore-scripts: no dependency install script runs next to the OIDC token (the tests don't need any).
+      - run: npm ci --ignore-scripts
       - run: npm test
-      - run: npm stage publish
+      - run: npm stage publish --ignore-scripts

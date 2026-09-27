@@ -1,10 +1,13 @@
 import { t, lang } from './i18n.js';
+import { resolveRole } from './roles.js';
+import { cleanDocument } from './backup.js';
 
 const STORAGE_KEY = 'estudar_data';
 const LAST_UID_KEY = 'estudar_last_uid';
 export const TIMER_KEY = 'estudar_timer';
 const SERVER_CONFIG_KEY = 'estudar_server_config';
-const SUPABASE_SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+// Bundled copy (scripts/vendor-supabase.mjs): no third-party code is loaded at runtime.
+const SUPABASE_SDK = '../vendor/supabase.js';
 
 let supabase = null;
 let currentUser = null;
@@ -12,6 +15,9 @@ let channel = null;
 let pushTimer = null;
 let onSyncCallback = null;
 let onAuthCallback = null;
+// 'owner' (full app), 'viewer' (reads the owner's document, never writes) or 'none' (no access).
+let role = 'owner';
+let viewOwnerId = null;
 
 // Public settings come from the server (/api/config), so nothing is hard-coded in the repo.
 // Cached for offline starts. null = static hosting without the API (local-only mode).
@@ -57,10 +63,23 @@ function getDefaults() {
   };
 }
 
+const isUuid = (v) => typeof v === 'string' && /^[0-9a-f-]{36}$/i.test(v);
+// The document from any source, cleaned (see cleanDocument), with the local-only markers kept apart.
+const fromSource = (doc, owner = null, viewing = null) => ({ ...getDefaults(), ...cleanDocument(doc), owner, viewing });
+
+// Data coming from the network is cleaned on arrival; the local copy is cleaned once per start
+// (it may predate the cleaner, or have been edited), not on every read.
+let localChecked = false;
 function getLocal() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? { ...getDefaults(), ...JSON.parse(raw) } : getDefaults();
+    if (!raw) return getDefaults();
+    const parsed = JSON.parse(raw);
+    if (localChecked) return { ...getDefaults(), ...parsed };
+    localChecked = true;
+    const clean = fromSource(parsed, isUuid(parsed?.owner) ? parsed.owner : null, isUuid(parsed?.viewing) ? parsed.viewing : null);
+    setLocal(clean);
+    return clean;
   } catch {
     return getDefaults();
   }
@@ -77,6 +96,7 @@ export function loadData() {
 }
 
 export function saveData(data) {
+  if (role !== 'owner') return;  // read-only: nothing changes, locally or remotely
   data.updatedAt = Date.now();
   setLocal(data);
   schedulePush();
@@ -260,10 +280,13 @@ function toUser(u) {
 export async function init() {
   await loadServerConfig();
   if (!isConfigured()) return 'local';
+  // Until the network says otherwise, a device holding a viewer's copy stays read-only (also offline).
+  if (loadData().viewing) role = 'viewer';
   try {
     const { createClient } = await import(SUPABASE_SDK);
     supabase = createClient(serverConfig.supabaseUrl, serverConfig.supabaseAnonKey, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      // PKCE: email links and Google sign-in return a one-time code instead of the session tokens in the URL.
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' },
     });
   } catch (e) {
     console.warn('Supabase SDK failed to load:', e);
@@ -291,18 +314,25 @@ export function hadPreviousLogin() {
   return !!localStorage.getItem(LAST_UID_KEY);
 }
 
+// Each message is a function so t() sees a literal (and the i18n test can check it).
 const AUTH_ERRORS = [
-  [/rate limit|security purposes|only request this after/i, 'Pediste códigos demasiadas vezes. Espera um minuto e tenta de novo.'],
-  [/expired|invalid/i, 'Código inválido ou expirado. Pede um novo código.'],
-  [/signups not allowed|not allowed for otp/i, 'Esta instalação não aceita novas contas. Pede um convite ao administrador.'],
-  [/fetch|network/i, 'Sem ligação à internet. Tenta de novo quando estiveres online.'],
-  [/provider is not enabled/i, 'Este método de login não está ativo no Supabase (Authentication → Providers).'],
+  // Supabase's built-in email service sends only 2 emails per hour, for the whole project.
+  [/email rate limit|over_email_send_rate_limit/i, () => t('O Supabase já enviou o máximo de emails desta hora (o email incluído no Supabase só envia 2 por hora). Tenta mais tarde ou configura um SMTP próprio.')],
+  [/only request this after (\d+) seconds?/i, (m) => t('Por segurança, só podes pedir outro código daqui a {n} segundos.', { n: m[1] })],
+  [/rate limit|security purposes/i, () => t('Pediste códigos demasiadas vezes. Espera um minuto e tenta de novo.')],
+  [/expired|invalid/i, () => t('Código inválido ou expirado. Pede um novo código.')],
+  [/signups not allowed|not allowed for otp/i, () => t('Esta instalação não aceita novas contas. Pede um convite ao administrador.')],
+  [/fetch|network/i, () => t('Sem ligação à internet. Tenta de novo quando estiveres online.')],
+  [/provider is not enabled/i, () => t('Este método de login não está ativo no Supabase (Authentication → Providers).')],
 ];
 
 function authMessage(error) {
-  const msg = error?.message || String(error);
-  const hit = AUTH_ERRORS.find(([re]) => re.test(msg));
-  return hit ? t(hit[1]) : t('Não foi possível iniciar sessão ({msg}).', { msg });
+  const msg = [error?.code, error?.message || String(error)].filter(Boolean).join(' ');
+  for (const [re, text] of AUTH_ERRORS) {
+    const m = msg.match(re);
+    if (m) return text(m);
+  }
+  return t('Não foi possível iniciar sessão ({msg}).', { msg: error?.message || String(error) });
 }
 
 const redirectTo = () => location.origin + location.pathname;
@@ -332,6 +362,8 @@ export async function signOut() {
   if (channel) supabase?.removeChannel(channel);
   channel = null;
   currentUser = null;
+  role = 'owner';
+  viewOwnerId = null;
   try { await supabase?.auth.signOut(); } catch {}
   // Shared devices: don't leave one person's plan behind for the next.
   localStorage.removeItem(STORAGE_KEY);
@@ -339,12 +371,56 @@ export async function signOut() {
   localStorage.removeItem(LAST_UID_KEY);
 }
 
+// Viewer? The viewers table says so (RLS shows a row only to that email). Owner or no access? The Worker says so.
+async function findRole(user) {
+  const cachedViewing = loadData().viewing;
+  let viewerOf = null;
+  let unsure = false;
+  try {
+    const { data, error } = await supabase.from('viewers').select('owner_id').eq('viewer_id', user.id).limit(1);
+    if (error) unsure = !['PGRST205', '42P01'].includes(error.code);  // a missing table just means no viewers
+    else if (data?.length) viewerOf = data[0].owner_id;
+  } catch { unsure = true; }
+  let me = null;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const r = await fetch('/api/me', { headers: { Authorization: `Bearer ${session?.access_token || ''}` }, cache: 'no-store' });
+    if (r.ok) me = await r.json();
+    else unsure = true;
+  } catch { unsure = true; }
+  // Couldn't ask (offline, a hiccup): a device that was showing someone's plan read-only keeps doing so,
+  // rather than unlocking the full app or wiping the copy.
+  if (unsure && !viewerOf && cachedViewing) return { role: 'viewer', ownerId: cachedViewing };
+  return resolveRole({ viewerOf, me });
+}
+
 async function afterSignIn(user) {
   if (currentUser?.id === user.id) return;
   currentUser = user;
   localStorage.setItem(LAST_UID_KEY, user.id);
 
+  ({ role, ownerId: viewOwnerId } = await findRole(user));
+  // No access: the screen is blocked (the database and the Worker enforce it anyway). Local data is left
+  // alone, so a wrong answer never costs anyone their unsynced work.
+  if (role === 'none') return;
+  if (role === 'viewer') {
+    // Never mix this device's data into the owner's: show the owner's document as it is, and never push.
+    localStorage.removeItem(TIMER_KEY);
+    try {
+      const { data: row, error } = await supabase.from('user_data').select('data').eq('user_id', viewOwnerId).maybeSingle();
+      if (error) throw error;
+      setLocal(fromSource(row?.data, user.id, viewOwnerId));
+    } catch (e) {
+      console.warn('Could not load the shared plan:', e);
+      if (loadData().viewing !== viewOwnerId) setLocal(fromSource({}, user.id, viewOwnerId));
+    }
+    subscribe();
+    return;
+  }
+
   let local = loadData();
+  // A read-only copy of someone else's plan is never merged into this account.
+  if (local.viewing) local = getDefaults();
   // Local copy belongs to someone else: never merge it into this account.
   if (local.owner && local.owner !== user.id) {
     local = getDefaults();
@@ -354,7 +430,7 @@ async function afterSignIn(user) {
   try {
     const { data: row, error } = await supabase.from('user_data').select('data').eq('user_id', user.id).maybeSingle();
     if (error) throw error;
-    const merged = row?.data ? mergeData(local, row.data) : local;
+    const merged = row?.data ? mergeData(local, fromSource(row.data)) : local;
     merged.owner = user.id;
     setLocal(merged);
     await push(merged);
@@ -382,7 +458,7 @@ async function flushPush() {
 
 async function push(data) {
   pushTimer = null;
-  if (!supabase || !currentUser) return;
+  if (!supabase || !currentUser || role !== 'owner') return;
   const { error } = await supabase.from('user_data').upsert({
     user_id: currentUser.id,
     data,
@@ -394,11 +470,17 @@ async function push(data) {
 function subscribe() {
   if (!supabase || !currentUser) return;
   if (channel) supabase.removeChannel(channel);
+  const target = viewOwnerId || currentUser.id;
   channel = supabase
-    .channel(`user_data:${currentUser.id}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'user_data', filter: `user_id=eq.${currentUser.id}` }, (payload) => {
-      const remote = payload.new?.data;
-      if (!remote) return;
+    .channel(`user_data:${target}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'user_data', filter: `user_id=eq.${target}` }, (payload) => {
+      if (!payload.new?.data) return;
+      const remote = fromSource(payload.new.data);
+      if (role === 'viewer') {
+        setLocal({ ...remote, owner: currentUser.id, viewing: viewOwnerId });
+        onSyncCallback?.();
+        return;
+      }
       const local = loadData();
       if ((remote.updatedAt || 0) <= (local.updatedAt || 0)) return;
       // Remote came from a device that already merged on sign-in: take it as-is
@@ -483,4 +565,14 @@ export function onAuthChange(callback) {
 
 export function getCurrentUser() {
   return toUser(currentUser);
+}
+
+export const getRole = () => role;
+export const isReadOnly = () => role !== 'owner';
+
+// For owner-only API calls (e.g. the status panel on the published app).
+export async function authHeaders() {
+  if (!supabase) return {};
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {};
 }

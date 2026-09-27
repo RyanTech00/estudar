@@ -201,9 +201,6 @@ export default defineConfig({
 
   head: [
     ['link', { rel: 'icon', href: '/logo.svg', type: 'image/svg+xml' }],
-    ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
-    ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
-    ['link', { href: 'https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap', rel: 'stylesheet' }],
     ['meta', { name: 'theme-color', content: '#0d0e10' }],
     ['meta', { property: 'og:title', content: 'Estudar — estuda para lembrar no dia do exame' }],
     ['meta', { property: 'og:description', content: 'Plano semanal com IA, modo foco, testes de controlo sem consulta e percurso académico. Open source, grátis de alojar.' }],

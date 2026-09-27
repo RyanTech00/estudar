@@ -24,11 +24,15 @@ create table public.ai_usage (
 | Tabela | select | insert | update | delete |
 |---|---|---|---|---|
 | `user_data` | `auth.uid() = user_id` | `auth.uid() = user_id` | `auth.uid() = user_id` | `auth.uid() = user_id` |
+| `user_data` (leitor) | há uma linha em `viewers` com `owner_id = user_id` e `viewer_id = auth.uid()` | — | — | — |
+| `viewers` | `owner_id = auth.uid()` ou `viewer_id = auth.uid()` | — | — | — |
 | `ai_usage` | — | — | — | — |
 
-`ai_usage` tem RLS ativa **sem nenhuma regra**: nenhum cliente a lê ou escreve; só o servidor, com a chave secreta. `user_data` está na publicação `supabase_realtime` para sincronizar dispositivos.
+`ai_usage` tem RLS ativa **sem nenhuma regra**: nenhum cliente a lê ou escreve; só o servidor, com a chave secreta. `viewers` (dono, conta do leitor — o email é só para mostrar a lista) liga o acesso à **conta**, não ao email: se a conta for apagada, a linha vai com ela, e ninguém herda o acesso registando-se mais tarde com esse email. Só tem regra de leitura: **nenhum cliente a escreve** — se pudesse, qualquer um se punha como leitor dos dados de outra pessoa; quem a escreve é o servidor local, com a chave secreta. `user_data` está na publicação `supabase_realtime` para sincronizar dispositivos (e o leitor recebe as mudanças do dono em tempo real).
 
-O SQL completo está em [`supabase/migrations/20260927000000_init.sql`](https://github.com/RyanTech00/estudar/blob/main/supabase/migrations/20260927000000_init.sql).
+O limite diário da IA é reservado pela função `ai_usage_take` (uma só instrução, `security definer`, só executável pelo servidor), antes de chamar o modelo. Além das regras, as permissões (*grants*) retiram aos clientes o que não usam (`anon` não toca em `user_data`; ninguém toca em `ai_usage`), e cada documento tem um limite de 2 MB.
+
+O SQL está em [`supabase/migrations/`](https://github.com/RyanTech00/estudar/tree/main/supabase/migrations); o **Configurar** corre todos os ficheiros por ordem (são idempotentes), por isso também serve para atualizar uma instalação.
 
 ## O documento
 

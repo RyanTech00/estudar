@@ -11,6 +11,19 @@ const PROVIDERS = () => ({
 });
 const modelPlaceholder = (p) => (p.model ? t('{m} (padrão)', { m: p.model }) : t('obrigatório, ex. gpt-4o-mini'));
 
+// Per-launch key for the setup routes (see setup/server.mjs). It comes in the link the terminal opens
+// (#setup=…, a URL fragment, never sent over the network) and stays in this tab only.
+const SETUP_KEY = 'estudar_setup_token';
+(function takeSetupToken() {
+  const m = location.hash.match(/(?:^#|&)setup=([A-Za-z0-9_-]{20,})/);
+  if (!m) return;
+  try { sessionStorage.setItem(SETUP_KEY, m[1]); } catch { /* private mode: setup still works this page view */ }
+  window.__estudarSetup = m[1];
+  history.replaceState(null, '', location.pathname + location.search);
+})();
+const setupToken = () => { try { return sessionStorage.getItem(SETUP_KEY) || window.__estudarSetup || ''; } catch { return window.__estudarSetup || ''; } };
+let setupDenied = false;
+
 let config = null;     // /api/config
 let state = null;      // /api/setup/state (local server only)
 let pollTimer = null;
@@ -19,7 +32,7 @@ let onChange = null;
 async function setupApi(path, body) {
   const r = await fetch(`/api/setup/${path}`, {
     method: body ? 'POST' : 'GET',
-    headers: { 'X-Estudar-Setup': '1', 'X-Estudar-Lang': lang, 'Content-Type': 'application/json' },
+    headers: { 'X-Estudar-Setup': setupToken(), 'X-Estudar-Lang': lang, 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
     cache: 'no-store',
   });
@@ -37,7 +50,8 @@ function statusRow(name, s) {
 
 export async function fetchHealth() {
   try {
-    const r = await fetch('/api/health', { cache: 'no-store', headers: { 'X-Estudar-Lang': lang } });
+    // On the published app, only the owner gets an answer (the Worker checks the session).
+    const r = await fetch('/api/health', { cache: 'no-store', headers: { 'X-Estudar-Lang': lang, ...(await storage.authHeaders()) } });
     if (!r.ok) throw new Error();
     return await r.json();
   } catch {
@@ -47,7 +61,7 @@ export async function fetchHealth() {
 
 async function cloudflareStatus(health) {
   if (config?.runtime === 'cloudflare') return { ok: true, message: t('Online em {h}', { h: location.host }) };
-  if (!config?.setup) return { ok: null, message: t('Não publicado') };
+  if (!config?.setup || !setupToken()) return { ok: null, message: t('Não publicado') };
   try {
     const r = await setupApi('remote-health');
     return { ok: r.ok, message: r.url ? `${r.message} · ${r.url.replace('https://', '')}` : r.message };
@@ -63,7 +77,7 @@ async function renderStatus(health) {
     list.innerHTML = statusRow('Servidor', { ok: false, message: t('Sem servidor: a app está em modo local (ficheiros estáticos)') });
     return;
   }
-  list.innerHTML = ['App', 'Supabase', 'Base de dados', 'IA', 'Limite de uso', 'Cloudflare'].map(n => statusRow(n, null)).join('');
+  list.innerHTML = ['App', 'Supabase', 'Base de dados', 'IA', 'Limite de uso', 'Registos', 'Cloudflare'].map(n => statusRow(n, null)).join('');
   const h = health || await fetchHealth();
   const cf = await cloudflareStatus(h);
   list.innerHTML = [
@@ -72,6 +86,7 @@ async function renderStatus(health) {
     statusRow('Base de dados', h?.database),
     statusRow('IA', h?.ai),
     statusRow('Limite de uso', h?.limit),
+    statusRow('Registos', h?.signups),
     statusRow('Cloudflare', cf),
   ].join('');
   renderSummary(h, cf);
@@ -100,8 +115,9 @@ export async function openServerScreen(changed) {
   // Ask the server directly: a cached config from an earlier start isn't proof the API is here now.
   config = await fetch('/api/config', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).catch(() => null);
   state = null;
+  setupDenied = false;
   if (config?.setup) {
-    try { state = await setupApi('state'); } catch { state = null; }
+    try { state = await setupApi('state'); } catch { state = null; setupDenied = true; }
   }
   render();
   renderStatus();
@@ -143,6 +159,12 @@ function render() {
         <h3 class="h2">${t('Alterar chaves')}</h3>
         <p class="muted small">${t('As chaves estão guardadas como segredos no Worker do Cloudflare e não podem ser vistas daqui. Para as mudar, corre <code>npx estudar</code> no teu computador, abre <b>Conta → Servidor e chaves</b>, altera e carrega em <b>Publicar</b> outra vez.')}</p>
       </section>`;
+  } else if (setupDenied) {
+    body.innerHTML = statusCard + `
+      <section class="card">
+        <h3 class="h2">${t('Abre o link do terminal')}</h3>
+        <p class="muted small">${t('Para proteger as tuas chaves, este ecrã só abre pelo link que o <code>npx estudar</code> mostra no terminal (tem uma chave que muda cada vez que o arrancas). Copia-o de lá, ou fecha e volta a correr <code>npx estudar</code>.')}</p>
+      </section>`;
   } else {
     body.innerHTML = statusCard + renderForms();
     bindForms();
@@ -170,14 +192,17 @@ function renderForms() {
   return `
     <section class="card">
       <h3 class="h2"><span class="step-n">1</span>${t('Supabase — contas e dados')}</h3>
-      <p class="muted small">${t('Cria um projeto grátis em <a href="https://supabase.com/dashboard/new" target="_blank" rel="noopener">supabase.com</a>. Depois copia os valores de <b>Project Settings → API Keys</b> (o URL está em <b>Data API</b>).')}</p>
+      <p class="muted small">${t('Cria um projeto grátis em <a href="https://supabase.com/dashboard/new" target="_blank" rel="noopener">supabase.com</a>. Na página do projeto, o botão <b>Copy</b> ao lado do endereço dá o <b>Project URL</b> e a <b>Publishable key</b>. A chave secreta está em <b>Project Settings → API Keys</b>. Se usares o configurador automático (passo abaixo), basta o URL: as chaves são preenchidas sozinhas.')}</p>
       ${field('SUPABASE_URL', 'Project URL', { placeholder: 'https://abcdefgh.supabase.co', type: 'url' })}
       ${field('SUPABASE_ANON_KEY', t('Chave pública (publishable / anon)'), { placeholder: t('sb_publishable_… ou eyJ…'), hint: t('Pode ser pública: as regras da base de dados protegem cada utilizador.') })}
       ${field('SUPABASE_SERVICE_KEY', t('Chave secreta (secret / service_role) — opcional'), { type: 'password', placeholder: t('sb_secret_… ou eyJ…'), hint: t('Só fica no servidor. Serve para limitar quantos planos cada pessoa gera por dia.') })}
 
       <details class="sub" ${state?.values?.SUPABASE_URL ? '' : 'open'}>
         <summary>${t('Criar as tabelas e configurar o email de login')}</summary>
-        <p class="muted small">${t('<b>Automático:</b> cria um token pessoal em <a href="https://supabase.com/dashboard/account/tokens" target="_blank" rel="noopener">supabase.com/dashboard/account/tokens</a> e cola-o aqui. É usado só agora, não fica guardado.')}</p>
+        <p class="muted small">${t('<b>Automático:</b> escreve o teu email e cola um token pessoal de <a href="https://supabase.com/dashboard/account/tokens" target="_blank" rel="noopener">supabase.com/dashboard/account/tokens</a>. A app cria as tabelas e a tua conta de dono, e fecha os registos: só tu entras (podes juntar leitores no passo 3). O token é usado só agora, não fica guardado.')}</p>
+        <div class="inline-form">
+          <input id="srv-owner" type="email" placeholder="${t('O teu email')}" autocomplete="email" value="${esc(state?.values?.OWNER_EMAIL || '')}">
+        </div>
         <div class="inline-form">
           <input id="srv-token" type="password" placeholder="sbp_…" autocomplete="off">
           <button class="btn btn-ghost btn-sm" id="srv-provision">${t('Configurar')}</button>
@@ -208,9 +233,10 @@ function renderForms() {
         <span>${t('Login com código por email')}</span><span class="muted small">${t('sempre ativo')}</span>
       </div>
       <div class="setting">
-        <span>${t('Login com Google')}<br><small class="muted">${t('Requer ativar o provider Google no Supabase')}</small></span>
-        <button class="switch" id="srv-google" role="switch" aria-checked="${v.AUTH_GOOGLE === 'true'}"><i></i></button>
+        <span>${t('Login com Google')} <span class="soon-badge">${t('Em breve')}</span></span>
+        <button class="switch" id="srv-google" role="switch" aria-checked="false" disabled aria-disabled="true"><i></i></button>
       </div>
+      <div class="access" id="srv-access"></div>
     </section>
 
     <div class="server-save">
@@ -236,7 +262,7 @@ function renderForms() {
             <button class="btn btn-ghost btn-sm hidden" id="cf-login">${t('Ligar conta Cloudflare')}</button>
             <button class="btn btn-primary btn-sm" id="cf-deploy" disabled>${deploy?.url ? t('Publicar de novo') : t('Publicar no Cloudflare')}</button>
           </div>
-          ${deploy?.url ? `<p class="small deploy-url">${t('Publicado em')} <a href="${esc(deploy.url)}" target="_blank" rel="noopener">${esc(deploy.url)}</a> · ${new Date(deploy.deployedAt).toLocaleString(locale())}</p>` : ''}
+          ${/^https:\/\//.test(deploy?.url || '') ? `<p class="small deploy-url">${t('Publicado em')} <a href="${esc(deploy.url)}" target="_blank" rel="noopener">${esc(deploy.url)}</a> · ${new Date(deploy.deployedAt).toLocaleString(locale())}</p>` : ''}
           <pre class="deploy-log hidden" id="cf-log"></pre>
         </div>
       </div>
@@ -264,10 +290,6 @@ function bindForms() {
     $('srv-key-link').href = p.keyUrl;
     $('srv-key-link').textContent = p.keyHint;
     document.querySelector('[data-var="AI_MODEL"]').placeholder = modelPlaceholder(p);
-  });
-  $('srv-google').addEventListener('click', (e) => {
-    const b = e.currentTarget;
-    b.setAttribute('aria-checked', String(b.getAttribute('aria-checked') !== 'true'));
   });
 
   $('srv-test').addEventListener('click', async () => {
@@ -300,11 +322,12 @@ function bindForms() {
     try {
       // Save first so the server knows which project to configure.
       state = await setupApi('save', { values: collectValues() });
-      const r = await setupApi('supabase/provision', { token: $('srv-token').value.trim() });
+      const r = await setupApi('supabase/provision', { token: $('srv-token').value.trim(), ownerEmail: $('srv-owner').value.trim() });
       $('srv-token').value = '';
-      out.innerHTML = r.steps.map(s => `<li><i class="dot ${s.ok ? 'ok' : 'bad'}"></i><span>${esc(s.message)}</span></li>`).join('');
+      out.innerHTML = r.steps.map(s => `<li><i class="dot ${dotClass(s.ok)}"></i><span>${esc(s.message)}</span></li>`).join('');
       state = await setupApi('state');
       renderStatus();
+      renderAccess();
     } catch (e) {
       out.innerHTML = `<li><i class="dot bad"></i><span>${esc(e.message)}</span></li>`;
     }
@@ -325,6 +348,69 @@ function bindForms() {
   $('cf-deploy').addEventListener('click', deploy);
 
   pollCloudflare(false);
+  renderAccess();
+}
+
+// ── Who can sign in (step 3) ──────────
+const accessItem = (email, removable) => `
+  <li><span>${esc(email)}</span>${removable ? `<button class="link-btn small" data-remove="${esc(email)}">${t('Remover')}</button>` : ''}</li>`;
+
+async function renderAccess() {
+  const box = $('srv-access');
+  if (!box) return;
+  let a = null;
+  try { a = await setupApi('access'); } catch { /* shown below */ }
+  const title = `<h4 class="access-title">${t('Quem pode entrar')}</h4>`;
+  if (!a?.configured) {
+    box.innerHTML = `${title}<p class="muted small">${t('Configura primeiro o Supabase (passo 1).')}</p>`;
+    return;
+  }
+  const status = a.open === false
+    ? { ok: true, message: t('Fechados: só entra quem tem conta') }
+    : a.open
+      ? { ok: false, message: t('Abertos: qualquer pessoa com o endereço da app pode criar conta e usar a tua IA e o teu email.') }
+      : { ok: null, message: t('Não foi possível verificar.') };
+  const needsSetup = !a.owner || !a.tableReady;
+  box.innerHTML = `
+    ${title}
+    <ul class="status-list compact"><li><i class="dot ${dotClass(status.ok)}"></i><b>${t('Registos')}</b><span>${esc(status.message)}</span></li></ul>
+    ${a.open ? `<div class="inline-form">
+      ${a.hasToken ? '' : '<input id="srv-close-token" type="password" placeholder="sbp_…" autocomplete="off">'}
+      <button class="btn btn-primary btn-sm" id="srv-close">${t('Fechar registos')}</button>
+    </div>` : ''}
+
+    <p class="access-label">${t('Dono')} <span class="muted small">${t('tudo: plano, timer, IA e configuração')}</span></p>
+    ${a.owner ? `<ul class="access-list">${accessItem(a.owner, false)}</ul>` : `<p class="muted small">${t('Ainda não há dono: escreve o teu email e carrega em Configurar (passo 1).')}</p>`}
+
+    <p class="access-label">${t('Leitores')} <span class="muted small">${t('só veem o teu plano e o teu progresso; não editam nada nem veem a configuração')}</span></p>
+    ${a.viewers?.length ? `<ul class="access-list">${a.viewers.map(e => accessItem(e, true)).join('')}</ul>` : `<p class="muted small">${t('Ninguém por enquanto.')}</p>`}
+    ${!a.canManage ? `<p class="muted small">${t('Para gerir o acesso, falta a chave secreta do Supabase (passo 1).')}</p>`
+      : needsSetup ? `<p class="muted small">${t('Para adicionar leitores, carrega primeiro em Configurar com o teu email (passo 1).')}</p>`
+      : `<div class="inline-form">
+          <input id="srv-add-email" type="email" placeholder="${t('email@exemplo.com')}" autocomplete="off">
+          <button class="btn btn-ghost btn-sm" id="srv-add">${t('Adicionar leitor')}</button>
+        </div>`}
+
+    ${a.others?.length ? `
+      <p class="access-label">${t('Outras contas')} <span class="muted small">${t('não têm acesso a nada; foram criadas quando os registos estavam abertos')}</span></p>
+      <ul class="access-list">${a.others.map(e => accessItem(e, true)).join('')}</ul>` : ''}
+    <p class="muted small" id="srv-access-msg" role="status"></p>`;
+
+  const say = (r) => { $('srv-access-msg').textContent = r?.message || r?.error || ''; };
+  const after = async (r) => { await renderAccess(); say(r); renderStatus(); };
+  $('srv-close')?.addEventListener('click', async () => {
+    try { await after(await setupApi('access/close', { token: $('srv-close-token')?.value.trim() || '' })); } catch (e) { say(e); }
+  });
+  $('srv-add')?.addEventListener('click', async () => {
+    const email = $('srv-add-email').value.trim();
+    if (!email) return;
+    try { await after(await setupApi('access/viewer', { email })); } catch (e) { say(e); }
+  });
+  box.querySelectorAll('[data-remove]').forEach(btn => btn.addEventListener('click', async () => {
+    const email = btn.dataset.remove;
+    if (!confirm(t('Tirar o acesso a {email}? A conta é apagada e deixa de conseguir entrar.', { email }))) return;
+    try { await after(await setupApi('access/remove', { email })); } catch (e) { say(e); }
+  }));
 }
 
 async function refreshCloudflare(fresh) {

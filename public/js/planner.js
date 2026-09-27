@@ -126,7 +126,7 @@ function render() {
       <div class="row-between"><h3 class="h2">${t('Disciplinas')}</h3><span class="muted small">${draft.subjects.length}</span></div>
       <div id="pl-subjects">${draft.subjects.map((s, i) => `
         <div class="subject-edit" data-i="${i}">
-          <span class="tag" style="--c:${s.color}">${esc(s.short || '?')}</span>
+          <span class="tag" style="--c:${esc(s.color)}">${esc(s.short || '?')}</span>
           <input class="se-name" data-k="name" placeholder="${t('Nome da disciplina')}" value="${esc(s.name)}" aria-label="${t('Nome')}">
           <input class="se-short" data-k="short" placeholder="${t('Sigla')}" maxlength="5" value="${esc(s.short)}" aria-label="${t('Sigla')}">
           <select data-k="area" aria-label="${t('Tipo')}">${Object.entries(AREAS).map(([k, v]) => `<option value="${k}" ${s.area === k ? 'selected' : ''}>${t(v)}</option>`).join('')}</select>
@@ -171,7 +171,7 @@ function render() {
             <div class="row-between"><b>${DAY_NAMES()[d]}</b><span class="muted small">${mins ? `${Math.round(mins / 6) / 10}h` : '—'} / ${draft.hoursPerDay[d]}h</span></div>
             ${items.map(s => {
               const sub = subjectById(s.subject);
-              return `<div class="pl-item"><span class="tag" style="--c:${sub.color}">${esc(sub.short)}</span>
+              return `<div class="pl-item"><span class="tag" style="--c:${esc(sub.color)}">${esc(sub.short)}</span>
                 <span class="pl-item-text"><b>${esc(s.session)}</b>${s.focus ? ` · ${esc(s.focus)}` : ''}</span>
                 <button class="icon-btn" data-remove-session="${s.i}" aria-label="${t('Remover sessão')}"><svg class="ico"><use href="#i-close"/></svg></button></div>`;
             }).join('')}
@@ -228,8 +228,8 @@ function renderAllocation() {
       weakBy[r.id] ? t('base fraca: {list}', { list: weakBy[r.id] }) : '',
       r.inFinalWindow ? (r.days === 1 ? t('exame amanhã') : t('exame em {n} dias', { n: r.days })) : '',
     ].filter(Boolean).join(' · ');
-    return `<div class="alloc-row"><span class="tag" style="--c:${sub.color}">${esc(sub.short)}</span>
-      <div class="alloc-bar"><i style="width:${Math.round(r.share * 100)}%;background:${sub.color}"></i></div>
+    return `<div class="alloc-row"><span class="tag" style="--c:${esc(sub.color)}">${esc(sub.short)}</span>
+      <div class="alloc-bar"><i style="width:${Math.round(r.share * 100)}%;background:${esc(sub.color)}"></i></div>
       <span class="alloc-pct">${Math.round(r.share * 100)}%</span>
       <span class="alloc-why muted small">${esc(why)}${now !== null ? ` · ${t('no plano: {p}%', { p: Math.round(now * 100) })}` : ''}</span></div>`;
   }).join('');

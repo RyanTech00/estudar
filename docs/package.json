@@ -4,12 +4,17 @@
   "type": "module",
   "scripts": {
     "dev": "vitepress dev",
-    "build": "vitepress build && node scripts/check-anchors.mjs",
+    "build": "vitepress build && node scripts/headers.mjs && node scripts/check-anchors.mjs",
     "preview": "vitepress preview",
     "screenshots": "node scripts/screenshots.mjs"
   },
   "devDependencies": {
+    "@fontsource/fira-code": "^5.3.0",
+    "@fontsource/fira-sans": "^5.3.0",
     "playwright-core": "^1.55.0",
     "vitepress": "^1.6.3"
+  },
+  "overrides": {
+    "vite": "6.4.3"
   }
 }

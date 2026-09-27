@@ -7,7 +7,9 @@
   // Only public/ is uploaded as static files; secrets live in Worker secrets (or .dev.vars locally).
   "assets": {
     "directory": "./public",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    // Every request (static files too) goes through worker/index.js, which adds the security headers.
+    "run_worker_first": true
   },
   "observability": { "enabled": true }
 }

@@ -56,6 +56,14 @@ Not for personal use: Supabase, Cloudflare Workers and Gemini have free tiers th
 - With the email built into Supabase, only members of the project's team receive emails, and there are hourly limits. For other people, set up your own SMTP.
 - Check that the email template contains <code v-pre>{{ .Token }}</code> (the **Set up** button does this for you).
 
+### It says Supabase has already sent the maximum number of emails this hour
+
+Supabase's built-in email sends at most **2 emails per hour, for the whole project**. It's meant for demos and can't be raised.
+
+- Each device only needs to sign in once: the session is kept. With two devices (phone and computer), sign in on one now and the other an hour later.
+- For more, set up your own SMTP under **Authentication → Emails → SMTP Settings**. The simplest for personal use is Gmail with an [app password](https://myaccount.google.com/apppasswords): server `smtp.gmail.com`, port `465`, username and sender your Gmail address. For more people, a service such as Resend or Brevo (both have free tiers).
+- Then, under **Authentication → Rate Limits**, raise **Rate limit for sending emails** (it starts at 30 per hour with your own SMTP).
+
 ### Sign-in asks for an authorised domain
 
 Add the app's address under **Authentication → URL Configuration → Redirect URLs** in Supabase. The **Set up** button does this for `localhost`; the Worker's address is added automatically when you publish **if you pasted the token in that same `npx estudar` session** — otherwise, click **Set up** again after publishing.

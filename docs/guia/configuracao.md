@@ -29,7 +29,7 @@ Na folha **Conta** aparece um resumo com três pontos (Supabase, IA, Cloudflare)
 
 | Mensagem | O que fazer |
 |---|---|
-| *Chave pública (anon/publishable) inválida* | Volta a copiar a chave **publishable/anon** em Project Settings → API Keys |
+| *Chave pública (anon/publishable) inválida* | Volta a copiar a **Publishable key** (botão **Copy** na página do projeto) ou a **anon** em Project Settings → API Keys → Legacy |
 | *Tabelas ainda não criadas* | Usa **Configurar** (com token) ou **copiar o SQL** |
 | *Modelo X não existe* | Corrige o campo **Modelo** ou deixa-o vazio para usar o padrão |
 | *Chave inválida ou sem acesso* | Confirma a chave e se tem acesso à API desse fornecedor |
@@ -50,7 +50,7 @@ Localmente ficam em `.dev.vars` (em `~/.estudar`, ou na pasta do projeto numa c�
 | `AI_MODEL` | só para `openai` | Substitui o modelo padrão |
 | `AI_BASE_URL` | não | Para APIs compatíveis com OpenAI (ex. `https://openrouter.ai/api/v1`) |
 | `MAX_PLANS_PER_DAY` | não | Pedidos à IA por pessoa por dia (padrão 10) |
-| `AUTH_GOOGLE` | não | `true` para mostrar o login com Google |
+| `AUTH_GOOGLE` | não | Reservado para o login com Google (em breve) |
 
 ## Segurança do ecrã de configuração
 

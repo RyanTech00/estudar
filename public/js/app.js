@@ -76,6 +76,7 @@ function syncPlanWithCurriculum() {
 }
 
 function manageCurriculum() {
+  if (storage.isReadOnly()) return;
   openPercurso(() => {
     syncPlanWithCurriculum();
     loadPlan();
@@ -85,6 +86,7 @@ function manageCurriculum() {
 }
 
 function editPlan() {
+  if (storage.isReadOnly()) return;
   openPlanner(hasPlan() ? plan : null, () => {
     loadPlan();
     renderAll();
@@ -151,6 +153,7 @@ function onPhaseEnd({ finished, natural, workedSeconds }) {
 }
 
 function startProbe(subjectId, minutes) {
+  if (storage.isReadOnly()) return;
   if (!timer.isIdle && !confirm(t('Há um bloco a decorrer. Terminá-lo e começar o teste de controlo? O bloco atual não será contado.'))) return;
   selectedSubject = subjectId;
   renderTimerSubjects();
@@ -279,6 +282,7 @@ function setupFocus() {
 }
 
 function startStudying(subjectId) {
+  if (storage.isReadOnly()) return;
   selectedSubject = subjectId;
   renderTimerSubjects();
   if (timer.phase !== 'work' && timer.isIdle) timer.reset();
@@ -335,7 +339,13 @@ function renderToday() {
   $('today-bar').style.width = sessions.length ? `${(doneCount / sessions.length) * 100}%` : '0';
 
   const next = sessions.find(s => !s.done);
-  if (!hasPlan()) {
+  if (!hasPlan() && storage.isReadOnly()) {
+    $('next-up').innerHTML = `
+      <div class="hero" style="--c:var(--accent)">
+        <div class="hero-name">${t('Ainda não há plano')}</div>
+        <div class="hero-meta">${t('Quando o dono criar o plano, aparece aqui.')}</div>
+      </div>`;
+  } else if (!hasPlan()) {
     $('next-up').innerHTML = `
       <div class="hero" style="--c:var(--accent)">
         <div class="eyebrow">${t('Bem-vindo')}</div>
@@ -397,6 +407,7 @@ function renderToday() {
 }
 
 function toggleSession(id, done) {
+  if (storage.isReadOnly()) return;
   storage.setSessionDone(new Date(), id, done);
   if (done && storage.getSetting('sound') !== false) playSound('complete');
   renderToday();
@@ -486,7 +497,7 @@ function renderMastery() {
     if (s.prereqWeak?.length) flags.push(`<span class="flag warn">${t('Base fraca: {list} — o plano inclui revisão', { list: s.prereqWeak.map(w => `${esc(w.short)} (${t(w.reason)}${w.grade !== null ? `, ${w.grade}` : ''})`).join(', ') })}</span>`);
     const exam = results[s.id];
     let examLine = '';
-    if (exam) examLine = `${t('Exame')}: ${exam.grade}/20${p.mastery !== null ? ` · ${t('último domínio medido {p}', { p: pct(p.mastery) })}` : ''}`;
+    if (exam) examLine = `${t('Exame')}: ${esc(exam.grade)}/20${p.mastery !== null ? ` · ${t('último domínio medido {p}', { p: pct(p.mastery) })}` : ''}`;
     else if (p.days !== null && p.days < 0) examLine = s.ucId
       ? `<button class="link-btn" data-percurso>${t('Registar notas no percurso')}</button>`
       : `<button class="link-btn" data-grade="${esc(s.id)}">${t('Registar nota do exame')}</button>`;
@@ -698,7 +709,8 @@ function showLoginStep(step) {
   const auth = storage.getServerConfig()?.auth || { email: true, google: false };
   $('login-email-form').classList.toggle('hidden', step !== 'email' || !auth.email);
   $('login-code-form').classList.toggle('hidden', step !== 'code');
-  $('btn-login-google').classList.toggle('hidden', step !== 'email' || !auth.google);
+  // Google sign-in is coming soon: the button is always shown on the email step, greyed out.
+  $('btn-login-google').classList.toggle('hidden', step !== 'email');
 }
 
 function setupLoginForms() {
@@ -732,13 +744,12 @@ function setupLoginForms() {
     unlockApp('online');
   });
 
+  $('login-signout').addEventListener('click', async () => {
+    await storage.signOut();
+    location.reload();
+  });
   $('login-back').addEventListener('click', () => { showLoginError(null); showLoginStep('email'); });
 
-  $('btn-login-google').addEventListener('click', async () => {
-    showLoginError(null);
-    const r = await storage.signInWithGoogle();
-    if (!r.ok) showLoginError(r.message);
-  });
 }
 
 async function setupLoginGate() {
@@ -758,10 +769,41 @@ async function setupLoginGate() {
 }
 
 function unlockApp(mode) {
+  if (storage.getRole() === 'none') return showNoAccess();
+  const readOnly = storage.isReadOnly();
+  document.body.classList.toggle('read-only', readOnly);
+  $('read-only-note').classList.toggle('hidden', !readOnly);
+  if (readOnly && currentTab === 'timer') switchTab('today');
   document.body.classList.remove('locked');
   loadPlan();
   renderAll();
   renderAccount(mode);
+}
+
+// Signed in, but this account isn't the owner nor a viewer (e.g. created while sign-ups were open).
+function showNoAccess() {
+  showLoginStep('none');
+  showLoginError(t('Esta conta não tem acesso a esta instalação. Pede ao dono para te dar acesso.'));
+  $('login-signout').classList.remove('hidden');
+}
+
+// ── Read-only (viewers) ────────────────
+// Everything that edits, starts the timer or shows the setup. Hidden by CSS (body.read-only) and,
+// in case something slips through, clicks on it are swallowed. The real guard is storage + database rules.
+const READ_ONLY_BLOCKED = [
+  '[data-tab="timer"]', '#btn-edit-plan', '#btn-probe', '#btn-focus-mode',
+  '#hero-start', '#hero-done', '#hero-plan', '#hero-server',
+  '#today-sessions .check', '#today-sessions .session-main', '.check-row',
+  '[data-probe]', '[data-grade]', '[data-percurso]', '#pc-open',
+  '#btn-settings-server', '#btn-settings-plan', '#btn-settings-percurso', '.backup-row',
+].join(',');
+
+function setupReadOnly() {
+  document.addEventListener('click', (e) => {
+    if (!storage.isReadOnly() || !e.target.closest?.(READ_ONLY_BLOCKED)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, true);
 }
 
 // ── Intro ──────────────────────────────
@@ -804,6 +846,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setLang(lang);
   translateDOM();
   setupIntro();
+  setupReadOnly();
   loadPlan();
   applyTimerConfig();
   restoreTimer();

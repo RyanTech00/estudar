@@ -12,15 +12,19 @@ The tests cover the rules that decide **what counts as learning** and **the acad
 | `tests/curriculum.test.mjs` | 17 | ECTS-weighted average, truncated (checked against a real transcript: 16.57 over 78 ECTS); the grade needed not to lower your average and to reach a target; elective groups; official rounding; continuous assessment with minimum grades; resit and special period; next assessment; prerequisites; the degree record → plan link |
 | `tests/backup.test.mjs` | 4 | A backup restores everything except the owner; files from another app, non-JSON files and files from future versions are rejected; invalid rows are discarded |
 | `tests/import.test.mjs` | 2 | The AI output from the photo import is cleaned (grades 0–20, ISO dates, empty rows removed); only JPEG/PNG/WebP images |
+| `tests/clean.test.mjs` | 5 | The audit's attacks (XSS in the grade, the colour, a module id, dates; CSS injection through the colour) don't survive the filter; malformed data no longer crashes the app; unknown fields are dropped; backups go through the same filter |
+| `tests/owner-gate.test.mjs` | 11 | With a faked Supabase: the published `/api/health` only for the owner; only the owner uses the AI; `OWNER_ID` beats the email; an atomic AI limit (429 / 503); large requests refused first; the AI's answer is cleaned; errors without internal details; the secret key never reaches the browser |
+| `tests/roles.test.mjs` | 5 | Owner, viewer and no access; installs without an owner keep working |
+| `tests/keys.test.mjs` | 2 | Tells Supabase public and secret keys apart (new and legacy) |
 | `tests/i18n.test.mjs` | 4 | Every interface string and every server message (Worker API and `npm start`) has an English translation; translations keep the same `{placeholders}` and HTML tags as the Portuguese original |
 
-43 tests in total. `tests/i18n-keys.mjs` is not a test: it collects the strings the interface uses, and running `node tests/i18n-keys.mjs` lists any that are missing from the dictionary.
+66 tests in total. `tests/i18n-keys.mjs` is not a test: it collects the strings the interface uses, and running `node tests/i18n-keys.mjs` lists any that are missing from the dictionary.
 
 Grades use the Portuguese 0–20 scale, where 9.5 is a pass; averages are weighted by ECTS credits.
 
 ## Mutations
 
-A passing test proves nothing if it would also pass with the rule broken. So each rule was **deliberately broken** and at least one test was confirmed to fail:
+A passing test proves nothing if it would also pass with the rule broken. So each rule was **deliberately broken** and at least one test was confirmed to fail (including the Worker's protections: removing the owner check on the AI or on `/api/health` makes the tests fail):
 
 | Mutation | Caught |
 |---|---|

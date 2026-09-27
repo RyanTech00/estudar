@@ -114,8 +114,8 @@ function ucRow(u) {
   const g = effectiveGrade(u);
   const expanded = openUc === u.id;
   return `
-    <div class="pc-uc ${expanded ? 'open' : ''}" data-uc="${u.id}">
-      <button class="pc-uc-head" data-toggle="${u.id}">
+    <div class="pc-uc ${expanded ? 'open' : ''}" data-uc="${esc(u.id)}">
+      <button class="pc-uc-head" data-toggle="${esc(u.id)}">
         <span class="pc-uc-name">${esc(u.name || t('Nova UC'))}${u.optional ? ` <em class="muted">${t('(opção)')}</em>` : ''}</span>
         <span class="pc-uc-meta">${statusChip(u)}<span class="pc-ects">${fmt(u.ects, 1)}</span><span class="pc-grade">${g === null ? '' : fmt(g, 1)}</span></span>
       </button>
@@ -132,13 +132,13 @@ function ucEditor(u) {
         <label class="field"><span>${t('Sigla')}</span><input data-f="short" maxlength="5" value="${esc(u.short)}" placeholder="${esc(acronym(u.name || ''))}"></label>
       </div>
       <div class="field-row">
-        <label class="field"><span>ECTS</span><input data-f="ects" type="number" min="0" max="60" step="0.5" value="${u.ects ?? ''}"></label>
-        <label class="field"><span>${t('Ano')}</span><input data-f="year" type="number" min="0" max="10" value="${u.year ?? ''}"></label>
-        <label class="field"><span>${t('Semestre')}</span><input data-f="semester" type="number" min="0" max="4" value="${u.semester ?? ''}"></label>
-        <label class="field"><span>${t('Aprovação a partir de')}</span><input data-f="passGrade" type="number" min="0" max="20" step="0.1" value="${u.passGrade ?? DEFAULT_PASS}"></label>
+        <label class="field"><span>ECTS</span><input data-f="ects" type="number" min="0" max="60" step="0.5" value="${esc(u.ects ?? '')}"></label>
+        <label class="field"><span>${t('Ano')}</span><input data-f="year" type="number" min="0" max="10" value="${esc(u.year ?? '')}"></label>
+        <label class="field"><span>${t('Semestre')}</span><input data-f="semester" type="number" min="0" max="4" value="${esc(u.semester ?? '')}"></label>
+        <label class="field"><span>${t('Aprovação a partir de')}</span><input data-f="passGrade" type="number" min="0" max="20" step="0.1" value="${esc(u.passGrade ?? DEFAULT_PASS)}"></label>
       </div>
       <div class="field-row">
-        <label class="field"><span>${t('Nota final oficial')}</span><input data-f="grade" type="number" min="0" max="20" step="0.1" value="${u.grade ?? ''}" placeholder="${t('vazio = calcular das provas')}"></label>
+        <label class="field"><span>${t('Nota final oficial')}</span><input data-f="grade" type="number" min="0" max="20" step="0.1" value="${esc(u.grade ?? '')}" placeholder="${t('vazio = calcular das provas')}"></label>
         <label class="field"><span>${t('Tipo')}</span><select data-f="gradeType">${Object.entries(GRADE_TYPES).map(([k, v]) => `<option value="${k}" ${u.gradeType === k ? 'selected' : ''}>${k === '' ? v : t(v)}</option>`).join('')}</select></label>
         <label class="field"><span>${t('Data da nota')}</span><input data-f="gradeDate" type="date" value="${esc(u.gradeDate)}"></label>
       </div>
@@ -156,20 +156,20 @@ function ucEditor(u) {
             <select data-af="kind" aria-label="${t('Tipo')}">${Object.entries(KINDS).map(([k, v]) => `<option value="${k}" ${a.kind === k ? 'selected' : ''}>${t(v)}</option>`).join('')}</select>
             <select data-af="epoca" aria-label="${t('Época')}">${Object.entries(EPOCAS).map(([k, v]) => `<option value="${k}" ${a.epoca === k ? 'selected' : ''}>${t(v)}</option>`).join('')}</select>
             <label class="mini"><span>${t('Data')}</span><input data-af="date" type="date" value="${esc(a.date)}"></label>
-            <label class="mini"><span>${t('Peso %')}</span><input data-af="weight" type="number" min="0" max="100" value="${a.weight ?? ''}"></label>
-            <label class="mini"><span>${t('Mínimo')}</span><input data-af="minGrade" type="number" min="0" max="20" step="0.1" value="${a.minGrade ?? ''}" placeholder="—"></label>
-            <label class="mini"><span>${t('Nota')}</span><input data-af="grade" type="number" min="0" max="20" step="0.1" value="${a.grade ?? ''}" placeholder="—"></label>
+            <label class="mini"><span>${t('Peso %')}</span><input data-af="weight" type="number" min="0" max="100" value="${esc(a.weight ?? '')}"></label>
+            <label class="mini"><span>${t('Mínimo')}</span><input data-af="minGrade" type="number" min="0" max="20" step="0.1" value="${esc(a.minGrade ?? '')}" placeholder="—"></label>
+            <label class="mini"><span>${t('Nota')}</span><input data-af="grade" type="number" min="0" max="20" step="0.1" value="${esc(a.grade ?? '')}" placeholder="—"></label>
             <button class="icon-btn" data-del-a="${i}" aria-label="${t('Remover prova')}"><svg class="ico"><use href="#i-close"/></svg></button>
           </div>`).join('')}
         <button class="link-btn small" data-add-a>${t('+ Prova')}</button>
-        <p class="pc-computed small" id="pc-computed-${u.id}">${computedLine(u)}</p>
+        <p class="pc-computed small" id="pc-computed-${esc(u.id)}">${computedLine(u)}</p>
       </div>
 
       ${others.length ? `
       <div class="pc-sub">
         <b>${t('Pré-requisitos')}</b>
         <p class="muted small">${t('UCs que esta usa como base (ex.: Estruturas de Dados depende de Programação). Se alguma estiver por fazer, reprovada ou abaixo de 12, esta UC recebe mais tempo e o plano inclui revisão dessa base.')}</p>
-        <div class="pc-prereqs">${others.map(o => `<label class="check-inline"><input type="checkbox" data-prereq="${o.id}" ${(u.prereqs || []).includes(o.id) ? 'checked' : ''}> ${esc(o.name)}</label>`).join('')}</div>
+        <div class="pc-prereqs">${others.map(o => `<label class="check-inline"><input type="checkbox" data-prereq="${esc(o.id)}" ${(u.prereqs || []).includes(o.id) ? 'checked' : ''}> ${esc(o.name)}</label>`).join('')}</div>
       </div>` : ''}
 
       <button class="btn btn-danger-ghost btn-sm" data-del-uc>${t('Remover UC')}</button>
@@ -187,7 +187,7 @@ function computedLine(u) {
   else if (c.failedMin) parts.push(t('Abaixo da nota mínima numa componente: segue para recurso.'));
   else if ((u.assessments || []).length) parts.push(t('Faltam notas para calcular a nota final.'));
   if (st === 'reprovada' && !next) parts.push(t('<b>Adiciona a data do recurso (ou época especial)</b> para o plano se ajustar.'));
-  else if (next) parts.push(t('Próxima prova: {d}.', { d: next }));
+  else if (next) parts.push(t('Próxima prova: {d}.', { d: esc(next) }));
   if (weak.length) parts.push(t('Base fraca: {list}.', { list: weak.map(w => `${esc(w.uc.short || acronym(w.uc.name))} (${t(w.reason)}${w.grade !== null ? `, ${fmt(w.grade, 1)}` : ''})`).join(', ') }));
   return parts.join(' ');
 }
@@ -200,7 +200,7 @@ function renderSummary() {
   el.innerHTML = `
     <div class="pc-avg">
       <div><div class="pc-avg-num">${avg.average === null ? '—' : fmt(avg.average)}</div><div class="muted small">${t('média atual · {e} ECTS aprovados', { e: fmt(avg.ects, 1) })}</div></div>
-      <label class="field pc-target"><span>${t('Objetivo de média')}</span><input id="pc-target" type="number" min="10" max="20" step="0.1" value="${draft.targetAverage ?? ''}" placeholder="${t('ex.: 17')}"></label>
+      <label class="field pc-target"><span>${t('Objetivo de média')}</span><input id="pc-target" type="number" min="10" max="20" step="0.1" value="${esc(draft.targetAverage ?? '')}" placeholder="${t('ex.: 17')}"></label>
     </div>
     ${req.keep !== null ? `<p class="small pc-keep">${t('Para não baixares a média, cada UC que falta precisa de <b>≥ {n}</b>.', { n: req.keep })}</p>` : ''}
     ${req.needed !== null ? `<p class="small ${req.reachable ? '' : 'pc-warn'}">${req.reachable
@@ -228,14 +228,14 @@ function bind() {
     draft.ucs.push(u);
     openUc = u.id;
     render();
-    document.querySelector(`[data-uc="${u.id}"] [data-f="name"]`)?.focus();
+    document.querySelector(`[data-uc="${CSS.escape(u.id)}"] [data-f="name"]`)?.focus();
   });
   $('pc-file')?.addEventListener('change', onImageChosen);
 
   document.querySelectorAll('[data-toggle]').forEach(b => b.addEventListener('click', () => {
     openUc = openUc === b.dataset.toggle ? null : b.dataset.toggle;
     render();
-    document.querySelector(`[data-uc="${openUc}"]`)?.scrollIntoView({ block: 'nearest' });
+    document.querySelector(`[data-uc="${CSS.escape(openUc)}"]`)?.scrollIntoView({ block: 'nearest' });
   }));
 
   document.querySelectorAll('[data-plan-sem]').forEach(b => b.addEventListener('click', () => {
@@ -244,12 +244,12 @@ function bind() {
     render();
   }));
 
-  const box = openUc && document.querySelector(`[data-uc="${openUc}"] .pc-editor`);
+  const box = openUc && document.querySelector(`[data-uc="${CSS.escape(openUc)}"] .pc-editor`);
   if (!box) return;
   const u = draft.ucs.find(x => x.id === openUc);
   const refresh = () => {
     $(`pc-computed-${u.id}`).innerHTML = computedLine(u);
-    const head = document.querySelector(`[data-uc="${u.id}"] .pc-uc-meta`);
+    const head = document.querySelector(`[data-uc="${CSS.escape(u.id)}"] .pc-uc-meta`);
     const g = effectiveGrade(u);
     head.innerHTML = `${statusChip(u)}<span class="pc-ects">${fmt(u.ects, 1)}</span><span class="pc-grade">${g === null ? '' : fmt(g, 1)}</span>`;
     renderSummaryLater();
@@ -260,7 +260,7 @@ function bind() {
     if (el.type === 'checkbox') u[f] = el.checked;
     else if (['ects', 'year', 'semester', 'passGrade', 'grade'].includes(f)) u[f] = numOrNull(el.value);
     else u[f] = el.value;
-    if (f === 'name') document.querySelector(`[data-uc="${u.id}"] .pc-uc-name`).textContent = u.name || t('Nova UC');
+    if (f === 'name') document.querySelector(`[data-uc="${CSS.escape(u.id)}"] .pc-uc-name`).textContent = u.name || t('Nova UC');
     refresh();
   }));
   box.querySelectorAll('.pc-assess').forEach(row => {
@@ -345,10 +345,10 @@ function renderImport() {
       ${importRows.map((u, i) => `
         <div class="pc-import-row" data-i="${i}">
           <input type="checkbox" data-k="include" ${u.include ? 'checked' : ''} aria-label="${t('Incluir')}">
-          <span class="ys"><input data-k="year" type="number" value="${u.year}" aria-label="${t('Ano')}">/<input data-k="semester" type="number" value="${u.semester}" aria-label="${t('Semestre')}"></span>
+          <span class="ys"><input data-k="year" type="number" value="${esc(u.year)}" aria-label="${t('Ano')}">/<input data-k="semester" type="number" value="${esc(u.semester)}" aria-label="${t('Semestre')}"></span>
           <input data-k="name" value="${esc(u.name)}" aria-label="${t('Nome')}">
-          <input data-k="ects" type="number" step="0.5" value="${u.ects}" aria-label="ECTS">
-          <input data-k="grade" type="number" step="0.1" value="${u.grade ?? ''}" placeholder="—" aria-label="${t('Nota')}">
+          <input data-k="ects" type="number" step="0.5" value="${esc(u.ects)}" aria-label="ECTS">
+          <input data-k="grade" type="number" step="0.1" value="${esc(u.grade ?? '')}" placeholder="—" aria-label="${t('Nota')}">
           <input data-k="gradeType" value="${esc(u.gradeType)}" placeholder="—" aria-label="${t('Tipo')}">
         </div>`).join('')}
     </div>

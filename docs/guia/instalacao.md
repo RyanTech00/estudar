@@ -25,7 +25,11 @@ npm start
 É o mesmo servidor; a diferença é onde ficam as chaves (ver abaixo).
 :::
 
-O browser abre em `http://localhost:8787`. Carrega em **Começar** na página de apresentação.
+O browser abre sozinho no endereço que aparece no terminal. Carrega em **Começar** na página de apresentação.
+
+::: tip O link do terminal
+O ecrã **Servidor e chaves** só abre pelo link que o terminal mostra (`http://localhost:8787/#setup=…`): tem uma chave que muda a cada arranque e protege as tuas chaves de outros programas. Se fechares o separador, copia o link de novo do terminal.
+:::
 
 Sem mais nada, a app já funciona em **modo local**: plano, timer, foco, registos e percurso, com os dados guardados só neste browser. Para teres conta, sincronização e IA, continua.
 
@@ -44,10 +48,15 @@ Na app, abre **Conta** (o círculo no canto superior direito) → **Servidor e c
 ### Supabase — contas e dados
 
 1. Cria um projeto grátis em [supabase.com/dashboard/new](https://supabase.com/dashboard/new).
-2. Em **Project Settings → API Keys**, copia a chave **publishable** (ou **anon**) e, opcionalmente, a **secret** (ou **service_role**). O **Project URL** está em **Data API**.
+2. Na página inicial do projeto, o botão **Copy** ao lado do endereço dá o **Project URL** e a **Publishable key**. A chave **secret** (opcional) está em **Project Settings → API Keys**, no separador *Publishable and secret API keys*; as chaves antigas **anon** e **service_role** (separador *Legacy*) também funcionam.
+   Se fores usar o modo **Automático** do passo 4, basta colar o **Project URL**: as duas chaves são preenchidas sozinhas.
 3. Cola-os no passo 1 do ecrã.
 4. Abre **Criar as tabelas e configurar o email de login**:
-   - **Automático** — cria um [token pessoal](https://supabase.com/dashboard/account/tokens) (`sbp_…`), cola-o e carrega em **Configurar**. A app cria as tabelas e as regras de acesso, autoriza os endereços da app e põe o **código de 6 dígitos** no email de login. O token só é usado nesse momento e nunca é guardado.
+   - **Automático** — escreve **o teu email**, cria um [token pessoal](https://supabase.com/dashboard/account/tokens) (`sbp_…`), cola-o e carrega em **Configurar**. A app cria as tabelas e as regras de acesso, autoriza os endereços da app, põe o **código de 6 dígitos** no email de login, cria a tua conta e **fecha os registos**: só tu entras (mais pessoas juntas-as no passo 3, *Quem pode entrar*). O token só é usado nesse momento e nunca é guardado.
+
+   ::: warning Projetos Supabase gratuitos criados desde junho de 2026
+   Com o email incluído no Supabase não é possível mudar o email de login (fica um link em vez do código) e só se enviam 2 emails por hora. Configura primeiro um SMTP próprio — ver [a pergunta frequente](/guia/faq#diz-que-o-supabase-ja-enviou-o-maximo-de-emails-desta-hora) — e depois carrega em **Configurar**.
+   :::
    - **Manual** — **copiar o SQL**, colá-lo no *SQL Editor* do Supabase e correr. Depois, em **Authentication → Emails → Magic Link**, acrescenta <code v-pre>{{ .Token }}</code> ao texto do email.
 
 ::: info Para que serve a chave secreta?
@@ -97,7 +106,7 @@ A app abre em ecrã inteiro, funciona offline e sincroniza quando volta a ter re
 
 - **Email**: o servidor de email incluído no Supabase só envia para membros da equipa do projeto e tem limites baixos. Para outras pessoas, configura um SMTP próprio em **Authentication → Emails → SMTP Settings** (por exemplo, [Resend](https://resend.com), com nível gratuito).
 - **Instalação privada**: desliga *Allow new users to sign up* e convida as pessoas em **Authentication → Users**.
-- **Login com Google** (opcional): ativa o provider no Supabase (precisa de um OAuth client na Google Cloud) e liga o interruptor no passo 3 do ecrã.
+- **Login com Google**: em breve. Por agora o login é só com o código por email.
 
 ## Pela linha de comandos
 

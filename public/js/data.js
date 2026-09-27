@@ -189,7 +189,8 @@ export function getDaysUntilExam(date = new Date()) {
 // Accepts plans from storage, the example, or the AI and makes them safe to render.
 export function normalizePlan(p) {
   const isDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
-  const subjectsIn = Array.isArray(p.subjects) ? p.subjects : [];
+  const obj = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
+  const subjectsIn = Array.isArray(p.subjects) ? p.subjects.filter(obj) : [];
   const usedIds = new Set();
   const subjectsOut = subjectsIn.slice(0, 20).map((s, i) => {
     let id = String(s.id || s.short || `s${i}`).toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) || `s${i}`;
@@ -201,7 +202,7 @@ export function normalizePlan(p) {
       short: String(s.short || s.name || '?').slice(0, 5).toUpperCase(),
       load: LOADS[s.load] ? s.load : 'media',
       area: AREAS[s.area] ? s.area : 'uni',
-      color: s.color || PALETTE[i % PALETTE.length],
+      color: typeof s.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(s.color) ? s.color : PALETTE[i % PALETTE.length],
       ects: Number(s.ects) > 0 ? Math.min(60, Math.round(Number(s.ects) * 2) / 2) : null,
       examDate: isDate(s.examDate) ? s.examDate : '',
       ucId: s.ucId ? String(s.ucId).slice(0, 20) : undefined,
@@ -209,13 +210,13 @@ export function normalizePlan(p) {
   });
   const ids = new Set([...subjectsOut.map(s => s.id), 'all']);
 
-  const weekly = (Array.isArray(p.weeklyPlan) ? p.weeklyPlan : [])
+  const weekly = (Array.isArray(p.weeklyPlan) ? p.weeklyPlan.filter(obj) : [])
     .map(s => ({ day: Math.floor(Number(s.day)), subject: String(s.subject), session: String(s.session || '').slice(0, 60), minutes: Math.max(0, Math.min(600, Math.round(Number(s.minutes) || 0))), focus: s.focus ? String(s.focus).slice(0, 160) : '' }))
     .filter(s => s.day >= 0 && s.day <= 6 && ids.has(s.subject))
     .slice(0, 60);
 
   const phaseColors = ['#8ea7ff', '#e8b65a', '#f28b8b', '#cfe86a', '#5fcdc2', '#c39cff'];
-  const phasesOut = (Array.isArray(p.phases) ? p.phases : [])
+  const phasesOut = (Array.isArray(p.phases) ? p.phases.filter(obj) : [])
     .filter(ph => isDate(ph.start) && isDate(ph.end) && ph.start <= ph.end)
     .sort((a, b) => a.start.localeCompare(b.start))
     .slice(0, 6)
@@ -242,7 +243,7 @@ export function normalizePlan(p) {
     subjects: subjectsOut,
     weeklyPlan: weekly,
     phases: phasesOut,
-    tips: (Array.isArray(p.tips) ? p.tips : []).slice(0, 10)
+    tips: (Array.isArray(p.tips) ? p.tips.filter(t => typeof t === 'string' || obj(t)) : []).slice(0, 10)
       .map(t => (typeof t === 'string' ? { title: 'Dica', text: t } : t))
       .filter(t => t && t.text)
       .map(t => ({ title: String(t.title || 'Dica').slice(0, 40), text: String(t.text).slice(0, 300) })),

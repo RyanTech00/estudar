@@ -216,7 +216,7 @@ export function openExamGrade(subject, current, save) {
       <button class="icon-btn" id="log-close" aria-label="${t('Fechar')}"><svg class="ico"><use href="#i-close"/></svg></button>
     </div>
     <p class="muted small">${t('Serve para ver se os teus testes de controlo previam bem o exame real.')}</p>
-    <label class="field"><span>${t('Nota (0 a 20)')}</span><input id="exam-grade" type="number" min="0" max="20" step="0.1" value="${current ?? ''}" inputmode="decimal"></label>
+    <label class="field"><span>${t('Nota (0 a 20)')}</span><input id="exam-grade" type="number" min="0" max="20" step="0.1" value="${esc(current ?? '')}" inputmode="decimal"></label>
     <button class="btn btn-primary btn-block" id="exam-save">${t('Guardar')}</button>
   `);
   $('log-close').addEventListener('click', closeLog);

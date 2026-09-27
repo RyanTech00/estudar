@@ -4,6 +4,17 @@ import DefaultTheme from 'vitepress/theme'
 import HomePage from './components/HomePage.vue'
 import Shot from './components/Shot.vue'
 import { fixLocalePath } from './locale-paths'
+// Fonts served by the site itself: no request to Google (visitors' IPs stay private) and a stricter CSP.
+import '@fontsource/fira-sans/latin-300.css'
+import '@fontsource/fira-sans/latin-400.css'
+import '@fontsource/fira-sans/latin-500.css'
+import '@fontsource/fira-sans/latin-600.css'
+import '@fontsource/fira-sans/latin-700.css'
+import '@fontsource/fira-sans/latin-ext-400.css'
+import '@fontsource/fira-code/latin-400.css'
+import '@fontsource/fira-code/latin-500.css'
+import '@fontsource/fira-code/latin-600.css'
+import '@fontsource/fira-code/latin-700.css'
 import './custom.css'
 
 export default {

@@ -23,7 +23,7 @@ test('i18n: English entries keep the same HTML tags as the Portuguese key', () =
 });
 
 test('i18n: every server message (Worker API and setup server) has an English translation', async () => {
-  const files = ['worker/api.js', 'setup/server.mjs'];
+  const files = ['worker/api.js', 'setup/server.mjs', 'setup/values.mjs'];
   const keys = new Set();
   for (const f of files) {
     const src = await readFile(new URL(`../${f}`, import.meta.url), 'utf8');

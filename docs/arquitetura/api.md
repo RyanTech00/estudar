@@ -37,9 +37,15 @@ Estado de cada serviço. `ok` é `true`, `false` ou `null` (não configurado).
 }
 ```
 
-A verificação da IA consulta os metadados do modelo (Gemini `models/{model}`, Anthropic `models.retrieve`, OpenAI `GET /models`) — não gasta tokens.
+A verificação da IA consulta os metadados do modelo (Gemini `models/{model}`, Anthropic `models.retrieve`, OpenAI `GET /models`) — não gasta tokens. `signups` diz se o Supabase aceita contas novas (`ok: false` enquanto estiverem abertos).
+
+No endereço publicado esta rota nunca é pública: exige a sessão do dono (`OWNER_ID`/`OWNER_EMAIL`; em instalações sem dono, qualquer sessão válida) e responde `403` a qualquer outro pedido. O resultado fica em cache um minuto. No servidor local (`npx estudar`), que só responde a este computador, está aberta.
 
 ## Com sessão
+
+### `GET /api/me`
+
+`{ "owner": true, "ownerConfigured": true }` — se a sessão é a do dono. A app junta isto à tabela `viewers` para decidir o modo (dono, leitor ou sem acesso).
 
 Exigem `Authorization: Bearer <token de sessão do Supabase>`. O servidor confirma o token em `GET <supabase>/auth/v1/user` e, se houver chave secreta, aplica o limite diário (`MAX_PLANS_PER_DAY`, contado em `ai_usage`).
 
@@ -47,6 +53,7 @@ Exigem `Authorization: Bearer <token de sessão do Supabase>`. O servidor confir
 |---|---|
 | `400` | Pedido inválido (datas, disciplinas, imagem) |
 | `401` | Sem sessão ou sessão inválida |
+| `403` | Não és o dono (só o dono usa a IA) |
 | `429` | Limite diário atingido |
 | `502` | A IA falhou ou recusou |
 

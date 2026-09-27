@@ -24,11 +24,15 @@ create table public.ai_usage (
 | Table | select | insert | update | delete |
 |---|---|---|---|---|
 | `user_data` | `auth.uid() = user_id` | `auth.uid() = user_id` | `auth.uid() = user_id` | `auth.uid() = user_id` |
+| `user_data` (viewer) | a row in `viewers` with `owner_id = user_id` and `viewer_id = auth.uid()` | — | — | — |
+| `viewers` | `owner_id = auth.uid()` or `viewer_id = auth.uid()` | — | — | — |
 | `ai_usage` | — | — | — | — |
 
-`ai_usage` has RLS enabled **with no policies at all**: no client can read or write it; only the server can, with the secret key. `user_data` is in the `supabase_realtime` publication so devices stay in sync.
+`ai_usage` has RLS enabled **with no policies at all**: no client can read or write it; only the server can, with the secret key. `viewers` (owner, viewer account — the email is only for showing the list) ties access to the **account**, not the email: if the account is deleted, the row goes with it, and nobody inherits the access by signing up later with that email. It only has a read policy: **no client can write it** — if one could, anyone could make themselves a viewer of someone else's data; the local server writes it, with the secret key. `user_data` is in the `supabase_realtime` publication so devices stay in sync (and a viewer gets the owner's changes live).
 
-The full SQL is in [`supabase/migrations/20260927000000_init.sql`](https://github.com/RyanTech00/estudar/blob/main/supabase/migrations/20260927000000_init.sql).
+The daily AI limit is reserved by the `ai_usage_take` function (a single statement, `security definer`, executable only by the server) before the model is called. On top of the policies, grants take away from clients what they don't use (`anon` can't touch `user_data`; nobody can touch `ai_usage`), and each document is capped at 2 MB.
+
+The SQL is in [`supabase/migrations/`](https://github.com/RyanTech00/estudar/tree/main/supabase/migrations); **Set up** runs every file in order (they're idempotent), so it also updates an existing install.
 
 ## The document
 

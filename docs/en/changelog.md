@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.2.0 — security update
+
+A full security audit (OWASP) and **owner and viewers**. After updating (`npx estudar@latest`), open the link from the terminal and click **Set up** once (with your email) and **Publish**: it applies the new migrations, closes sign-ups and sends the security headers to the Worker.
+
+- **Owner and viewers.** **Set up** asks for your email: you become the **owner** (only you use the AI and see the setup) and sign-ups close in Supabase. Under **Who can sign in** you add **viewers**, who see your plan and progress read-only, and remove access with one button. The database (a `viewers` table clients can only read) and the Worker enforce this; the screen only reflects it. New **Sign-ups** dot in the status panel.
+- **Security audit (OWASP)** and fixes: a strict *Content-Security-Policy* and security headers on every response (static files included); the Supabase client bundled with the app at a pinned version, no CDN; one filter for all incoming data plus escaping of every field (XSS); PKCE sign-in; viewer access tied to the account, not the email; an atomic, owner-only AI limit; `/api/health` closed to the public; a per-launch setup key, DNS-rebinding protection and size limits on the local server; minimal database grants and a 2 MB cap per document; pinned GitHub Actions, Dependabot, publishing without install scripts; the docs site with local fonts and security headers. See [Privacy and security](/en/guide/security#technical-protections) and `SECURITY.md`.
+- **Sign in with Google marked "Coming soon"**: the button is shown greyed out, not clickable, until it's ready.
+- **Keys in the wrong field are refused**: the secret key in the public field (it would be sent to browsers) or the public key in the secret field. If they're already swapped, the status panel shows it and **Set up** fixes it.
+- **Sign-in email on new Supabase projects**: since June 2026, Supabase's built-in email doesn't allow changing the template. The authorised addresses are now saved separately (the link no longer goes to `localhost:3000`) and the app explains that your own SMTP is needed.
+- Clearer sign-in messages for Supabase's limits (2 emails per hour with the built-in email; the wait between codes).
+- Supabase instructions updated for the current dashboard (the project's **Copy** button).
+
 ## v1.1.0 — on npm, in English and with backups
 
 - **One-command install**: `npx estudar` downloads and starts the app and the Server & keys screen, without cloning the repository. Keys are stored in `~/.estudar` (or the folder given in `ESTUDAR_HOME`). Options `--port`, `--no-open`, `--help` and `--version`.

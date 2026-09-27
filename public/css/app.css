@@ -52,6 +52,9 @@ button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); 
 }
 .btn:active { transform: scale(.97); }
 .btn:disabled { opacity: .5; }
+/* "Coming soon" features: visible, greyed out, not clickable. */
+.btn-soon:disabled, .switch:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(1); }
+.soon-badge { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); font-size: 11px; font-weight: 600; letter-spacing: .02em; color: var(--muted); vertical-align: middle; }
 .btn-block { width: 100%; }
 .btn-primary { background: var(--accent); color: var(--accent-ink); }
 .btn-ghost { background: var(--surface-2); border: 1px solid var(--line); }
@@ -470,6 +473,21 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size
 .sub p { margin-top: 10px; }
 .inline-form { display: flex; gap: 8px; margin-top: 10px; }
 .inline-form input { flex: 1; }
+.access { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.access-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.access-list { margin: 8px 0 0; padding: 0; list-style: none; font-size: 14px; }
+.access-list li { padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; margin-top: 6px; overflow-wrap: anywhere; }
+.access .muted.small { margin-top: 8px; }
+.access-label { margin-top: 14px; font-size: 13px; font-weight: 600; }
+.access-label .muted { font-weight: 400; margin-left: 4px; }
+.access-list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* Viewers: read-only. Same list as READ_ONLY_BLOCKED in app.js. */
+.read-only-note { margin: 0 0 14px; padding: 10px 14px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface-2); font-size: 14px; color: var(--muted); }
+body.read-only :is([data-tab="timer"], #btn-edit-plan, #btn-probe, #btn-focus-mode, #hero-start, #hero-done, #hero-plan, #hero-server,
+  #today-sessions .check, [data-probe], [data-grade], [data-percurso], #pc-open,
+  #btn-settings-server, #btn-settings-plan, #btn-settings-percurso, .backup-row) { display: none !important; }
+body.read-only :is(#today-sessions .session-main, .check-row) { pointer-events: none; cursor: default; }
 .link-btn { color: var(--accent); text-decoration: underline; padding: 0; font-size: inherit; }
 .server-save { position: sticky; bottom: 0; z-index: 2; margin: 0 -16px; padding: 12px 16px; background: rgba(13, 14, 16, .94); backdrop-filter: blur(12px); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .planner-actions.left { justify-content: flex-start; margin-top: 10px; flex-wrap: wrap; }

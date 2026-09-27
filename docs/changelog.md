@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.2.0 — atualização de segurança
+
+Auditoria de segurança completa (OWASP) e **dono e leitores**. Depois de atualizar (`npx estudar@latest`), abre o link do terminal e carrega uma vez em **Configurar** (com o teu email) e em **Publicar**: aplica as migrações novas, fecha os registos e envia os cabeçalhos de segurança para o Worker.
+
+- **Dono e leitores.** O **Configurar** pede o teu email: ficas **dono** (só tu usas a IA e vês a configuração) e os registos no Supabase fecham. Em **Quem pode entrar** juntas **leitores**, que veem o teu plano e o teu progresso em modo só leitura, e removes o acesso com um botão. A base de dados (tabela `viewers`, só leitura para os clientes) e o Worker garantem isto; o ecrã só o reflete. Novo ponto **Registos** no painel de estado.
+- **Auditoria de segurança (OWASP)** e correções: *Content-Security-Policy* estrita e cabeçalhos de segurança em todas as respostas (incluindo os ficheiros estáticos); cliente do Supabase incluído na app numa versão fixa, sem CDN; filtro único para todos os dados que chegam de fora e escape de todos os campos (XSS); login com PKCE; o acesso dos leitores fica ligado à conta, não ao email; limite de IA atómico e só para o dono; `/api/health` fechado ao público; ecrã de configuração com chave por arranque, proteção contra *DNS rebinding* e limites de tamanho; *grants* mínimos e limite de 2 MB por documento na base de dados; GitHub Actions fixadas, Dependabot, publicação sem scripts de instalação; site da documentação com fontes locais e cabeçalhos de segurança. Ver [Privacidade e segurança](/guia/seguranca#protecoes-tecnicas) e `SECURITY.md`.
+- **Login com Google marcado como "Em breve"**: o botão aparece a cinzento, sem se poder clicar, até estar pronto.
+- **Chaves no campo errado são recusadas**: a secreta no campo público (seria enviada aos browsers) ou a pública no campo da secreta. Se já estiverem trocadas, o painel mostra-o e o **Configurar** corrige.
+- **Email de login em projetos Supabase novos**: desde junho de 2026, o email incluído no Supabase não deixa mudar o modelo. Os endereços autorizados passam a ser gravados à parte (o link já não vai para `localhost:3000`) e a app explica que é preciso um SMTP próprio.
+- Mensagens de login mais claras para os limites do Supabase (2 emails por hora com o email incluído; intervalo entre códigos).
+- Instruções do Supabase atualizadas para o painel atual (botão **Copy** do projeto).
+
 ## v1.1.0 — no npm, em inglês e com cópia de segurança
 
 - **Instalação com um comando**: `npx estudar` descarrega e arranca a app e o ecrã Servidor e chaves, sem clonar o repositório. As chaves ficam em `~/.estudar` (ou na pasta indicada em `ESTUDAR_HOME`). Opções `--port`, `--no-open`, `--help` e `--version`.
