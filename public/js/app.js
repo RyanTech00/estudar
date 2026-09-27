@@ -1,4 +1,4 @@
-import { plan, subjects, phases, checklist, studyMethod, EXAMPLE_PLAN, EMPTY_PLAN, normalizePlan, setActivePlan, hasPlan, getCurrentPhase, getTodaySessions, getSessionsForDay, getSubject, getWeekNumber, getDaysUntilExam } from './data.js';
+import { plan, subjects, phases, checklist, studyMethod, getExamplePlan, EMPTY_PLAN, normalizePlan, setActivePlan, hasPlan, getCurrentPhase, getTodaySessions, getSessionsForDay, getSubject, getWeekNumber, getDaysUntilExam } from './data.js';
 import { Timer } from './timer.js';
 import * as storage from './storage.js';
 import { openServerScreen, setupServerScreen, renderSummary } from './setup.js';
@@ -9,14 +9,13 @@ import { subjectPriorities, eveOfExam, examDateOf, daysUntil, FINAL_WINDOW_DAYS 
 import { enrichWithCurriculum, planSubjectsFromCurriculum, needsRetakeDate } from './curriculum.js';
 import { setupPercurso, openPercurso, openSemester, renderPercursoCard } from './percurso.js';
 import { buildBackup, parseBackup, backupFilename } from './backup.js';
+import { t, lang, setLang, locale, translateDOM, LANGS, DAY_SHORT, DAY_LONG, MONTH_SHORT } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 const RING_C = 2 * Math.PI * 118;
-const PHASE_LABEL = { work: 'estudo', break: 'pausa', longBreak: 'pausa longa' };
+const PHASE_LABEL = (p) => ({ work: t('estudo'), break: t('pausa'), longBreak: t('pausa longa') })[p];
 const TAB_TITLE = { today: 'Hoje', week: 'Semana', timer: 'Timer', progress: 'Progresso' };
-const DAY_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-const DAY_LONG = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
-const MONTH_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+let currentTab = 'today';
 
 let selectedSubject = 'all';
 let focusActive = false;
@@ -52,7 +51,7 @@ function loadPlan() {
   // Data from before plans were per-user: it was built on the example plan, so keep using it.
   if (!storage.getPlan()) {
     const d = storage.loadData();
-    if (Object.keys(d.sessions || {}).length || Object.keys(d.focus || {}).length) storage.savePlan(normalizePlan(EXAMPLE_PLAN));
+    if (Object.keys(d.sessions || {}).length || Object.keys(d.focus || {}).length) storage.savePlan(normalizePlan(getExamplePlan('pt')));
   }
   setActivePlan(storage.getPlan());
   const enriched = enrichWithCurriculum(subjects, storage.getCurriculum().ucs || []);
@@ -73,7 +72,7 @@ function syncPlanWithCurriculum() {
   const added = wanted.filter(w => !kept.some(s => s.id === w.id));
   if (added.length === 0 && kept.length === current.subjects.length) return;
   storage.savePlan(normalizePlan({ ...current, subjects: [...kept, ...added] }));
-  if (added.length) toast(`${added.length} UC(s) adicionadas ao plano. Gera ou ajusta a semana em Editar plano.`);
+  if (added.length) toast(t('{n} UC(s) adicionadas ao plano. Gera ou ajusta a semana em Editar plano.', { n: added.length }));
 }
 
 function manageCurriculum() {
@@ -81,7 +80,7 @@ function manageCurriculum() {
     syncPlanWithCurriculum();
     loadPlan();
     renderAll();
-    toast('Percurso guardado');
+    toast(t('Percurso guardado'));
   });
 }
 
@@ -89,7 +88,7 @@ function editPlan() {
   openPlanner(hasPlan() ? plan : null, () => {
     loadPlan();
     renderAll();
-    toast('Plano guardado');
+    toast(t('Plano guardado'));
   });
 }
 
@@ -147,12 +146,12 @@ function onPhaseEnd({ finished, natural, workedSeconds }) {
     if (minutes >= 5) openBlockLog({ subject, minutes }, renderAll);
   } else if (natural) {
     if (storage.getSetting('sound') !== false) playSound('break');
-    toast('Pausa terminada — carrega ▶ quando estiveres pronto');
+    toast(t('Pausa terminada — carrega ▶ quando estiveres pronto'));
   }
 }
 
 function startProbe(subjectId, minutes) {
-  if (!timer.isIdle && !confirm('Há um bloco a decorrer. Terminá-lo e começar o teste de controlo? O bloco atual não será contado.')) return;
+  if (!timer.isIdle && !confirm(t('Há um bloco a decorrer. Terminá-lo e começar o teste de controlo? O bloco atual não será contado.'))) return;
   selectedSubject = subjectId;
   renderTimerSubjects();
   probe = { minutes };
@@ -169,7 +168,7 @@ function renderTimer() {
   const playing = timer.isRunning;
 
   $('timer-display').textContent = time;
-  $('timer-phase').textContent = timer.isIdle && timer.phase === 'work' && timer.sessionsCompleted === 0 ? 'pronto' : PHASE_LABEL[timer.phase];
+  $('timer-phase').textContent = timer.isIdle && timer.phase === 'work' && timer.sessionsCompleted === 0 ? t('pronto') : PHASE_LABEL(timer.phase);
   const ring = $('timer-progress');
   ring.style.strokeDasharray = RING_C;
   ring.style.strokeDashoffset = RING_C * (1 - progress);
@@ -182,20 +181,20 @@ function renderTimer() {
 
   for (const id of ['btn-timer-main', 'btn-focus-main']) {
     $(id).innerHTML = icon(playing ? 'pause' : 'play');
-    $(id).setAttribute('aria-label', playing ? 'Pausar' : 'Iniciar');
+    $(id).setAttribute('aria-label', playing ? t('Pausar') : t('Iniciar'));
   }
 
   if (focusActive) {
     $('focus-time').textContent = time;
-    $('focus-phase').textContent = timer.isPaused ? 'em pausa' : PHASE_LABEL[timer.phase];
+    $('focus-phase').textContent = timer.isPaused ? t('em pausa') : PHASE_LABEL(timer.phase);
     const bar = $('focus-progress');
     bar.style.width = `${progress * 100}%`;
     bar.style.background = timer.phase === 'work' ? 'var(--accent)' : timer.phase === 'break' ? 'var(--break)' : 'var(--long)';
     const block = Math.min(done + (timer.phase === 'work' ? 1 : 0), timer.config.sessionsBeforeLong) || timer.config.sessionsBeforeLong;
-    $('focus-count').textContent = `Bloco ${block} de ${timer.config.sessionsBeforeLong}`;
+    $('focus-count').textContent = t('Bloco {n} de {total}', { n: block, total: timer.config.sessionsBeforeLong });
   }
 
-  document.title = timer.isIdle ? 'Estudar' : `${time} · ${PHASE_LABEL[timer.phase]} — Estudar`;
+  document.title = timer.isIdle ? 'Estudar' : `${time} · ${PHASE_LABEL(timer.phase)} — Estudar`;
 }
 
 function setupTimer() {
@@ -203,7 +202,7 @@ function setupTimer() {
   $('btn-focus-main').addEventListener('click', () => timer.toggle());
   for (const id of ['btn-timer-reset', 'btn-focus-reset']) {
     $(id).addEventListener('click', () => {
-      if (!timer.isIdle && !confirm('Reiniciar o ciclo? O bloco atual não será contado.')) return;
+      if (!timer.isIdle && !confirm(t('Reiniciar o ciclo? O bloco atual não será contado.'))) return;
       timer.reset();
     });
   }
@@ -251,7 +250,7 @@ function renderTimerSubjects() {
 async function openFocus() {
   focusActive = true;
   const sub = getSubject(selectedSubject);
-  $('focus-subject').textContent = probe ? `Teste de controlo · ${sub.short} — sem consulta` : sub.name;
+  $('focus-subject').textContent = probe ? t('Teste de controlo · {s} — sem consulta', { s: sub.short }) : sub.name;
   $('focus-subject').style.setProperty('--c', sub.color);
   $('focus-overlay').classList.add('active');
   $('focus-overlay').setAttribute('aria-hidden', 'false');
@@ -291,7 +290,8 @@ function startStudying(subjectId) {
 function switchTab(tab) {
   document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.id === `tab-${tab}`));
-  $('topbar-title').textContent = TAB_TITLE[tab];
+  currentTab = tab;
+  $('topbar-title').textContent = t(TAB_TITLE[tab]);
   window.scrollTo({ top: 0 });
 }
 
@@ -302,8 +302,9 @@ function setupNav() {
 
 function renderHeader() {
   const now = new Date();
-  const week = plan.startDate ? ` · semana ${getWeekNumber(now)}` : '';
-  $('topbar-date').textContent = `${DAY_LONG[now.getDay()]}, ${now.getDate()} ${MONTH_SHORT[now.getMonth()]}${week}`;
+  const week = plan.startDate ? ` · ${t('semana {n}', { n: getWeekNumber(now) })}` : '';
+  $('topbar-date').textContent = `${DAY_LONG()[now.getDay()]}, ${now.getDate()} ${MONTH_SHORT()[now.getMonth()]}${week}`;
+  $('topbar-title').textContent = t(TAB_TITLE[currentTab]);
 }
 
 // ── Today ──────────────────────────────
@@ -316,9 +317,9 @@ function renderExamAlerts() {
     .sort((a, b) => a.days - b.days);
   const retakes = (storage.getCurriculum().ucs || []).filter(u => u.inPlan && needsRetakeDate(u, now));
   $('exam-alerts').innerHTML = [
-    ...retakes.map(u => `<div class="alert alert-strong"><b>${esc(u.name)}: reprovada na época normal.</b> Adiciona a data do recurso (ou época especial) no percurso para o plano se ajustar. <button class="link-btn" data-percurso>Abrir percurso</button></div>`),
-    ...eve.map(s => `<div class="alert alert-strong"><b>Amanhã: exame de ${esc(s.short)}.</b> Hoje só recuperação e revisão — sem matéria nova. Faz um teste de controlo curto e dorme bem: o sono consolida o que estudaste.</div>`),
-    ...soon.map(({ s, days }) => `<div class="alert"><b>${esc(s.short)}: exame em ${days} dias.</b> Esta disciplina passa à frente. <button class="link-btn" data-probe="${esc(s.id)}">Fazer teste de controlo</button></div>`),
+    ...retakes.map(u => `<div class="alert alert-strong"><b>${t('{name}: reprovada na época normal.', { name: esc(u.name) })}</b> ${t('Adiciona a data do recurso (ou época especial) no percurso para o plano se ajustar.')} <button class="link-btn" data-percurso>${t('Abrir percurso')}</button></div>`),
+    ...eve.map(s => `<div class="alert alert-strong"><b>${t('Amanhã: exame de {s}.', { s: esc(s.short) })}</b> ${t('Hoje só recuperação e revisão — sem matéria nova. Faz um teste de controlo curto e dorme bem: o sono consolida o que estudaste.')}</div>`),
+    ...soon.map(({ s, days }) => `<div class="alert"><b>${t('{s}: exame em {n} dias.', { s: esc(s.short), n: days })}</b> ${t('Esta disciplina passa à frente.')} <button class="link-btn" data-probe="${esc(s.id)}">${t('Fazer teste de controlo')}</button></div>`),
   ].join('');
   $('exam-alerts').querySelectorAll('[data-percurso]').forEach(b => b.addEventListener('click', manageCurriculum));
   $('exam-alerts').querySelectorAll('[data-probe]').forEach(b => b.addEventListener('click', () => openProbeSetup(subjects, b.dataset.probe, startProbe)));
@@ -330,43 +331,43 @@ function renderToday() {
   const sessions = getTodaySessions(today).map(s => ({ ...s, sub: getSubject(s.subject), done: storage.isSessionDone(today, s.id) }));
   const doneCount = sessions.filter(s => s.done).length;
 
-  $('today-count').textContent = sessions.length ? `${doneCount} de ${sessions.length}` : '';
+  $('today-count').textContent = sessions.length ? t('{a} de {b}', { a: doneCount, b: sessions.length }) : '';
   $('today-bar').style.width = sessions.length ? `${(doneCount / sessions.length) * 100}%` : '0';
 
   const next = sessions.find(s => !s.done);
   if (!hasPlan()) {
     $('next-up').innerHTML = `
       <div class="hero" style="--c:var(--accent)">
-        <div class="eyebrow">Bem-vindo</div>
-        <div class="hero-name">Monta o teu plano de estudo</div>
-        <div class="hero-meta">Adiciona as tuas disciplinas e datas — a IA organiza a semana com técnicas de estudo comprovadas. Também podes começar pelo plano de exemplo.</div>
+        <div class="eyebrow">${t('Bem-vindo')}</div>
+        <div class="hero-name">${t('Monta o teu plano de estudo')}</div>
+        <div class="hero-meta">${t('Adiciona as tuas disciplinas e datas — a IA organiza a semana com técnicas de estudo comprovadas. Também podes começar pelo plano de exemplo.')}</div>
         <div class="hero-actions">
-          <button class="btn btn-primary" id="hero-plan">Criar plano</button>
-          ${storage.isConfigured() ? '' : '<button class="btn btn-ghost" id="hero-server">Ligar servidor</button>'}
+          <button class="btn btn-primary" id="hero-plan">${t('Criar plano')}</button>
+          ${storage.isConfigured() ? '' : `<button class="btn btn-ghost" id="hero-server">${t('Ligar servidor')}</button>`}
         </div>
       </div>`;
     $('hero-plan').addEventListener('click', editPlan);
     $('hero-server')?.addEventListener('click', () => openServerScreen());
   } else if (!sessions.length) {
-    $('next-up').innerHTML = `<div class="hero done"><div class="hero-name">Dia livre</div><div class="hero-meta">Sem sessões planeadas para hoje.</div></div>`;
+    $('next-up').innerHTML = `<div class="hero done"><div class="hero-name">${t('Dia livre')}</div><div class="hero-meta">${t('Sem sessões planeadas para hoje.')}</div></div>`;
   } else if (!next) {
-    $('next-up').innerHTML = `<div class="hero done"><div class="eyebrow">Tudo feito</div><div class="hero-name">Dia concluído</div><div class="hero-meta">${doneCount} sessões fechadas. Descansa — amanhã há mais.</div></div>`;
+    $('next-up').innerHTML = `<div class="hero done"><div class="eyebrow">${t('Tudo feito')}</div><div class="hero-name">${t('Dia concluído')}</div><div class="hero-meta">${t('{n} sessões fechadas. Descansa — amanhã há mais.', { n: doneCount })}</div></div>`;
   } else {
     $('next-up').innerHTML = `
       <div class="hero" style="--c:${esc(next.sub.color)}">
-        <div class="row-between"><div class="eyebrow">A seguir</div>${tag(next.sub)}</div>
+        <div class="row-between"><div class="eyebrow">${t('A seguir')}</div>${tag(next.sub)}</div>
         <div class="hero-name">${esc(next.sub.name)}</div>
         <div class="hero-meta">${detail(next)}</div>
         <div class="hero-actions">
-          <button class="btn btn-primary" id="hero-start">${icon('play')} Começar foco</button>
-          <button class="btn btn-ghost" id="hero-done" aria-label="Marcar como feita">${icon('check')}</button>
+          <button class="btn btn-primary" id="hero-start">${icon('play')} ${t('Começar foco')}</button>
+          <button class="btn btn-ghost" id="hero-done" aria-label="${t('Marcar como feita')}">${icon('check')}</button>
         </div>
       </div>`;
     $('hero-start').addEventListener('click', () => startStudying(next.subject));
     $('hero-done').addEventListener('click', () => toggleSession(next.id, true));
   }
 
-  const groups = [['uni', 'Universidade'], ['lingua', 'Línguas'], ['outro', 'Outros']];
+  const groups = [['uni', t('Universidade')], ['lingua', t('Línguas')], ['outro', t('Outros')]];
   $('today-sessions').innerHTML = sessions.length ? groups.map(([area, label]) => {
     const items = sessions.filter(s => s.area === area);
     if (!items.length) return '';
@@ -379,9 +380,9 @@ function renderToday() {
             <span class="session-meta">${detail(s)}</span>
           </span>
         </button>
-        <button class="check ${s.done ? 'on' : ''}" data-id="${esc(s.id)}" aria-pressed="${s.done}" aria-label="${s.done ? 'Desmarcar' : 'Marcar como feita'}">${icon('check')}</button>
+        <button class="check ${s.done ? 'on' : ''}" data-id="${esc(s.id)}" aria-pressed="${s.done}" aria-label="${s.done ? t('Desmarcar') : t('Marcar como feita')}">${icon('check')}</button>
       </div>`).join('');
-  }).join('') : `<div class="empty">${hasPlan() ? 'Nada planeado para hoje.' : 'Ainda sem plano.'}</div>`;
+  }).join('') : `<div class="empty">${hasPlan() ? t('Nada planeado para hoje.') : t('Ainda sem plano.')}</div>`;
 
   $('today-sessions').querySelectorAll('.check').forEach(btn => {
     btn.addEventListener('click', () => toggleSession(btn.dataset.id, btn.getAttribute('aria-pressed') !== 'true'));
@@ -412,7 +413,7 @@ function renderStats() {
 }
 
 function allTips() {
-  return [...plan.tips, ...studyMethod];
+  return [...plan.tips, ...studyMethod()];
 }
 
 function renderTip() {
@@ -420,7 +421,7 @@ function renderTip() {
   const now = new Date();
   const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
   const tip = tips[dayOfYear % tips.length];
-  $('tip-title').textContent = `Dica · ${tip.title}`;
+  $('tip-title').textContent = `${t('Dica')} · ${tip.title}`;
   $('tip-text').textContent = tip.text;
 }
 
@@ -431,7 +432,7 @@ function renderWeek() {
   const days = getDaysUntilExam(now);
   $('countdown-card').classList.toggle('hidden', days === null && !phases.length);
   $('days-until-exam').textContent = days ?? '—';
-  $('phase-now').textContent = phase ? `Fase: ${phase.name}${phase.ratio ? ` · ${phase.ratio}` : ''}` : 'Define a data dos exames no plano.';
+  $('phase-now').textContent = phase ? `${t('Fase')}: ${phase.name}${phase.ratio ? ` · ${phase.ratio}` : ''}` : t('Define a data dos exames no plano.');
 
   if (phases.length) {
     const start = new Date(phases[0].start + 'T00:00');
@@ -447,7 +448,7 @@ function renderWeek() {
   }
 
   if (!hasPlan()) {
-    $('week-list').innerHTML = `<div class="empty">Ainda não tens plano semanal. Carrega em “Editar plano”.</div>`;
+    $('week-list').innerHTML = `<div class="empty">${t('Ainda não tens plano semanal. Carrega em “Editar plano”.')}</div>`;
     return;
   }
   const monday = startOfWeek(now);
@@ -458,12 +459,12 @@ function renderWeek() {
     const items = getSessionsForDay(dow);
     return `
       <div class="day ${isToday ? 'today' : ''}">
-        <div class="day-name"><b>${DAY_SHORT[dow]}</b><small>${date.getDate()}</small></div>
+        <div class="day-name"><b>${DAY_SHORT()[dow]}</b><small>${date.getDate()}</small></div>
         <div class="day-items">
           ${items.length ? items.map(s => {
             const done = storage.isSessionDone(date, s.id);
             return `<div class="day-item ${done ? 'done' : ''}">${tag(getSubject(s.subject))}<span class="day-item-text"><b>${esc(s.session)}</b>${s.focus ? ` · ${esc(s.focus)}` : ''}</span></div>`;
-          }).join('') : '<span class="muted small">Descanso</span>'}
+          }).join('') : `<span class="muted small">${t('Descanso')}</span>`}
         </div>
       </div>`;
   }).join('');
@@ -472,34 +473,34 @@ function renderWeek() {
 // ── Progress ───────────────────────────
 function renderMastery() {
   const now = new Date();
-  if (!hasPlan()) { $('mastery-list').innerHTML = '<div class="empty">Cria o teu plano primeiro.</div>'; return; }
+  if (!hasPlan()) { $('mastery-list').innerHTML = `<div class="empty">${t('Cria o teu plano primeiro.')}</div>`; return; }
   const attempts = storage.getAttempts();
   const results = storage.getExamResults();
   const pct = (x) => `${Math.round(x * 100)}%`;
   $('mastery-list').innerHTML = subjectPriorities(subjects, attempts, plan, now).map(p => {
     const s = p.subject;
     const flags = [];
-    if (p.calibration.overconfident) flags.push(`<span class="flag warn">Excesso de confiança: esperavas ~${pct(p.calibration.expected)}, acertaste ${pct(p.calibration.actual)}</span>`);
-    if (p.dependency) flags.push(`<span class="flag warn">Depende de ajuda: ${pct(p.split.assisted)} com ajuda vs ${pct(p.split.unassisted)} sem</span>`);
-    if (p.probeDue && p.mastery !== null) flags.push('<span class="flag">Teste de controlo em falta esta semana</span>');
-    if (s.prereqWeak?.length) flags.push(`<span class="flag warn">Base fraca: ${s.prereqWeak.map(w => `${esc(w.short)} (${w.reason}${w.grade !== null ? `, ${w.grade}` : ''})`).join(', ')} — o plano inclui revisão</span>`);
+    if (p.calibration.overconfident) flags.push(`<span class="flag warn">${t('Excesso de confiança: esperavas ~{e}, acertaste {a}', { e: pct(p.calibration.expected), a: pct(p.calibration.actual) })}</span>`);
+    if (p.dependency) flags.push(`<span class="flag warn">${t('Depende de ajuda: {a} com ajuda vs {u} sem', { a: pct(p.split.assisted), u: pct(p.split.unassisted) })}</span>`);
+    if (p.probeDue && p.mastery !== null) flags.push(`<span class="flag">${t('Teste de controlo em falta esta semana')}</span>`);
+    if (s.prereqWeak?.length) flags.push(`<span class="flag warn">${t('Base fraca: {list} — o plano inclui revisão', { list: s.prereqWeak.map(w => `${esc(w.short)} (${t(w.reason)}${w.grade !== null ? `, ${w.grade}` : ''})`).join(', ') })}</span>`);
     const exam = results[s.id];
     let examLine = '';
-    if (exam) examLine = `Exame: ${exam.grade}/20${p.mastery !== null ? ` · último domínio medido ${pct(p.mastery)}` : ''}`;
+    if (exam) examLine = `${t('Exame')}: ${exam.grade}/20${p.mastery !== null ? ` · ${t('último domínio medido {p}', { p: pct(p.mastery) })}` : ''}`;
     else if (p.days !== null && p.days < 0) examLine = s.ucId
-      ? '<button class="link-btn" data-percurso>Registar notas no percurso</button>'
-      : `<button class="link-btn" data-grade="${esc(s.id)}">Registar nota do exame</button>`;
-    else if (p.days !== null) examLine = p.days === 0 ? 'exame hoje' : p.days === 1 ? 'exame amanhã' : `exame em ${p.days} dias`;
+      ? `<button class="link-btn" data-percurso>${t('Registar notas no percurso')}</button>`
+      : `<button class="link-btn" data-grade="${esc(s.id)}">${t('Registar nota do exame')}</button>`;
+    else if (p.days !== null) examLine = p.days === 0 ? t('exame hoje') : p.days === 1 ? t('exame amanhã') : t('exame em {n} dias', { n: p.days });
     const practiceParts = [
-      p.split.unassisted !== null ? `${pct(p.split.unassisted)} sem ajuda` : '',
-      p.split.assisted !== null ? `${pct(p.split.assisted)} com ajuda` : '',
+      p.split.unassisted !== null ? t('{p} sem ajuda', { p: pct(p.split.unassisted) }) : '',
+      p.split.assisted !== null ? t('{p} com ajuda', { p: pct(p.split.assisted) }) : '',
     ].filter(Boolean);
-    const practice = practiceParts.length ? `Prática: ${practiceParts.join(' · ')}` : '';
+    const practice = practiceParts.length ? `${t('Prática')}: ${practiceParts.join(' · ')}` : '';
     return `
       <div class="mastery-row">
         <div class="mastery-head">
           ${tag(s)}
-          <div class="mastery-bar">${p.mastery === null ? '<span class="muted small">Ainda sem teste — por aprender</span>' : `<i style="width:${pct(p.mastery)};background:${esc(s.color)}"></i>`}</div>
+          <div class="mastery-bar">${p.mastery === null ? `<span class="muted small">${t('Ainda sem teste — por aprender')}</span>` : `<i style="width:${pct(p.mastery)};background:${esc(s.color)}"></i>`}</div>
           <span class="mastery-pct">${p.mastery === null ? '—' : pct(p.mastery)}</span>
         </div>
         ${flags.length ? `<div class="flags">${flags.join('')}</div>` : ''}
@@ -530,7 +531,7 @@ function renderProgress() {
       <div class="chart-bar">
         ${Object.entries(d.bySubject).map(([id, m]) => `<i style="height:${(m / max) * 100}%;background:${esc(getSubject(id).color)}"></i>`).join('')}
       </div>
-      <small>${DAY_SHORT[d.date.getDay()][0]}</small>
+      <small>${DAY_SHORT()[d.date.getDay()][0]}</small>
     </div>`).join('');
 
   const monday = startOfWeek(now);
@@ -544,7 +545,7 @@ function renderProgress() {
   $('by-subject').innerHTML = rows.length ? rows.map(([id, m]) => {
     const sub = getSubject(id);
     return `<div class="subj-row">${tag(sub)}<div class="subj-bar" style="--c:${esc(sub.color)}"><i style="width:${(m / subMax) * 100}%"></i></div><span class="subj-min">${formatMinutes(m)}</span></div>`;
-  }).join('') : '<div class="empty">Ainda sem tempo registado esta semana. Os minutos entram aqui sempre que terminas um bloco de estudo no timer.</div>';
+  }).join('') : `<div class="empty">${t('Ainda sem tempo registado esta semana. Os minutos entram aqui sempre que terminas um bloco de estudo no timer.')}</div>`;
 
   renderChecklist();
 }
@@ -552,8 +553,8 @@ function renderProgress() {
 function renderChecklist() {
   const week = getWeekNumber();
   const checks = storage.getWeekChecklist(week);
-  $('checklist-week').textContent = `semana ${week}`;
-  $('checklist-container').innerHTML = checklist.map((q, i) => `
+  $('checklist-week').textContent = t('semana {n}', { n: week });
+  $('checklist-container').innerHTML = checklist().map((q, i) => `
     <button class="check-row" data-idx="${i}" aria-pressed="${!!checks[i]}">
       <span class="check ${checks[i] ? 'on' : ''}">${icon('check')}</span>${esc(q)}
     </button>`).join('');
@@ -568,11 +569,11 @@ function renderChecklist() {
 }
 
 function renderMethod() {
-  const block = (list) => list.map(t => `
-    <details><summary>${esc(t.title)}${icon('chevron').replace('class="ico"', 'class="ico chev"')}</summary><p>${esc(t.text)}</p></details>`).join('');
+  const block = (list) => list.map(x => `
+    <details><summary>${esc(x.title)}${icon('chevron').replace('class="ico"', 'class="ico chev"')}</summary><p>${esc(x.text)}</p></details>`).join('');
   $('method-cards').innerHTML =
-    `<div class="accordion-group">Método</div>${block(studyMethod)}` +
-    (plan.tips.length ? `<div class="accordion-group">O teu plano</div>${block(plan.tips)}` : '');
+    `<div class="accordion-group">${t('Método')}</div>${block(studyMethod())}` +
+    (plan.tips.length ? `<div class="accordion-group">${t('O teu plano')}</div>${block(plan.tips)}` : '');
 }
 
 // ── Account / settings ─────────────────
@@ -597,7 +598,7 @@ function setupSettings() {
     a.download = backupFilename();
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    toast('Cópia de segurança exportada');
+    toast(t('Cópia de segurança exportada'));
   });
 
   $('btn-import').addEventListener('change', async (e) => {
@@ -607,20 +608,29 @@ function setupSettings() {
     const r = parseBackup(await file.text());
     if (!r.ok) return toast(r.message);
     const s = r.summary;
-    const when = r.exportedAt ? ` de ${new Date(r.exportedAt).toLocaleDateString('pt-PT')}` : '';
-    if (!confirm(`Juntar esta cópia${when} ao que já tens?
-
-${s.attempts} registos · ${s.days} dias de estudo · ${s.subjects} disciplinas no plano · ${s.ucs} UCs no percurso
-
-Nada é apagado: os registos juntam-se e, no plano e no percurso, fica a versão mais recente.`)) return;
+    const when = r.exportedAt ? new Date(r.exportedAt).toLocaleDateString(locale()) : '—';
+    if (!confirm([
+      t('Juntar esta cópia de {d} ao que já tens?', { d: when }),
+      t('{a} registos · {d} dias de estudo · {s} disciplinas no plano · {u} UCs no percurso', { a: s.attempts, d: s.days, s: s.subjects, u: s.ucs }),
+      t('Nada é apagado: os registos juntam-se e, no plano e no percurso, fica a versão mais recente.'),
+    ].join('\n\n'))) return;
     storage.importData(r.data);
     openSettings(false);
     loadPlan();
     applyTimerConfig();
     renderAll();
-    toast('Cópia importada');
+    toast(t('Cópia importada'));
   });
   $('btn-settings-server').addEventListener('click', () => { openSettings(false); openServerScreen(); });
+
+  $('lang-select').innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}" ${k === lang ? 'selected' : ''}>${v}</option>`).join('');
+  $('lang-select').addEventListener('change', (e) => {
+    setLang(e.target.value);
+    translateDOM();
+    renderAll();
+    renderAccount(accountMode);
+    renderSummary();
+  });
 
   $('btn-toggle-sound').addEventListener('click', () => {
     storage.setSetting('sound', storage.getSetting('sound') === false);
@@ -628,7 +638,7 @@ Nada é apagado: os registos juntam-se e, no plano e no percurso, fica a versão
   });
 
   $('btn-clear-data').addEventListener('click', () => {
-    if (confirm('Apagar os dados guardados neste dispositivo? O que está na tua conta volta a descarregar quando entrares.')) {
+    if (confirm(t('Apagar os dados guardados neste dispositivo? O que está na tua conta volta a descarregar quando entrares.'))) {
       localStorage.removeItem('estudar_data');
       localStorage.removeItem(storage.TIMER_KEY);
       location.reload();
@@ -647,18 +657,20 @@ function renderSoundSwitch() {
   $('btn-toggle-sound').setAttribute('aria-checked', String(storage.getSetting('sound') !== false));
 }
 
+let accountMode = 'local';
 function renderAccount(mode) {
+  accountMode = mode;
   const user = storage.getCurrentUser();
   const synced = !!user && mode === 'online';
   $('sync-dot').classList.toggle('connected', synced);
-  $('sync-dot').title = synced ? 'Sincronizado' : mode === 'local' ? 'Modo local' : 'Offline';
-  $('user-sync').textContent = synced ? 'Sincronizado'
-    : mode === 'local' ? 'Modo local: os dados ficam só neste dispositivo. Liga o Supabase em “Servidor e chaves”.'
-    : 'Offline — sincroniza quando voltares a ter ligação.';
+  $('sync-dot').title = synced ? t('Sincronizado') : mode === 'local' ? t('Modo local') : t('Offline');
+  $('user-sync').textContent = synced ? t('Sincronizado')
+    : mode === 'local' ? t('Modo local: os dados ficam só neste dispositivo. Liga o Supabase em “Servidor e chaves”.')
+    : t('Offline — sincroniza quando voltares a ter ligação.');
   $('user-sync').classList.toggle('off', !synced);
   $('btn-sign-out').classList.toggle('hidden', mode === 'local');
   if (!user) {
-    $('user-name').textContent = mode === 'local' ? 'Modo local' : '—';
+    $('user-name').textContent = mode === 'local' ? t('Modo local') : '—';
     $('user-email').textContent = '';
     return;
   }
@@ -702,7 +714,7 @@ function setupLoginForms() {
     const r = await storage.sendEmailCode(email);
     btn.disabled = false;
     if (!r.ok) return showLoginError(r.message);
-    $('login-code-hint').textContent = `Enviámos um código para ${email}. Escreve-o aqui, ou abre o link do email neste dispositivo.`;
+    $('login-code-hint').textContent = t('Enviámos um código para {email}. Escreve-o aqui, ou abre o link do email neste dispositivo.', { email });
     showLoginStep('code');
     $('login-code').focus();
   });
@@ -742,7 +754,7 @@ async function setupLoginGate() {
   if (state === 'offline' && storage.hadPreviousLogin()) return unlockApp('offline');
 
   showLoginStep('email');
-  if (state === 'offline') showLoginError('Sem ligação. Liga-te à internet para iniciar sessão.');
+  if (state === 'offline') showLoginError(t('Sem ligação. Liga-te à internet para iniciar sessão.'));
 }
 
 function unlockApp(mode) {
@@ -767,7 +779,7 @@ function setupIntro() {
     showIntro(false);
   });
   $('btn-settings-intro').addEventListener('click', () => { openSettings(false); showIntro(true); });
-  // First visit only; afterwards it lives under Conta → Sobre o método.
+  // First visit only; afterwards it lives under Account → About the method.
   let seen = false;
   try { seen = !!localStorage.getItem(INTRO_KEY); } catch {}
   showIntro(!seen);
@@ -789,6 +801,8 @@ function renderAll() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  setLang(lang);
+  translateDOM();
   setupIntro();
   loadPlan();
   applyTimerConfig();

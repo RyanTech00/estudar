@@ -8,6 +8,8 @@
 //   AI_API_KEY, AI_MODEL, AI_BASE_URL, MAX_PLANS_PER_DAY
 //   AUTH_GOOGLE  "true" to show Google sign-in
 
+import { tr, langFrom } from './i18n.js';
+
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 
@@ -36,15 +38,16 @@ const supabaseHeaders = (key) => ({ apikey: key, ...(key.startsWith('eyJ') ? { A
 export async function handleApi(request, env) {
   const url = new URL(request.url);
   const cfg = readEnv(env);
+  cfg.lang = langFrom(request.headers.get('X-Estudar-Lang') || url.searchParams.get('lang'));
   try {
     if (url.pathname === '/api/config' && request.method === 'GET') return json(publicConfig(cfg));
     if (url.pathname === '/api/health' && request.method === 'GET') return json(await health(cfg));
     if (url.pathname === '/api/generate-plan' && request.method === 'POST') return await generatePlanRoute(request, cfg);
     if (url.pathname === '/api/import-curriculum' && request.method === 'POST') return await importCurriculumRoute(request, cfg);
-    return json({ error: 'Não encontrado.' }, 404);
+    return json({ error: tr(cfg.lang, 'Não encontrado.') }, 404);
   } catch (e) {
     console.error(e);
-    return json({ error: e instanceof Error ? e.message : 'Erro inesperado.' }, 500);
+    return json({ error: e instanceof Error ? tr(cfg.lang, e.message) : tr(cfg.lang, 'Erro inesperado.') }, 500);
   }
 }
 
@@ -66,53 +69,53 @@ const timeout = (ms) => AbortSignal.timeout(ms);
 export async function health(cfg) {
   const [supabase, database, ai] = await Promise.all([checkSupabase(cfg), checkDatabase(cfg), checkAi(cfg)]);
   return {
-    app: { ok: true, runtime: cfg.runtime, message: cfg.runtime === 'local' ? 'A correr neste computador' : 'A correr no Cloudflare' },
+    app: { ok: true, runtime: cfg.runtime, message: cfg.runtime === 'local' ? tr(cfg.lang, 'A correr neste computador') : tr(cfg.lang, 'A correr no Cloudflare') },
     supabase,
     database,
     ai,
     limit: cfg.serviceKey
-      ? { ok: true, message: `Máximo ${cfg.maxPerDay} planos por utilizador por dia` }
-      : { ok: null, message: 'Sem chave secreta do Supabase: gerações ilimitadas' },
+      ? { ok: true, message: tr(cfg.lang, 'Máximo {n} planos por utilizador por dia', { n: cfg.maxPerDay }) }
+      : { ok: null, message: tr(cfg.lang, 'Sem chave secreta do Supabase: gerações ilimitadas') },
     checkedAt: new Date().toISOString(),
   };
 }
 
 async function checkSupabase(cfg) {
-  if (!cfg.supabaseUrl || !cfg.anonKey) return { ok: null, message: 'Não configurado' };
+  if (!cfg.supabaseUrl || !cfg.anonKey) return { ok: null, message: tr(cfg.lang, 'Não configurado') };
   try {
     const r = await fetch(`${cfg.supabaseUrl}/auth/v1/health`, { headers: { apikey: cfg.anonKey }, signal: timeout(8000) });
-    if (r.ok) return { ok: true, message: 'Online' };
-    if (r.status === 401 || r.status === 403) return { ok: false, message: 'Chave pública (anon/publishable) inválida' };
-    return { ok: false, message: `Respondeu ${r.status}` };
+    if (r.ok) return { ok: true, message: tr(cfg.lang, 'Online') };
+    if (r.status === 401 || r.status === 403) return { ok: false, message: tr(cfg.lang, 'Chave pública (anon/publishable) inválida') };
+    return { ok: false, message: tr(cfg.lang, 'Respondeu {n}', { n: r.status }) };
   } catch {
-    return { ok: false, message: 'Não foi possível contactar o URL do projeto' };
+    return { ok: false, message: tr(cfg.lang, 'Não foi possível contactar o URL do projeto') };
   }
 }
 
 async function checkDatabase(cfg) {
-  if (!cfg.supabaseUrl || !cfg.anonKey) return { ok: null, message: 'Não configurado' };
+  if (!cfg.supabaseUrl || !cfg.anonKey) return { ok: null, message: tr(cfg.lang, 'Não configurado') };
   try {
     const r = await fetch(`${cfg.supabaseUrl}/rest/v1/user_data?select=user_id&limit=1`, { headers: { apikey: cfg.anonKey }, signal: timeout(8000) });
-    if (r.ok) return { ok: true, message: 'Tabelas criadas' };
+    if (r.ok) return { ok: true, message: tr(cfg.lang, 'Tabelas criadas') };
     const body = await r.json().catch(() => ({}));
-    if (r.status === 404 || body.code === 'PGRST205' || body.code === '42P01') return { ok: false, message: 'Tabelas ainda não criadas' };
-    return { ok: false, message: body.message || `Respondeu ${r.status}` };
+    if (r.status === 404 || body.code === 'PGRST205' || body.code === '42P01') return { ok: false, message: tr(cfg.lang, 'Tabelas ainda não criadas') };
+    return { ok: false, message: body.message || tr(cfg.lang, 'Respondeu {n}', { n: r.status }) };
   } catch {
-    return { ok: false, message: 'Sem resposta' };
+    return { ok: false, message: tr(cfg.lang, 'Sem resposta') };
   }
 }
 
 // Uses model-metadata endpoints: confirms the key and model without spending tokens.
 async function checkAi(cfg) {
   const label = { gemini: 'Gemini', anthropic: 'Claude', openai: 'OpenAI-compatível' }[cfg.provider] || cfg.provider;
-  if (!cfg.aiKey) return { ok: null, message: 'Sem chave de IA', provider: label };
-  if (!cfg.model) return { ok: false, message: 'Define o modelo', provider: label };
+  if (!cfg.aiKey) return { ok: null, message: tr(cfg.lang, 'Sem chave de IA'), provider: label };
+  if (!cfg.model) return { ok: false, message: tr(cfg.lang, 'Define o modelo'), provider: label };
   try {
     if (cfg.provider === 'gemini') {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(cfg.model)}`, {
         headers: { 'x-goog-api-key': cfg.aiKey }, signal: timeout(8000),
       });
-      if (!r.ok) return { ok: false, provider: label, message: r.status === 404 ? `Modelo ${cfg.model} não existe` : 'Chave inválida ou sem acesso' };
+      if (!r.ok) return { ok: false, provider: label, message: r.status === 404 ? tr(cfg.lang, 'Modelo {m} não existe', { m: cfg.model }) : tr(cfg.lang, 'Chave inválida ou sem acesso') };
     } else if (cfg.provider === 'anthropic') {
       const { default: Anthropic } = await import('@anthropic-ai/sdk');
       const client = new Anthropic({ apiKey: cfg.aiKey, timeout: 8000, maxRetries: 0 });
@@ -120,17 +123,17 @@ async function checkAi(cfg) {
         await client.models.retrieve(cfg.model);
       } catch (e) {
         const status = e?.status;
-        return { ok: false, provider: label, message: status === 404 ? `Modelo ${cfg.model} não existe` : status === 401 ? 'Chave inválida' : 'Sem resposta' };
+        return { ok: false, provider: label, message: status === 404 ? tr(cfg.lang, 'Modelo {m} não existe', { m: cfg.model }) : status === 401 ? tr(cfg.lang, 'Chave inválida') : tr(cfg.lang, 'Sem resposta') };
       }
     } else if (cfg.provider === 'openai') {
       const r = await fetch(`${cfg.baseUrl}/models`, { headers: { Authorization: `Bearer ${cfg.aiKey}` }, signal: timeout(8000) });
-      if (!r.ok) return { ok: false, provider: label, message: r.status === 401 ? 'Chave inválida' : `Respondeu ${r.status}` };
+      if (!r.ok) return { ok: false, provider: label, message: r.status === 401 ? tr(cfg.lang, 'Chave inválida') : tr(cfg.lang, 'Respondeu {n}', { n: r.status }) };
     } else {
-      return { ok: false, provider: label, message: 'Fornecedor desconhecido' };
+      return { ok: false, provider: label, message: tr(cfg.lang, 'Fornecedor desconhecido') };
     }
     return { ok: true, provider: label, message: `${label} · ${cfg.model}` };
   } catch {
-    return { ok: false, provider: label, message: 'Sem resposta do fornecedor' };
+    return { ok: false, provider: label, message: tr(cfg.lang, 'Sem resposta do fornecedor') };
   }
 }
 
@@ -161,7 +164,12 @@ Regras de saída:
 - "focus": a atividade concreta e ativa (ex.: "Exercícios mistos de ponteiros e listas sem consultar").
 - "phases": 3 a 5 fases entre a data de início e a data dos exames, contíguas e sem sobreposição, datas no formato AAAA-MM-DD. "label" com no máximo 8 caracteres (ex.: "60 / 40").
 - "tips": 3 a 6 dicas curtas e específicas para ESTE estudante, cada uma ligada a um dos princípios.
-- Escreve em português de Portugal.`;
+`;
+
+const LANGUAGE_LINE = {
+  pt: '- Escreve todo o texto (session, focus, fases, ratio, dicas) em português de Portugal.',
+  en: '- Write all text (session, focus, phase names, ratio, tips) in English. Keep the subject ids exactly as given.',
+};
 
 const PLAN_SCHEMA = {
   type: 'object',
@@ -248,6 +256,7 @@ function validate(body) {
       prereqWeak: String(s.prereqWeak || '').slice(0, 200),
     })),
     notes: String(body.notes || '').slice(0, 1000),
+    lang: body.lang === 'en' ? 'en' : body.lang === 'pt' ? 'pt' : null,
   };
 }
 
@@ -372,13 +381,13 @@ async function recordUsage(userId, day, count, cfg) {
 // Signed-in user + daily AI limit, shared by every AI route.
 async function withAiQuota(request, cfg, run) {
   const user = await getUser(request, cfg);
-  if (!user?.id) return json({ error: 'Sessão inválida. Volta a entrar.' }, 401);
+  if (!user?.id) return json({ error: tr(cfg.lang, 'Sessão inválida. Volta a entrar.') }, 401);
 
   const day = new Date().toISOString().slice(0, 10);
   let used = 0;
   if (cfg.serviceKey) {
     used = await usageToday(user.id, day, cfg);
-    if (used >= cfg.maxPerDay) return json({ error: `Atingiste o limite de ${cfg.maxPerDay} pedidos à IA hoje. Tenta amanhã.` }, 429);
+    if (used >= cfg.maxPerDay) return json({ error: tr(cfg.lang, 'Atingiste o limite de {n} pedidos à IA hoje. Tenta amanhã.', { n: cfg.maxPerDay }) }, 429);
   }
   try {
     const result = await run();
@@ -387,7 +396,7 @@ async function withAiQuota(request, cfg, run) {
     return json({ ...result, remaining: cfg.serviceKey ? cfg.maxPerDay - used - 1 : null });
   } catch (e) {
     console.error(e);
-    return json({ error: e.message || 'A IA falhou.' }, 502);
+    return json({ error: e.message ? tr(cfg.lang, e.message) : tr(cfg.lang, 'A IA falhou.') }, 502);
   }
 }
 
@@ -396,10 +405,10 @@ async function generatePlanRoute(request, cfg) {
   try {
     input = validate(await request.clone().json());
   } catch (e) {
-    return json({ error: e.message }, 400);
+    return json({ error: tr(cfg.lang, e.message) }, 400);
   }
   return withAiQuota(request, cfg, async () => ({
-    plan: await llmJson({ system: SYSTEM_PROMPT, text: userPrompt(input), schema: PLAN_SCHEMA, schemaName: 'study_plan' }, cfg),
+    plan: await llmJson({ system: `${SYSTEM_PROMPT}\n${LANGUAGE_LINE[input.lang] || LANGUAGE_LINE[cfg.lang]}`, text: userPrompt(input), schema: PLAN_SCHEMA, schemaName: 'study_plan' }, cfg),
   }));
 }
 
@@ -475,7 +484,7 @@ async function importCurriculumRoute(request, cfg) {
   try {
     image = parseImageDataUrl((await request.clone().json())?.image);
   } catch (e) {
-    return json({ error: e.message }, 400);
+    return json({ error: tr(cfg.lang, e.message) }, 400);
   }
   return withAiQuota(request, cfg, async () => ({
     result: cleanCurriculum(await llmJson({

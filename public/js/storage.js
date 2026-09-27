@@ -1,3 +1,5 @@
+import { t, lang } from './i18n.js';
+
 const STORAGE_KEY = 'estudar_data';
 const LAST_UID_KEY = 'estudar_last_uid';
 export const TIMER_KEY = 'estudar_timer';
@@ -147,19 +149,19 @@ export function saveCurriculum(curriculum) {
 }
 
 export async function importCurriculumImage(dataUrl) {
-  if (!supabase || !currentUser) return { ok: false, message: 'Precisas de ter sessão iniciada e ligação à internet.' };
+  if (!supabase || !currentUser) return { ok: false, message: t('Precisas de ter sessão iniciada e ligação à internet.') };
   const { data: { session } } = await supabase.auth.getSession();
   try {
     const r = await fetch('/api/import-curriculum', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+      headers: { 'Content-Type': 'application/json', 'X-Estudar-Lang': lang, Authorization: `Bearer ${session?.access_token || ''}` },
       body: JSON.stringify({ image: dataUrl }),
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) return { ok: false, message: data.error || `O servidor respondeu ${r.status}.` };
+    if (!r.ok) return { ok: false, message: data.error || t('O servidor respondeu {n}.', { n: r.status }) };
     return { ok: true, result: data.result };
   } catch {
-    return { ok: false, message: 'Não foi possível contactar o servidor.' };
+    return { ok: false, message: t('Não foi possível contactar o servidor.') };
   }
 }
 
@@ -300,19 +302,19 @@ const AUTH_ERRORS = [
 function authMessage(error) {
   const msg = error?.message || String(error);
   const hit = AUTH_ERRORS.find(([re]) => re.test(msg));
-  return hit ? hit[1] : `Não foi possível iniciar sessão (${msg}).`;
+  return hit ? t(hit[1]) : t('Não foi possível iniciar sessão ({msg}).', { msg });
 }
 
 const redirectTo = () => location.origin + location.pathname;
 
 export async function sendEmailCode(email) {
-  if (!supabase) return { ok: false, message: 'Sem ligação ao servidor.' };
+  if (!supabase) return { ok: false, message: t('Sem ligação ao servidor.') };
   const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo() } });
   return error ? { ok: false, message: authMessage(error) } : { ok: true };
 }
 
 export async function verifyEmailCode(email, token) {
-  if (!supabase) return { ok: false, message: 'Sem ligação ao servidor.' };
+  if (!supabase) return { ok: false, message: t('Sem ligação ao servidor.') };
   const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
   if (error) return { ok: false, message: authMessage(error) };
   await afterSignIn(data.user);
@@ -320,7 +322,7 @@ export async function verifyEmailCode(email, token) {
 }
 
 export async function signInWithGoogle() {
-  if (!supabase) return { ok: false, message: 'Sem ligação ao servidor.' };
+  if (!supabase) return { ok: false, message: t('Sem ligação ao servidor.') };
   const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: redirectTo() } });
   return error ? { ok: false, message: authMessage(error) } : { ok: true, redirecting: true };
 }
@@ -455,19 +457,19 @@ function mergeData(local, remote) {
 
 // ── AI plan generation ─────────────────
 export async function generatePlan(input) {
-  if (!supabase || !currentUser) return { ok: false, message: 'Precisas de ter sessão iniciada e ligação à internet.' };
+  if (!supabase || !currentUser) return { ok: false, message: t('Precisas de ter sessão iniciada e ligação à internet.') };
   const { data: { session } } = await supabase.auth.getSession();
   try {
     const r = await fetch('/api/generate-plan', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+      headers: { 'Content-Type': 'application/json', 'X-Estudar-Lang': lang, Authorization: `Bearer ${session?.access_token || ''}` },
       body: JSON.stringify(input),
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) return { ok: false, message: data.error || `O servidor respondeu ${r.status}.` };
+    if (!r.ok) return { ok: false, message: data.error || t('O servidor respondeu {n}.', { n: r.status }) };
     return { ok: true, plan: data.plan, remaining: data.remaining };
   } catch {
-    return { ok: false, message: 'Não foi possível contactar o servidor.' };
+    return { ok: false, message: t('Não foi possível contactar o servidor.') };
   }
 }
 

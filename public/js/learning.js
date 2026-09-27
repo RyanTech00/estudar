@@ -10,7 +10,6 @@
 //   assisted: bool,                          AI, notes or worked examples used during the attempt (R7)
 // }
 
-export const CONFIDENCE_LABELS = ['', 'Nada seguro', 'Pouco seguro', 'Seguro', 'Muito seguro'];
 // What each confidence level claims, as expected accuracy.
 const CONFIDENCE_EXPECTED = [0, 0.25, 0.5, 0.75, 0.95];
 

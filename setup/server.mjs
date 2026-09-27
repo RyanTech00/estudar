@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleApi, health, readEnv } from '../worker/api.js';
+import { tr, langFrom } from '../worker/i18n.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = path.join(ROOT, 'public');
@@ -74,13 +75,13 @@ async function publicState() {
 }
 
 // Incoming values: empty secret = keep the stored one; masked value = unchanged.
-function mergeValues(stored, incoming = {}) {
+function mergeValues(stored, incoming = {}, lang = 'pt') {
   const next = { ...stored };
   for (const k of Object.keys(FIELDS)) {
     if (!(k in incoming)) continue;
     const v = String(incoming[k] ?? '').trim();
     if (FIELDS[k].secret && (v === '' || v.startsWith('••••'))) continue;
-    if (/[\r\n]/.test(v)) throw new Error(`${k} não pode ter quebras de linha.`);
+    if (/[\r\n]/.test(v)) throw new Error(tr(lang, '{k} não pode ter quebras de linha.', { k }));
     next[k] = v;
   }
   return next;
@@ -104,20 +105,19 @@ function wrangler(args, { onData } = {}) {
 }
 
 let cloudflareCache = null;
-async function cloudflareStatus(force = false) {
-  if (cloudflareCache && !force && Date.now() - cloudflareCache.at < 60000) return cloudflareCache.value;
-  const { code, out } = await wrangler(['whoami']);
-  let value;
-  if (/not installed|could not determine executable|npm ERR/i.test(out) && code !== 0) {
-    value = { ok: false, loggedIn: false, message: 'Wrangler não está instalado. Corre "npm install" nesta pasta.' };
-  } else if (/not logged in|not authenticated/i.test(out) || code !== 0) {
-    value = { ok: false, loggedIn: false, message: 'Conta Cloudflare não ligada' };
-  } else {
-    const email = out.match(/email\s+([^\s]+@[^\s.]+\.[^\s]+)/i)?.[1] || out.match(/([\w.+-]+@[\w-]+\.[\w.]+)/)?.[1];
-    value = { ok: true, loggedIn: true, message: email ? `Ligado como ${email}` : 'Conta ligada' };
+async function cloudflareStatus(force = false, lang = 'pt') {
+  if (!cloudflareCache || force || Date.now() - cloudflareCache.at > 60000) {
+    const { code, out } = await wrangler(['whoami']);
+    let value;
+    if (/not installed|could not determine executable|npm ERR/i.test(out) && code !== 0) value = { state: 'missing' };
+    else if (/not logged in|not authenticated/i.test(out) || code !== 0) value = { state: 'out' };
+    else value = { state: 'in', email: out.match(/email\s+([^\s]+@[^\s.]+\.[^\s]+)/i)?.[1] || out.match(/([\w.+-]+@[\w-]+\.[\w.]+)/)?.[1] || '' };
+    cloudflareCache = { at: Date.now(), value };
   }
-  cloudflareCache = { at: Date.now(), value };
-  return value;
+  const v = cloudflareCache.value;
+  if (v.state === 'missing') return { ok: false, loggedIn: false, message: tr(lang, 'Wrangler não está instalado. Corre "npm install" nesta pasta.') };
+  if (v.state === 'out') return { ok: false, loggedIn: false, message: tr(lang, 'Conta Cloudflare não ligada') };
+  return { ok: true, loggedIn: true, message: v.email ? tr(lang, 'Ligado como {email}', { email: v.email }) : tr(lang, 'Conta ligada') };
 }
 
 let loginRunning = false;
@@ -129,7 +129,7 @@ function startLogin() {
 
 // One deploy at a time; the screen polls /api/setup/job for the log.
 let job = null;
-async function startDeploy() {
+async function startDeploy(lang = 'pt') {
   if (job?.running) return job;
   job = { running: true, ok: null, log: '', url: null, startedAt: Date.now() };
   const log = (s) => { job.log += s; };
@@ -137,23 +137,23 @@ async function startDeploy() {
   const vars = await readVars();
   if (!vars.SUPABASE_URL || !vars.SUPABASE_ANON_KEY) {
     Object.assign(job, { running: false, ok: false });
-    log('Falta configurar o Supabase antes de publicar.\n');
+    log(`${tr(lang, 'Falta configurar o Supabase antes de publicar.')}\n`);
     return job;
   }
 
   (async () => {
-    log('▶ A publicar a app no Cloudflare…\n');
+    log(`${tr(lang, '▶ A publicar a app no Cloudflare…')}\n`);
     const deploy = await wrangler(['deploy'], { onData: log });
     if (deploy.code !== 0) {
       if (/workers\.dev subdomain/i.test(deploy.out)) {
-        log('\n→ A tua conta ainda não tem um subdomínio workers.dev. Abre dash.cloudflare.com → Workers & Pages, escolhe um nome e tenta de novo.\n');
+        log(`\n${tr(lang, '→ A tua conta ainda não tem um subdomínio workers.dev. Abre dash.cloudflare.com → Workers & Pages, escolhe um nome e tenta de novo.')}\n`);
       }
       Object.assign(job, { running: false, ok: false });
       return;
     }
     job.url = deploy.out.match(/https:\/\/[a-z0-9.-]+\.workers\.dev/i)?.[0] || null;
 
-    log('\n▶ A enviar as chaves como segredos do Worker…\n');
+    log(`\n${tr(lang, '▶ A enviar as chaves como segredos do Worker…')}\n`);
     const secrets = {};
     for (const k of Object.keys(FIELDS)) if (vars[k]) secrets[k] = vars[k];
     const file = path.join(tmpdir(), `estudar-secrets-${process.pid}-${Date.now()}.json`);
@@ -168,12 +168,12 @@ async function startDeploy() {
     if (job.url) {
       await writeFile(DEPLOY_FILE, JSON.stringify({ url: job.url, deployedAt: new Date().toISOString() }, null, 2));
       if (sessionAccessToken) {
-        log('\n▶ A autorizar o novo endereço no Supabase…\n');
-        const r = await configureSupabaseAuth(sessionAccessToken, vars.SUPABASE_URL);
+        log(`\n${tr(lang, '▶ A autorizar o novo endereço no Supabase…')}\n`);
+        const r = await configureSupabaseAuth(sessionAccessToken, vars.SUPABASE_URL, lang);
         log(`${r.ok ? '✓' : '✗'} ${r.message}\n`);
       }
     }
-    log(`\n✓ Publicado${job.url ? `: ${job.url}` : ''}\n`);
+    log(`\n${tr(lang, '✓ Publicado')}${job.url ? `: ${job.url}` : ''}\n`);
     Object.assign(job, { running: false, ok: true });
   })().catch((e) => { log(`\n✗ ${e.message}\n`); Object.assign(job, { running: false, ok: false }); });
 
@@ -198,17 +198,29 @@ async function management(token, method, pathName, body) {
   return { ok: r.ok, status: r.status, data };
 }
 
-const OTP_TEMPLATE = `<h2>O teu código para entrar no Estudar</h2>
+const OTP_TEMPLATE = {
+  pt: {
+    subject: 'O teu código do Estudar',
+    body: `<h2>O teu código para entrar no Estudar</h2>
 <p style="font-size:28px;letter-spacing:6px;font-weight:bold">{{ .Token }}</p>
 <p>Escreve este código na app. Também podes <a href="{{ .ConfirmationURL }}">entrar por este link</a> se estiveres no mesmo dispositivo.</p>
-<p>Se não pediste este email, ignora-o.</p>`;
+<p>Se não pediste este email, ignora-o.</p>`,
+  },
+  en: {
+    subject: 'Your Estudar code',
+    body: `<h2>Your code to sign in to Estudar</h2>
+<p style="font-size:28px;letter-spacing:6px;font-weight:bold">{{ .Token }}</p>
+<p>Type this code in the app. You can also <a href="{{ .ConfirmationURL }}">sign in with this link</a> if you're on the same device.</p>
+<p>If you didn't request this email, ignore it.</p>`,
+  },
+};
 
-async function configureSupabaseAuth(token, supabaseUrl) {
+async function configureSupabaseAuth(token, supabaseUrl, lang = 'pt') {
   const ref = projectRef(supabaseUrl);
-  if (!ref) return { ok: false, message: 'O URL do Supabase não parece válido (https://<ref>.supabase.co).' };
+  if (!ref) return { ok: false, message: tr(lang, 'O URL do Supabase não parece válido (https://<ref>.supabase.co).') };
   const deploy = await readDeploy();
   const current = await management(token, 'GET', `/projects/${ref}/config/auth`);
-  if (!current.ok) return { ok: false, message: `Não foi possível ler a configuração de autenticação (${current.status}).` };
+  if (!current.ok) return { ok: false, message: tr(lang, 'Não foi possível ler a configuração de autenticação ({n}).', { n: current.status }) };
   const urls = new Set(String(current.data?.uri_allow_list || '').split(',').map(s => s.trim()).filter(Boolean));
   urls.add(`http://localhost:${PORT}`);
   urls.add(`http://127.0.0.1:${PORT}`);
@@ -216,31 +228,31 @@ async function configureSupabaseAuth(token, supabaseUrl) {
   const r = await management(token, 'PATCH', `/projects/${ref}/config/auth`, {
     site_url: deploy?.url || `http://localhost:${PORT}`,
     uri_allow_list: [...urls].join(','),
-    mailer_subjects_magic_link: 'O teu código do Estudar',
-    mailer_templates_magic_link_content: OTP_TEMPLATE,
-    mailer_subjects_confirmation: 'O teu código do Estudar',
-    mailer_templates_confirmation_content: OTP_TEMPLATE,
+    mailer_subjects_magic_link: OTP_TEMPLATE[lang].subject,
+    mailer_templates_magic_link_content: OTP_TEMPLATE[lang].body,
+    mailer_subjects_confirmation: OTP_TEMPLATE[lang].subject,
+    mailer_templates_confirmation_content: OTP_TEMPLATE[lang].body,
   });
   return r.ok
-    ? { ok: true, message: 'Endereços autorizados e email com código configurado.' }
-    : { ok: false, message: `A configuração de autenticação falhou (${r.status}). Faz este passo à mão (ver README).` };
+    ? { ok: true, message: tr(lang, 'Endereços autorizados e email com código configurado.') }
+    : { ok: false, message: tr(lang, 'A configuração de autenticação falhou ({n}). Faz este passo à mão (ver README).', { n: r.status }) };
 }
 
-async function provisionSupabase(token) {
+async function provisionSupabase(token, lang = 'pt') {
   const vars = await readVars();
   const ref = projectRef(vars.SUPABASE_URL);
-  if (!ref) return [{ ok: false, message: 'Guarda primeiro o URL do projeto Supabase.' }];
+  if (!ref) return [{ ok: false, message: tr(lang, 'Guarda primeiro o URL do projeto Supabase.') }];
   sessionAccessToken = token;
   const steps = [];
 
   const sql = await readFile(MIGRATION, 'utf8');
   const q = await management(token, 'POST', `/projects/${ref}/database/query`, { query: sql });
   steps.push(q.ok
-    ? { ok: true, message: 'Tabelas e regras de acesso criadas.' }
-    : { ok: false, message: q.status === 401 ? 'Token inválido.' : `Não foi possível criar as tabelas (${q.status}). Usa “Copiar SQL”.` });
+    ? { ok: true, message: tr(lang, 'Tabelas e regras de acesso criadas.') }
+    : { ok: false, message: q.status === 401 ? tr(lang, 'Token inválido.') : tr(lang, 'Não foi possível criar as tabelas ({n}). Usa “Copiar SQL”.', { n: q.status }) });
   if (q.status === 401) { sessionAccessToken = ''; return steps; }
 
-  steps.push(await configureSupabaseAuth(token, vars.SUPABASE_URL));
+  steps.push(await configureSupabaseAuth(token, vars.SUPABASE_URL, lang));
 
   if (!vars.SUPABASE_SERVICE_KEY || !vars.SUPABASE_ANON_KEY) {
     const keys = await management(token, 'GET', `/projects/${ref}/api-keys?reveal=true`);
@@ -250,7 +262,7 @@ async function provisionSupabase(token) {
       const service = vars.SUPABASE_SERVICE_KEY || pick('secret', 'service_role');
       if (anon || service) {
         await writeVars({ ...vars, SUPABASE_ANON_KEY: anon || vars.SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY: service || vars.SUPABASE_SERVICE_KEY });
-        steps.push({ ok: true, message: 'Chaves do projeto preenchidas automaticamente.' });
+        steps.push({ ok: true, message: tr(lang, 'Chaves do projeto preenchidas automaticamente.') });
       }
     }
   }
@@ -289,48 +301,49 @@ function isTrustedSetupRequest(req) {
 }
 
 async function handleSetup(req, res, pathname) {
-  if (!isTrustedSetupRequest(req)) return sendJson(res, { error: 'Pedido recusado.' }, 403);
+  const lang = langFrom(req.headers['x-estudar-lang']);
+  if (!isTrustedSetupRequest(req)) return sendJson(res, { error: tr(lang, 'Pedido recusado.') }, 403);
   const body = req.method === 'POST' ? await readJsonBody(req) : {};
 
   switch (`${req.method} ${pathname}`) {
     case 'GET /api/setup/state':
       return sendJson(res, await publicState());
     case 'POST /api/setup/save': {
-      const next = mergeValues(await readVars(), body.values);
+      const next = mergeValues(await readVars(), body.values, lang);
       await writeVars(next);
       return sendJson(res, await publicState());
     }
     case 'POST /api/setup/test': {
-      const merged = mergeValues(await readVars(), body.values);
-      return sendJson(res, await health(readEnv({ ...merged, RUNTIME: 'local' })));
+      const merged = mergeValues(await readVars(), body.values, lang);
+      return sendJson(res, await health({ ...readEnv({ ...merged, RUNTIME: 'local' }), lang }));
     }
     case 'GET /api/setup/cloudflare':
-      return sendJson(res, { ...(await cloudflareStatus(new URL(req.url, 'http://x').searchParams.has('fresh'))), loginRunning });
+      return sendJson(res, { ...(await cloudflareStatus(new URL(req.url, 'http://x').searchParams.has('fresh'), lang)), loginRunning });
     case 'POST /api/setup/cloudflare/login':
       startLogin();
       return sendJson(res, { started: true });
     case 'POST /api/setup/deploy':
-      return sendJson(res, await startDeploy());
+      return sendJson(res, await startDeploy(lang));
     case 'GET /api/setup/job':
       return sendJson(res, job || { running: false, ok: null, log: '' });
     case 'GET /api/setup/remote-health': {
       const deploy = await readDeploy();
-      if (!deploy?.url) return sendJson(res, { ok: null, message: 'Ainda não publicado' });
+      if (!deploy?.url) return sendJson(res, { ok: null, message: tr(lang, 'Ainda não publicado') });
       try {
-        const r = await fetch(`${deploy.url}/api/health`, { signal: AbortSignal.timeout(10000) });
+        const r = await fetch(`${deploy.url}/api/health`, { signal: AbortSignal.timeout(10000), headers: { 'X-Estudar-Lang': lang } });
         const h = await r.json();
-        return sendJson(res, { ok: r.ok && h.app?.ok, url: deploy.url, message: r.ok ? 'Online' : `Respondeu ${r.status}`, health: h });
+        return sendJson(res, { ok: r.ok && h.app?.ok, url: deploy.url, message: r.ok ? tr(lang, 'Online') : tr(lang, 'Respondeu {n}', { n: r.status }), health: h });
       } catch {
-        return sendJson(res, { ok: false, url: deploy.url, message: 'Sem resposta do endereço publicado' });
+        return sendJson(res, { ok: false, url: deploy.url, message: tr(lang, 'Sem resposta do endereço publicado') });
       }
     }
     case 'GET /api/setup/sql':
       return sendJson(res, { sql: await readFile(MIGRATION, 'utf8'), ref: projectRef((await readVars()).SUPABASE_URL) });
     case 'POST /api/setup/supabase/provision':
-      if (!/^sbp_[A-Za-z0-9_]+$/.test(String(body.token || ''))) return sendJson(res, { error: 'O token deve começar por sbp_.' }, 400);
-      return sendJson(res, { steps: await provisionSupabase(body.token) });
+      if (!/^sbp_[A-Za-z0-9_]+$/.test(String(body.token || ''))) return sendJson(res, { error: tr(lang, 'O token deve começar por sbp_.') }, 400);
+      return sendJson(res, { steps: await provisionSupabase(body.token, lang) });
     default:
-      return sendJson(res, { error: 'Não encontrado.' }, 404);
+      return sendJson(res, { error: tr(lang, 'Não encontrado.') }, 404);
   }
 }
 
@@ -378,8 +391,9 @@ function listen(attempt = 0) {
   // Loopback only: the setup routes hold your keys and must not be reachable from the network.
   server.listen(PORT, '127.0.0.1', () => {
     const url = `http://localhost:${PORT}`;
-    console.log(`\n  Estudar a correr em ${url}`);
-    console.log('  Abre a app e vai a Conta → Servidor e chaves para configurar.\n');
+    console.log(`\n  Estudar: ${url}`);
+    console.log('  PT: abre a app e vai a Conta → Servidor e chaves.');
+    console.log('  EN: open the app and go to Account → Server & keys.\n');
     if (!process.argv.includes('--no-open')) {
       const opener = process.platform === 'win32' ? `start "" "${url}"` : process.platform === 'darwin' ? `open "${url}"` : `xdg-open "${url}"`;
       exec(opener);

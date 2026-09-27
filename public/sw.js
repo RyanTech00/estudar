@@ -1,4 +1,4 @@
-const CACHE_NAME = 'estudar-v12';
+const CACHE_NAME = 'estudar-v13';
 const ASSETS = [
   '/',
   '/index.html',
@@ -11,6 +11,8 @@ const ASSETS = [
   '/js/curriculum.js',
   '/js/percurso.js',
   '/js/backup.js',
+  '/js/i18n.js',
+  '/js/i18n-en.js',
   '/js/setup.js',
   '/js/timer.js',
   '/js/storage.js',

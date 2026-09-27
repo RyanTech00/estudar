@@ -1,9 +1,12 @@
+import { t, lang } from './i18n.js';
+
 export const PALETTE = ['#8ea7ff', '#c39cff', '#5fcdc2', '#8fd37e', '#e8b65a', '#f28b8b', '#e0a47a', '#7cc4d8', '#e59ad0', '#b5c46a', '#a0a8b8', '#f0a060'];
+// Values are translated at display time with t().
 export const AREAS = { uni: 'Universidade', lingua: 'Línguas', outro: 'Outros' };
 export const LOADS = { leve: 'Leve', media: 'Média', alta: 'Alta' };
 
 // Ships as a ready-made example so a new user can see a full plan before building their own.
-export const EXAMPLE_PLAN = {
+const EXAMPLE_PLAN_PT = {
   title: 'Engenharia Informática 2026/27 (exemplo)',
   startDate: '2026-09-25',
   examDate: '2027-01-04',
@@ -51,23 +54,73 @@ export const EXAMPLE_PLAN = {
   ],
 };
 
+const EXAMPLE_PLAN_EN = {
+  title: 'Computer Science 2026/27 (example)',
+  startDate: '2026-09-25',
+  examDate: '2027-01-04',
+  hoursPerDay: [3.5, 3.5, 3.5, 3.5, 4, 3.5, 3],
+  subjects: [
+    { id: 'fp', ects: 7, name: 'Programming Fundamentals', short: 'PF', load: 'alta', color: '#8ea7ff', area: 'uni' },
+    { id: 'ed', ects: 7, name: 'Data Structures', short: 'DS', load: 'alta', color: '#c39cff', area: 'uni' },
+    { id: 'pei', ects: 5, name: 'Structured Information Processing', short: 'SIP', load: 'media', color: '#5fcdc2', area: 'uni' },
+    { id: 'so', ects: 5, name: 'Operating Systems', short: 'OS', load: 'media', color: '#8fd37e', area: 'uni' },
+    { id: 'eli', ects: 2, name: 'Computing Ethics and Law', short: 'CEL', load: 'leve', color: '#e8b65a', area: 'uni' },
+    { id: 'c2', name: 'Cambridge C2 Proficiency', short: 'C2', load: 'media', color: '#f28b8b', area: 'lingua' },
+    { id: 'de', name: 'Beginner German (A1)', short: 'DE', load: 'leve', color: '#e0a47a', area: 'lingua' },
+  ],
+  weeklyPlan: [
+    { day: 1, subject: 'fp', session: '3–4 blocks 40+10', minutes: 175 },
+    { day: 1, subject: 'c2', session: '30 min', minutes: 30, focus: 'Vocabulary + Use of English' },
+    { day: 2, subject: 'ed', session: '3–4 blocks 40+10', minutes: 175, focus: 'Review PF (20–30 min)' },
+    { day: 2, subject: 'de', session: '30 min', minutes: 30, focus: 'A1: vocabulary + sentences + audio' },
+    { day: 3, subject: 'so', session: '3–4 blocks 40+10', minutes: 175, focus: 'Review DS (20–30 min)' },
+    { day: 3, subject: 'c2', session: '30 min', minutes: 30, focus: 'Reading / Listening' },
+    { day: 4, subject: 'fp', session: 'Deep study', minutes: 100, focus: 'Recall PF and DS' },
+    { day: 4, subject: 'ed', session: 'Deep study', minutes: 100 },
+    { day: 4, subject: 'de', session: '30 min', minutes: 30, focus: 'A1: review + production' },
+    { day: 5, subject: 'pei', session: '3–4 blocks 40+10', minutes: 175, focus: 'Review OS (20–30 min)' },
+    { day: 5, subject: 'c2', session: '30 min', minutes: 30, focus: 'Writing' },
+    { day: 6, subject: 'eli', session: '2–3 blocks 40+10', minutes: 125, focus: 'Review SIP (20–30 min) + gaps from the week' },
+    { day: 6, subject: 'de', session: '40 min', minutes: 40, focus: 'A1: weekly review' },
+    { day: 0, subject: 'all', session: '2–3 blocks 40+10', minutes: 125, focus: 'Active recall + exercises + fix gaps' },
+    { day: 0, subject: 'c2', session: '60 min', minutes: 60, focus: 'Skills practice / mock paper' },
+    { day: 0, subject: 'de', session: '30 min', minutes: 30, focus: 'Weekly maintenance' },
+  ],
+  phases: [
+    { name: 'Learn', label: '60 / 40', start: '2026-09-25', end: '2026-10-31', ratio: '60% learning · 40% exercises + retrieval' },
+    { name: 'Practise', label: '40 / 60', start: '2026-11-01', end: '2026-11-30', ratio: '40% learning · 60% exercises + retrieval' },
+    { name: 'Intensive drill', label: '20 / 80', start: '2026-12-01', end: '2026-12-20', ratio: '20% review · 80% exercises, questions and past papers' },
+    { name: 'Mock exams', label: 'MOCK', start: '2026-12-21', end: '2027-01-04', ratio: 'Exam simulations + fixing gaps' },
+  ],
+  tips: [
+    { title: 'Programming', text: 'Prioritise code and problems. In PF/DS, practise by hand if the exam is written.' },
+    { title: 'Mix topics', text: 'Combine for/while, if/else, arrays, matrices, pointers, malloc, structs and data structures.' },
+    { title: 'Priorities', text: 'University > Cambridge C2 > German. In heavy exam weeks, languages go into maintenance.' },
+    { title: 'Cambridge C2', text: '~2h30/week: Mon vocabulary/Use of English; Wed Reading/Listening; Fri Writing; Sun longer practice.' },
+    { title: 'Beginner German', text: '~2h10–3h/week, 30–40 min sessions. Frequency matters more than giant sessions.' },
+    { title: 'December', text: 'Drop C2/German to maintenance if needed and shift energy to past papers and mocks.' },
+  ],
+};
+
+export const getExamplePlan = (l = lang) => structuredClone(l === 'en' ? EXAMPLE_PLAN_EN : EXAMPLE_PLAN_PT);
+
 export const EMPTY_PLAN = { title: '', startDate: '', examDate: '', hoursPerDay: [2, 3, 3, 3, 3, 3, 2], subjects: [], weeklyPlan: [], phases: [], tips: [] };
 
-export const checklist = [
-  'Explico os principais conceitos sem apontamentos?',
-  'Resolvi exercícios sem olhar exemplos?',
-  'Revi os erros?',
-  'Voltei a conteúdos antigos?',
-  'Mantive sono adequado?',
+export const checklist = () => [
+  t('Explico os principais conceitos sem apontamentos?'),
+  t('Resolvi exercícios sem olhar exemplos?'),
+  t('Revi os erros?'),
+  t('Voltei a conteúdos antigos?'),
+  t('Mantive sono adequado?'),
 ];
 
-export const studyMethod = [
-  { title: 'Estrutura de estudo', text: 'Ler/entender → fechar material → recuperar da memória → testar/praticar → identificar erro → corrigir.' },
-  { title: 'Revisão espaçada', text: 'Voltar 1–3 dias depois por 10–30 min; tentar lembrar ANTES de consultar.' },
-  { title: 'Como medir progresso', text: 'Não medir só horas ou páginas. Medir pelo que consegues explicar, escrever ou resolver sem consultar.' },
-  { title: 'Blocos 40+10', text: 'Blocos de 40+10: 40 min é prático, não regra biológica. Ajusta para 30–60 min conforme o foco.' },
-  { title: 'Descanso', text: 'Após 3–4 blocos, pausa maior. Levanta, água/comida — evita transformar a pausa em mais carga cognitiva.' },
-  { title: 'Regra de ajuste', text: 'Se notas queda persistente de sono, atenção ou rendimento, reduz volume antes de acrescentar mais horas.' },
+export const studyMethod = () => [
+  { title: t('Estrutura de estudo'), text: t('Ler/entender → fechar material → recuperar da memória → testar/praticar → identificar erro → corrigir.') },
+  { title: t('Revisão espaçada'), text: t('Voltar 1–3 dias depois por 10–30 min; tentar lembrar ANTES de consultar.') },
+  { title: t('Como medir progresso'), text: t('Não medir só horas ou páginas. Medir pelo que consegues explicar, escrever ou resolver sem consultar.') },
+  { title: t('Blocos 40+10'), text: t('Blocos de 40+10: 40 min é prático, não regra biológica. Ajusta para 30–60 min conforme o foco.') },
+  { title: t('Descanso'), text: t('Após 3–4 blocos, pausa maior. Levanta, água/comida — evita transformar a pausa em mais carga cognitiva.') },
+  { title: t('Regra de ajuste'), text: t('Se notas queda persistente de sono, atenção ou rendimento, reduz volume antes de acrescentar mais horas.') },
 ];
 
 // ── Active plan (live bindings: importers always see the current user's plan) ──
@@ -87,11 +140,9 @@ export function hasPlan() {
   return subjects.length > 0;
 }
 
-const REVIEW = { id: 'all', name: 'Revisão geral', short: 'REV', color: '#d6d3cc', area: 'uni' };
-
 export function getSubject(id) {
-  if (id === 'all') return REVIEW;
-  return subjects.find(s => s.id === id) || { id, name: 'Disciplina removida', short: '—', color: '#66645e', area: 'outro' };
+  if (id === 'all') return { id: 'all', name: t('Revisão geral'), short: t('REV'), color: '#d6d3cc', area: 'uni' };
+  return subjects.find(s => s.id === id) || { id, name: t('Disciplina removida'), short: '—', color: '#66645e', area: 'outro' };
 }
 
 export function sessionArea(s) {

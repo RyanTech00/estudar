@@ -1,6 +1,7 @@
 // Backup file format: build and validate. Pure functions, unit-tested.
 // The file is untrusted on import (it may be old, edited by hand, or not ours at all).
 import { isValidAttempt } from './learning.js';
+import { t } from './i18n.js';
 
 export const BACKUP_APP = 'estudar';
 export const BACKUP_VERSION = 1;
@@ -21,9 +22,9 @@ export function backupFilename(now = new Date()) {
 // Returns { ok, data, summary } or { ok: false, message }.
 export function parseBackup(text) {
   let raw;
-  try { raw = JSON.parse(text); } catch { return { ok: false, message: 'O ficheiro não é JSON válido.' }; }
-  if (!isObj(raw) || raw.app !== BACKUP_APP || !isObj(raw.data)) return { ok: false, message: 'Este ficheiro não é uma cópia de segurança do Estudar.' };
-  if (raw.version > BACKUP_VERSION) return { ok: false, message: 'Esta cópia foi feita por uma versão mais recente da app. Atualiza a app primeiro.' };
+  try { raw = JSON.parse(text); } catch { return { ok: false, message: t('O ficheiro não é JSON válido.') }; }
+  if (!isObj(raw) || raw.app !== BACKUP_APP || !isObj(raw.data)) return { ok: false, message: t('Este ficheiro não é uma cópia de segurança do Estudar.') };
+  if (raw.version > BACKUP_VERSION) return { ok: false, message: t('Esta cópia foi feita por uma versão mais recente da app. Atualiza a app primeiro.') };
 
   const d = raw.data;
   const out = {};
