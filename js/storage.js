@@ -197,6 +197,10 @@ export async function signIn() {
   if (!firebaseAuth) return { ok: false, message: 'Não foi possível carregar o Firebase. Verifica a ligação.' };
   const { signInWithPopup, signInWithRedirect, GoogleAuthProvider } = await import(`${SDK}/firebase-auth.js`);
   const provider = new GoogleAuthProvider();
+  const failure = (e) => {
+    console.warn('Sign in failed:', e);
+    return { ok: false, message: AUTH_ERRORS[e.code] || `Não foi possível iniciar sessão (${e.code || e.message}).` };
+  };
   try {
     const result = await signInWithPopup(firebaseAuth, provider);
     currentUser = result.user;
@@ -205,11 +209,14 @@ export async function signIn() {
       return { ok: false, message: null };
     }
     if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
-      await signInWithRedirect(firebaseAuth, provider);
-      return { ok: false, message: null };
+      try {
+        await signInWithRedirect(firebaseAuth, provider);
+        return { ok: false, message: null };
+      } catch (redirectError) {
+        return failure(redirectError);
+      }
     }
-    console.warn('Sign in failed:', e);
-    return { ok: false, message: AUTH_ERRORS[e.code] || `Não foi possível iniciar sessão (${e.code || e.message}).` };
+    return failure(e);
   }
 
   localStorage.setItem(LAST_UID_KEY, currentUser.uid);
