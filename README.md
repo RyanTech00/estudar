@@ -2,62 +2,63 @@
 
 PWA de estudo focado: plano semanal por utilizador, timer de blocos (40+10), modo foco em ecrã inteiro, progresso por disciplina e sincronização entre telemóvel e computador. O plano semanal pode ser gerado por IA a partir das tuas disciplinas, seguindo técnicas de estudo com evidência científica.
 
-- Sem build: HTML, CSS e JavaScript (ES modules). Aloja em qualquer serviço de ficheiros estáticos.
-- Backend: [Supabase](https://supabase.com) (auth por email, base de dados Postgres com RLS, realtime e uma Edge Function para a IA). O nível gratuito chega.
-- IA configurável: Gemini (por defeito, tem nível gratuito), Claude, ou qualquer API compatível com OpenAI (OpenAI, OpenRouter, Groq…).
-- Sem Supabase configurado, a app corre em **modo local** (dados só no browser, sem IA). Útil para experimentar.
+- **Tudo configurável dentro da app:** chaves, criação das tabelas e publicação no Cloudflare são feitas no ecrã **Conta → Servidor e chaves**, com um painel de estado (ponto verde / vermelho) para cada serviço.
+- **Corre onde quiseres:** no teu computador (`npm start`) ou publicada num Cloudflare Worker gratuito, acessível de qualquer lado.
+- **Backend:** [Supabase](https://supabase.com) para contas (login por código no email), dados e sincronização em tempo real. O nível gratuito chega.
+- **IA configurável:** Gemini (por defeito, tem nível gratuito), Claude, ou qualquer API compatível com OpenAI (OpenAI, OpenRouter, Groq…).
 
-## Instalar a tua própria cópia
+## Começar (5 minutos)
 
-### 1. Supabase
-
-1. Cria um projeto em [supabase.com](https://supabase.com).
-2. Cria as tabelas e regras de acesso. Escolhe uma opção:
-   - **CLI:** `supabase link --project-ref <ref-do-projeto>` e depois `supabase db push`
-   - **Manual:** cola o conteúdo de [`supabase/migrations/20260927000000_init.sql`](supabase/migrations/20260927000000_init.sql) no *SQL Editor* e corre.
-3. **Authentication → URL Configuration**
-   - *Site URL*: o domínio onde vais alojar a app (ex. `https://estudar.pages.dev`)
-   - *Redirect URLs*: esse domínio e `http://localhost:8080` (para desenvolvimento)
-4. **Authentication → Emails → Magic Link**: acrescenta `{{ .Token }}` ao template, para o email trazer o código de 6 dígitos. Numa PWA instalada, o link abre no browser e não na app, por isso o código é a forma mais fiável de entrar.
-5. **Email para outras pessoas:** o servidor de email incluído no Supabase só envia para membros da equipa do projeto e tem limites baixos. Se outras pessoas vão usar a tua instalação, configura um SMTP próprio em **Authentication → Emails → SMTP Settings** (ex. [Resend](https://resend.com), com nível gratuito).
-6. *(Opcional)* **Instalação privada:** desliga *Allow new users to sign up* em **Authentication → Sign In / Providers** e convida as pessoas em **Authentication → Users**.
-7. *(Opcional)* **Login com Google:** ativa o provider em **Authentication → Providers** (precisa de um OAuth client na Google Cloud) e põe `google: true` em `js/config.js`.
-
-### 2. Configurar a app
-
-Em [`js/config.js`](js/config.js), preenche com os valores de **Project Settings → API**:
-
-```js
-export const SUPABASE_URL = 'https://<ref>.supabase.co';
-export const SUPABASE_ANON_KEY = '<anon / publishable key>';
-```
-
-A chave *anon/publishable* é pública por natureza: quem protege os dados de cada utilizador são as regras RLS da migração. **Nunca** coloques a *service role key* no frontend.
-
-### 3. IA para gerar planos
+Precisas do [Node.js](https://nodejs.org) 20 ou mais recente.
 
 ```bash
-supabase secrets set AI_PROVIDER=gemini AI_API_KEY=<a-tua-chave>
-supabase functions deploy generate-plan
+git clone https://github.com/<tu>/estudar.git
+cd estudar
+npm install
+npm start
 ```
 
-| `AI_PROVIDER` | Chave | Modelo por defeito (`AI_MODEL`) |
-|---|---|---|
-| `gemini` | [Google AI Studio](https://aistudio.google.com/apikey) (tem nível gratuito) | `gemini-2.5-flash` |
-| `anthropic` | [Claude Console](https://platform.claude.com) | `claude-opus-5` |
-| `openai` | OpenAI ou qualquer API compatível; define `AI_BASE_URL` para outros (ex. `https://openrouter.ai/api/v1`) | obrigatório definir `AI_MODEL` |
+O browser abre em `http://localhost:8787`. Na app, vai a **Conta → Servidor e chaves** (ou carrega em **Ligar servidor** no ecrã inicial) e segue os passos:
 
-Outras variáveis: `AI_MODEL` (substitui o modelo), `MAX_PLANS_PER_DAY` (limite por utilizador, por defeito 10). A chave da IA fica apenas no servidor; a função só responde a utilizadores com sessão iniciada e conta os usos por dia.
+1. **Supabase:** cria um projeto grátis em [supabase.com](https://supabase.com/dashboard/new) e cola o *Project URL* e a chave pública (*publishable/anon*). Para criar as tabelas e configurar o email de login automaticamente, cola também um [token pessoal](https://supabase.com/dashboard/account/tokens) (`sbp_…`, usado só nesse momento e nunca guardado). Se preferires, o ecrã deixa copiar o SQL para o colares no *SQL Editor*.
+2. **IA:** escolhe o fornecedor e cola a chave. Para o Gemini, cria-a em [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+3. **Testar → Guardar.** O painel de estado mostra se cada serviço responde.
+4. **Onde a app corre:**
+   - **Neste computador:** já está a funcionar, enquanto o `npm start` estiver aberto.
+   - **Cloudflare:** carrega em **Ligar conta Cloudflare** (abre o browser para autorizares) e depois em **Publicar no Cloudflare**. A app fica em `https://estudar.<a-tua-conta>.workers.dev`, com as chaves guardadas como segredos do Worker. Instala-a no telemóvel a partir desse endereço.
 
-### 4. Alojar
+Para mudar chaves mais tarde, repete: `npm start` → Servidor e chaves → Guardar → Publicar de novo.
 
-Qualquer alojamento estático serve. No **Cloudflare Pages**: liga o repositório, *Framework preset* `None`, *Build command* vazio e *Build output directory* `/`. GitHub Pages e Netlify também funcionam.
+### Painel de estado
 
-Para desenvolver localmente:
+| Ponto | O que verifica |
+|---|---|
+| App | O servidor está a responder (local ou Cloudflare) |
+| Supabase | O projeto responde e a chave pública é válida |
+| Base de dados | As tabelas existem |
+| IA | A chave e o modelo são válidos (consulta os metadados do modelo, sem gastar tokens) |
+| Limite de uso | Se há chave secreta do Supabase para limitar gerações por pessoa por dia |
+| Cloudflare | Se a app está publicada e o endereço público responde |
 
-```bash
-python -m http.server 8080
-```
+### Notas
+
+- **Onde ficam as chaves:** localmente em `.dev.vars` (ignorado pelo git); no Cloudflare como *secrets* do Worker. Só a URL e a chave pública do Supabase chegam ao browser; as regras RLS da base de dados protegem os dados de cada utilizador. Os ecrãs de configuração só existem no `npm start` e só aceitam pedidos da própria app em `localhost`.
+- **Email para outras pessoas:** o servidor de email incluído no Supabase só envia para membros da equipa do projeto e tem limites baixos. Se outras pessoas vão usar a tua instalação, configura um SMTP próprio em **Authentication → Emails → SMTP Settings** (ex. [Resend](https://resend.com), com nível gratuito).
+- **Instalação privada:** desliga *Allow new users to sign up* no Supabase e convida as pessoas em **Authentication → Users**.
+- **Login com Google (opcional):** ativa o provider no Supabase (precisa de um OAuth client na Google Cloud) e liga o interruptor no ecrã.
+- **Sem servidor:** se alojares só a pasta `public/` (ex. GitHub Pages), a app funciona em modo local: dados só no browser, sem conta nem IA.
+- **Linha de comandos:** `npm run deploy` publica sem passar pela app. Os segredos podem ser definidos com `npx wrangler secret put NOME`.
+
+| Variável | Para quê |
+|---|---|
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Projeto Supabase (públicos) |
+| `SUPABASE_SERVICE_KEY` | Opcional: ativa o limite diário de gerações por pessoa |
+| `AI_PROVIDER` | `gemini` (padrão), `anthropic` ou `openai` |
+| `AI_API_KEY` | Chave do fornecedor de IA |
+| `AI_MODEL` | Opcional; padrão `gemini-2.5-flash` / `claude-opus-5`; obrigatório para `openai` |
+| `AI_BASE_URL` | Opcional, para APIs compatíveis com OpenAI (ex. `https://openrouter.ai/api/v1`) |
+| `MAX_PLANS_PER_DAY` | Limite por pessoa (padrão 10) |
+| `AUTH_GOOGLE` | `true` para mostrar o login com Google |
 
 ## Como o plano é construído (e porquê)
 
@@ -77,14 +78,17 @@ A IA pode errar, por isso a app não confia cegamente no resultado: o editor cor
 ## Estrutura
 
 ```
-index.html           UI (tabs, modo foco, editor de plano)
-css/app.css          estilos
-js/app.js            controlador da UI
-js/planner.js        editor de plano + verificação científica
-js/data.js           plano de exemplo, normalização, helpers de datas
-js/storage.js        dados locais + Supabase (auth, sync, realtime, IA)
-js/timer.js          timer baseado em relógio (sobrevive a background/fecho)
-js/config.js         a tua configuração do Supabase
-sw.js                service worker (offline)
-supabase/            migração SQL e Edge Function generate-plan
+public/                 a app (é a única pasta publicada como ficheiros estáticos)
+  index.html, css/, icons/, sw.js, manifest.json
+  js/app.js             controlador da UI
+  js/planner.js         editor de plano + verificação científica
+  js/setup.js           ecrã "Servidor e chaves" + painel de estado
+  js/storage.js         dados locais + Supabase (auth, sync, realtime)
+  js/data.js            plano de exemplo, normalização, datas
+  js/timer.js           timer baseado em relógio (sobrevive a background/fecho)
+worker/api.js           API partilhada: /api/config, /api/health, /api/generate-plan
+worker/index.js         entrada do Cloudflare Worker (API + ficheiros de public/)
+setup/server.mjs        npm start: app local + rotas de configuração e publicação
+supabase/migrations/    SQL das tabelas e regras de acesso (RLS)
+wrangler.jsonc          configuração do Worker
 ```

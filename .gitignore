@@ -4,3 +4,9 @@ Thumbs.db
 *.log
 .env
 .claude/
+
+# Secrets and local state written by the setup screen
+.dev.vars
+.dev.vars.*
+.deploy.json
+.wrangler/

@@ -1,8 +1,7 @@
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
-
 const STORAGE_KEY = 'estudar_data';
 const LAST_UID_KEY = 'estudar_last_uid';
 export const TIMER_KEY = 'estudar_timer';
+const SERVER_CONFIG_KEY = 'estudar_server_config';
 const SUPABASE_SDK = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 let supabase = null;
@@ -12,7 +11,25 @@ let pushTimer = null;
 let onSyncCallback = null;
 let onAuthCallback = null;
 
-export const isConfigured = () => !!(SUPABASE_URL && SUPABASE_ANON_KEY);
+// Public settings come from the server (/api/config), so nothing is hard-coded in the repo.
+// Cached for offline starts. null = static hosting without the API (local-only mode).
+let serverConfig = null;
+
+export async function loadServerConfig() {
+  try {
+    const r = await fetch('/api/config', { cache: 'no-store' });
+    if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) throw new Error('no api');
+    serverConfig = await r.json();
+    localStorage.setItem(SERVER_CONFIG_KEY, JSON.stringify(serverConfig));
+  } catch {
+    try { serverConfig = JSON.parse(localStorage.getItem(SERVER_CONFIG_KEY) || 'null'); } catch { serverConfig = null; }
+  }
+  return serverConfig;
+}
+
+export const getServerConfig = () => serverConfig;
+export const isConfigured = () => !!(serverConfig?.configured && serverConfig.supabaseUrl && serverConfig.supabaseAnonKey);
+export const hasAi = () => !!serverConfig?.ai;
 
 // Local calendar date (not UTC), so a session at 00:30 counts for the day you're living in.
 export function dateKey(date = new Date()) {
@@ -178,10 +195,11 @@ function toUser(u) {
 
 // Returns 'local' (no backend configured), 'signed-in', 'signed-out' or 'offline' (SDK unreachable).
 export async function init() {
+  await loadServerConfig();
   if (!isConfigured()) return 'local';
   try {
     const { createClient } = await import(SUPABASE_SDK);
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    supabase = createClient(serverConfig.supabaseUrl, serverConfig.supabaseAnonKey, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
     });
   } catch (e) {
@@ -364,17 +382,19 @@ function mergeData(local, remote) {
 // ── AI plan generation ─────────────────
 export async function generatePlan(input) {
   if (!supabase || !currentUser) return { ok: false, message: 'Precisas de ter sessão iniciada e ligação à internet.' };
-  const { data, error } = await supabase.functions.invoke('generate-plan', { body: input });
-  if (error) {
-    let message = error.message;
-    try {
-      const body = await error.context?.json?.();
-      if (body?.error) message = body.error;
-    } catch {}
-    if (/Failed to send|fetch/i.test(message)) message = 'Não foi possível contactar o servidor. A função generate-plan está publicada?';
-    return { ok: false, message };
+  const { data: { session } } = await supabase.auth.getSession();
+  try {
+    const r = await fetch('/api/generate-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
+      body: JSON.stringify(input),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return { ok: false, message: data.error || `O servidor respondeu ${r.status}.` };
+    return { ok: true, plan: data.plan, remaining: data.remaining };
+  } catch {
+    return { ok: false, message: 'Não foi possível contactar o servidor.' };
   }
-  return { ok: true, plan: data.plan, remaining: data.remaining };
 }
 
 export function onSync(callback) {

@@ -1,7 +1,7 @@
 import { plan, subjects, phases, checklist, studyMethod, EXAMPLE_PLAN, normalizePlan, setActivePlan, hasPlan, getCurrentPhase, getTodaySessions, getSessionsForDay, getSubject, getWeekNumber, getDaysUntilExam } from './data.js';
 import { Timer } from './timer.js';
 import * as storage from './storage.js';
-import { AUTH_METHODS } from './config.js';
+import { openServerScreen, setupServerScreen, renderSummary } from './setup.js';
 import { openPlanner, setupPlanner } from './planner.js';
 import { enterFocusMode, exitFocusMode, playSound } from './focus.js';
 
@@ -265,9 +265,13 @@ function renderToday() {
         <div class="eyebrow">Bem-vindo</div>
         <div class="hero-name">Monta o teu plano de estudo</div>
         <div class="hero-meta">Adiciona as tuas disciplinas e datas — a IA organiza a semana com técnicas de estudo comprovadas. Também podes começar pelo plano de exemplo.</div>
-        <div class="hero-actions"><button class="btn btn-primary" id="hero-plan">Criar plano</button></div>
+        <div class="hero-actions">
+          <button class="btn btn-primary" id="hero-plan">Criar plano</button>
+          ${storage.isConfigured() ? '' : '<button class="btn btn-ghost" id="hero-server">Ligar servidor</button>'}
+        </div>
       </div>`;
     $('hero-plan').addEventListener('click', editPlan);
+    $('hero-server')?.addEventListener('click', () => openServerScreen());
   } else if (!sessions.length) {
     $('next-up').innerHTML = `<div class="hero done"><div class="hero-name">Dia livre</div><div class="hero-meta">Sem sessões planeadas para hoje.</div></div>`;
   } else if (!next) {
@@ -452,6 +456,7 @@ function renderMethod() {
 
 // ── Account / settings ─────────────────
 function openSettings(open) {
+  if (open) renderSummary();
   $('settings-panel').classList.toggle('active', open);
   $('settings-panel').setAttribute('aria-hidden', String(!open));
 }
@@ -463,6 +468,7 @@ function setupSettings() {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') openSettings(false); });
 
   $('btn-settings-plan').addEventListener('click', () => { openSettings(false); editPlan(); });
+  $('btn-settings-server').addEventListener('click', () => { openSettings(false); openServerScreen(); });
 
   $('btn-toggle-sound').addEventListener('click', () => {
     storage.setSetting('sound', storage.getSetting('sound') === false);
@@ -495,7 +501,7 @@ function renderAccount(mode) {
   $('sync-dot').classList.toggle('connected', synced);
   $('sync-dot').title = synced ? 'Sincronizado' : mode === 'local' ? 'Modo local' : 'Offline';
   $('user-sync').textContent = synced ? 'Sincronizado'
-    : mode === 'local' ? 'Modo local: os dados ficam só neste dispositivo (Supabase não configurado).'
+    : mode === 'local' ? 'Modo local: os dados ficam só neste dispositivo. Liga o Supabase em “Servidor e chaves”.'
     : 'Offline — sincroniza quando voltares a ter ligação.';
   $('user-sync').classList.toggle('off', !synced);
   $('btn-sign-out').classList.toggle('hidden', mode === 'local');
@@ -525,9 +531,10 @@ function showLoginError(msg) {
 
 function showLoginStep(step) {
   $('login-loading').classList.toggle('hidden', step !== 'loading');
-  $('login-email-form').classList.toggle('hidden', step !== 'email' || !AUTH_METHODS.email);
+  const auth = storage.getServerConfig()?.auth || { email: true, google: false };
+  $('login-email-form').classList.toggle('hidden', step !== 'email' || !auth.email);
   $('login-code-form').classList.toggle('hidden', step !== 'code');
-  $('btn-login-google').classList.toggle('hidden', step !== 'email' || !AUTH_METHODS.google);
+  $('btn-login-google').classList.toggle('hidden', step !== 'email' || !auth.google);
 }
 
 function setupLoginForms() {
@@ -617,6 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupFocus();
   setupSettings();
   setupPlanner();
+  setupServerScreen();
   renderAll();
 
   storage.onSync(() => {

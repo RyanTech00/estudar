@@ -1,12 +1,12 @@
-const CACHE_NAME = 'estudar-v6';
+const CACHE_NAME = 'estudar-v7';
 const ASSETS = [
   '/',
   '/index.html',
   '/css/app.css',
   '/js/app.js',
-  '/js/config.js',
   '/js/data.js',
   '/js/planner.js',
+  '/js/setup.js',
   '/js/timer.js',
   '/js/storage.js',
   '/js/focus.js',
@@ -55,6 +55,8 @@ self.addEventListener('fetch', (e) => {
   }
 
   if (!url.startsWith(self.location.origin)) return;
+  // API answers must be live (status, config); the app caches /api/config itself for offline starts.
+  if (new URL(url).pathname.startsWith('/api/')) return;
 
   // App files: network first so deploys show up immediately; cache only as offline fallback.
   e.respondWith(

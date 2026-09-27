@@ -6,6 +6,7 @@ const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sáb
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const uid = () => Math.random().toString(36).slice(2, 8);
+const aiReady = () => storage.isConfigured() && storage.hasAi();
 
 let draft = null;
 let onSaved = null;
@@ -141,8 +142,8 @@ function render() {
       <h3 class="h2">Gerar com IA</h3>
       <p class="muted small">A IA monta a semana seguindo técnicas com evidência forte: prática de recuperação, espaçamento, intercalação e simulações perto dos exames. Depois podes ajustar à mão.</p>
       <label class="field"><span>Notas (opcional)</span><textarea id="pl-notes" rows="3" maxlength="1000" placeholder="Ex.: trabalho às terças à tarde; o exame de FP é escrito; quero manter o alemão leve.">${esc(draft.notes || '')}</textarea></label>
-      <button class="btn btn-primary" id="pl-generate" ${storage.isConfigured() ? '' : 'disabled'}>Gerar plano semanal</button>
-      ${storage.isConfigured() ? '' : '<p class="muted small">Disponível quando a app está ligada a um projeto Supabase.</p>'}
+      <button class="btn btn-primary" id="pl-generate" ${aiReady() ? '' : 'disabled'}>Gerar plano semanal</button>
+      ${aiReady() ? '' : '<p class="muted small">Para usar a IA, liga o Supabase e uma chave de IA em <b>Conta → Servidor e chaves</b>.</p>'}
     </section>
 
     <section class="card">

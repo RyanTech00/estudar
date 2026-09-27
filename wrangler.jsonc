@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "estudar",
+  "main": "worker/index.js",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // Only public/ is uploaded as static files; secrets live in Worker secrets (or .dev.vars locally).
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "observability": { "enabled": true }
+}

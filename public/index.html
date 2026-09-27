@@ -228,6 +228,11 @@
         <button class="switch" id="btn-toggle-sound" role="switch" aria-checked="true"><i></i></button>
       </div>
 
+      <button class="server-link" id="btn-settings-server">
+        <span><b>Servidor e chaves</b><span class="server-summary" id="server-summary"></span></span>
+        <svg class="ico"><use href="#i-chevron"/></svg>
+      </button>
+
       <button class="btn btn-ghost btn-block" id="btn-settings-plan">Editar o meu plano</button>
       <button class="btn btn-ghost btn-block" id="btn-sign-out">Terminar sessão</button>
       <button class="btn btn-danger-ghost btn-block" id="btn-clear-data">Apagar dados deste dispositivo</button>
@@ -249,6 +254,18 @@
           <button class="btn btn-primary" id="planner-save">Guardar plano</button>
         </div>
       </footer>
+    </div>
+  </div>
+
+  <!-- ── Server & keys ───────────────────── -->
+  <div id="server" aria-hidden="true">
+    <div class="planner-inner" role="dialog" aria-label="Servidor e chaves">
+      <header class="planner-head">
+        <h2 class="topbar-title">Servidor e chaves</h2>
+        <button class="icon-btn" id="server-close" aria-label="Fechar"><svg class="ico"><use href="#i-close"/></svg></button>
+      </header>
+      <div id="server-body"></div>
+      <div class="server-bottom-space"></div>
     </div>
   </div>
 
