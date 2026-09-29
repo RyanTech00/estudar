@@ -14,12 +14,13 @@ Os testes cobrem as regras que decidem **o que conta como aprendizagem** e **as 
 | `tests/import.test.mjs` | A saída da IA na importação por foto é limpa (notas 0–20, datas ISO, linhas vazias fora); só imagens JPEG/PNG/WebP |
 | `tests/clean.test.mjs` | Os ataques da auditoria (XSS na nota, na cor, no id de uma UC, em datas; injeção de CSS pela cor) não sobrevivem ao filtro; dados malformados deixam de rebentar a app; campos desconhecidos são descartados; as cópias de segurança passam pelo mesmo filtro |
 | `tests/owner-gate.test.mjs` | Com um Supabase simulado: `/api/health` publicado só para o dono; só o dono usa a IA; `OWNER_ID` vence o email; limite de IA atómico (429 / 503); pedidos grandes recusados antes de tudo; a resposta da IA é limpa; erros sem detalhes internos; a chave secreta nunca vai para o browser |
+| `tests/agenda.test.mjs` | Adiar muda só essa ocorrência (sem duplicar, mesmo adiando duas vezes), saltar e anular; a semana como correu (feitas, adiadas, saltadas, por fazer); dois dispositivos — ganha a alteração mais recente; registo manual (das 17:20 às 19:45 = 145 min, sem confiança, fora do domínio); matéria em atraso |
 | `tests/roles.test.mjs` | Dono, leitor e sem acesso; instalações sem dono continuam a funcionar |
 | `tests/keys.test.mjs` | Distingue chaves públicas e secretas do Supabase (novas e antigas) |
 
 ## Mutações
 
-66 testes no total.
+84 testes no total.
 
 Um teste que passa não prova nada se também passasse com a regra partida. Por isso cada regra foi **estragada de propósito** e confirmou-se que pelo menos um teste falha (incluindo as proteções do Worker: tirar a verificação do dono na IA ou no `/api/health` faz falhar os testes):
 

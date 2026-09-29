@@ -158,3 +158,23 @@ test('health: a table locked to signed-out visitors (42501) counts as created; a
   assert.equal(outdated.ok, false);
   assert.match(outdated.message, /Configurar/);
 });
+
+test('AI prompt: a subject that is behind reaches the model with its note', async () => {
+  let prompt = '';
+  const base = globalThis.fetch;
+  globalThis.fetch = async (url, opts = {}) => {
+    const { hostname, pathname } = new URL(String(url));
+    if (pathname === '/rest/v1/rpc/ai_usage_take') return new Response('1', { status: 200 });
+    if (hostname === 'generativelanguage.googleapis.com') {
+      const body = JSON.parse(opts.body);
+      prompt = body.contents[0].parts.map(p => p.text || '').join('') + body.systemInstruction.parts[0].text;
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"weeklyPlan":[],"phases":[],"tips":[]}' }] } }] }), { status: 200 });
+    }
+    return base(url, opts);
+  };
+  const input = { ...INPUT, subjects: [{ id: 'fp', name: 'FP', short: 'FP', backlog: 'aulas 3 a 5' }] };
+  const r = await call('/api/generate-plan', { token: 't:owner@example.com', method: 'POST', body: input, env: AI_ENV });
+  assert.equal(r.status, 200);
+  assert.match(prompt, /MATÉRIA EM ATRASO: aulas 3 a 5/);
+  assert.match(prompt, /12\. Matéria em atraso/);
+});

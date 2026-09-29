@@ -33,6 +33,8 @@ At the end of the block (5 minutes or more), the app asks:
 
 The order is the point: a confidence rating given after seeing the answers measures nothing. See [Block log](/en/features/block-log).
 
+Got the number attempted wrong? After **Confirm and go mark** you can still fix it, next to the correct count. And any log from the last 14 days can be fixed (attempted, correct, note) or deleted under **Progress → Recent logs → Fix**. Confidence and help never change: they were given before you saw the answers.
+
 ## 3. One closed-book test per week, per subject
 
 In **Progress → Closed-book test**: you choose the subject and the time (15–45 min) and do, on paper and without notes, exercises you have **not** solved in the last 7 days, mixing topics. It's the only source of your **mastery**.
@@ -51,6 +53,16 @@ Progress sorts subjects like this:
 It also flags **relies on help** (much better with help than unaided, and help used most of the time) and **weak foundation** (a prerequisite not yet taken, failed or graded below 12 out of 20).
 
 <Shot src="/screenshots/en/progresso.png" alt="Progress with mastery, overconfidence and reliance on help" />
+
+## 5. When the day doesn't go to plan
+
+The plan is a guide, not a contract. Three tools on the **Today** screen fit it to reality without changing the weekly plan:
+
+- **+ Log study** — for study you did without the timer (an afternoon catching up, a library session). You give the subject, the time (“from 17:20 to 19:45” or in minutes), what you did (new material, exercises or review) and, if you like, the exercises attempted and correct and a note. It counts towards time, your streak and the balance between subjects; if a session of that subject was due today, it can count as done. Confidence isn't asked — after checking the answers it no longer measures anything — and **mastery still comes only from closed-book tests**.
+- **Postpone** (⏭ next to each session still to do) — moves that session to another day this week, or marks it “not this week”. Only that occurrence changes; the weekly plan stays the same. Postponed sessions show up on their new day (“moved from Tue 29”), and you can **undo**.
+- **Behind on classes** (in **Progress**, on each subject) — marks a subject with classes still to study, with an optional note (“classes 3 to 5”). While it's marked, it gets more time in the allocation, shows up on **Today** as a priority and the AI takes it into account when you generate the plan. Once you've caught up, clear it (you can also do that when logging study).
+
+The **Week** tab shows how the week actually went: sessions done, postponed, skipped and the ones left undone.
 
 ## What about time?
 

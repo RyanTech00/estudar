@@ -225,6 +225,7 @@ Princípios obrigatórios (e a razão de cada um):
 9. Pré-requisitos: quando uma disciplina traz "BASE FRACA" (um pré-requisito por fazer, reprovado ou com nota baixa), acrescenta nas primeiras semanas sessões curtas (20–30 min) de recuperação dos tópicos desse pré-requisito de que a disciplina depende, feitas de memória e com exercícios, nunca a reler.
 10. Primeira exposição vs. prática: para matéria totalmente nova, a primeira sessão de um tópico pode ser em bloco (aprender o conceito com exemplos); a partir daí, prática mista e recuperação. Ler serve apenas para a primeira exposição.
 11. Fases até ao exame: começa com mais aprendizagem nova + recuperação e vai deslocando para exercícios e, nas últimas 1–2 semanas, simulações em condições de exame (transfer-appropriate processing — Morris, Bransford & Franks, 1977).
+12. Matéria em atraso: quando uma disciplina traz "MATÉRIA EM ATRASO", o estudante tem aulas por estudar. Dá-lhe mais tempo do que a fatia sugerida enquanto durar (já vem aumentada), com uma sessão de primeira exposição às aulas em falta logo no início da semana e, nos dias seguintes, exercícios e recuperação dessa matéria. Não retires o espaçamento das outras disciplinas pesadas para isso: reduz primeiro línguas e disciplinas leves.
 
 Regras de saída:
 - "day": 0=domingo, 1=segunda, … 6=sábado.
@@ -324,6 +325,7 @@ function validate(body) {
       share: Number.isFinite(Number(s.share)) && s.share !== null ? Math.max(0, Math.min(100, Math.round(Number(s.share)))) : null,
       mastery: Number.isFinite(Number(s.mastery)) && s.mastery !== null ? Math.max(0, Math.min(1, Number(s.mastery))) : null,
       prereqWeak: String(s.prereqWeak || '').slice(0, 200),
+      backlog: String(s.backlog || '').slice(0, 200),
     })),
     notes: String(body.notes || '').slice(0, 1000),
     lang: body.lang === 'en' ? 'en' : body.lang === 'pt' ? 'pt' : null,
@@ -346,6 +348,7 @@ function userPrompt(input) {
       s.share !== null ? `fatia ${s.share}%` : 'fatia n/d',
       s.mastery !== null ? `domínio ${Math.round(s.mastery * 100)}% em testes sem consulta` : 'ainda sem teste (tratar como matéria por aprender)',
       s.prereqWeak ? `BASE FRACA: ${s.prereqWeak}` : '',
+      s.backlog ? `MATÉRIA EM ATRASO: ${s.backlog}` : '',
     ].filter(Boolean).join(' — ')),
     '',
     'Horas disponíveis por dia:',

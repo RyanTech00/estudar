@@ -105,8 +105,11 @@ function allocateActive(subjects, attempts, plan, floor, now) {
     if (calibration(attempts, s.id).overconfident) deficit = Math.min(1, deficit + 0.2);
     const days = daysUntil(examDateOf(s, plan), now);
     const inFinalWindow = days !== null && days >= 0 && days <= FINAL_WINDOW_DAYS;
-    // Weak foundations (prerequisite not done, failed or low) → more time. Heuristic multiplier.
-    const weight = (Number(s.ects) > 0 ? Number(s.ects) : LOAD_WEIGHT[s.load] || 5) * (s.prereqWeak?.length ? PREREQ_BOOST : 1);
+    // Weak foundations (prerequisite not done, failed or low) and classes not yet studied ("matéria em atraso")
+    // → more time. Heuristic multipliers.
+    const weight = (Number(s.ects) > 0 ? Number(s.ects) : LOAD_WEIGHT[s.load] || 5)
+      * (s.prereqWeak?.length ? PREREQ_BOOST : 1)
+      * (s.behind ? BACKLOG_BOOST : 1);
     return { id: s.id, weight, mastery: m, deficit: Math.max(deficit, 0.05), inFinalWindow, days };
   });
 
@@ -128,6 +131,9 @@ function allocateActive(subjects, attempts, plan, floor, now) {
 }
 
 export const PREREQ_BOOST = 1.25;
+// Behind in a subject: classes to catch up on before practice even makes sense. Temporary: it lasts until the
+// student marks the subject caught up, so it can be stronger than the prerequisite boost.
+export const BACKLOG_BOOST = 1.4;
 
 // Used when a subject has no ECTS: rough workload equivalents.
 export const LOAD_WEIGHT = { leve: 3, media: 5, alta: 7 };

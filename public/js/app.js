@@ -1,10 +1,11 @@
-import { plan, subjects, phases, checklist, studyMethod, getExamplePlan, EMPTY_PLAN, normalizePlan, setActivePlan, hasPlan, getCurrentPhase, getTodaySessions, getSessionsForDay, getSubject, getWeekNumber, getDaysUntilExam } from './data.js';
+import { plan, subjects, phases, checklist, studyMethod, getExamplePlan, EMPTY_PLAN, normalizePlan, setActivePlan, hasPlan, getCurrentPhase, getTodaySessions, getSubject, getWeekNumber, getDaysUntilExam } from './data.js';
 import { Timer } from './timer.js';
 import * as storage from './storage.js';
 import { openServerScreen, setupServerScreen, renderSummary } from './setup.js';
 import { openPlanner, setupPlanner } from './planner.js';
 import { enterFocusMode, exitFocusMode, playSound } from './focus.js';
-import { setupLog, openBlockLog, openProbeSetup, openExamGrade } from './logsheet.js';
+import { setupLog, openBlockLog, openProbeSetup, openExamGrade, openManualLog, openPostpone, openBacklog, openEditAttempt } from './logsheet.js';
+import { dayAgenda, postpone, undoPostpone, weekSummary, manualEntry, activeBacklog, keyOf, dateOf, addDays } from './agenda.js';
 import { subjectPriorities, eveOfExam, examDateOf, daysUntil, FINAL_WINDOW_DAYS } from './learning.js';
 import { enrichWithCurriculum, planSubjectsFromCurriculum, needsRetakeDate } from './curriculum.js';
 import { setupPercurso, openPercurso, openSemester, renderPercursoCard } from './percurso.js';
@@ -39,6 +40,10 @@ function startOfWeek(date = new Date()) {
   return d;
 }
 
+// The weekly plan's sessions for a date key (agenda.js works on 'YYYY-MM-DD').
+const plannedFor = (key) => getTodaySessions(dateOf(key));
+const dayLabel = (key) => `${DAY_SHORT()[dateOf(key).getDay()]} ${dateOf(key).getDate()}`;
+
 function toast(msg) {
   const el = $('toast');
   el.textContent = msg;
@@ -56,6 +61,8 @@ function loadPlan() {
   setActivePlan(storage.getPlan());
   const enriched = enrichWithCurriculum(subjects, storage.getCurriculum().ucs || []);
   subjects.forEach((s, i) => { s.derivedExamDate = enriched[i].derivedExamDate || ''; s.prereqWeak = enriched[i].prereqWeak || []; });
+  const behind = activeBacklog(storage.getBacklog());
+  subjects.forEach(s => { s.behind = s.id in behind; s.backlogNote = behind[s.id] || ''; });
   const valid = new Set([...subjects.map(s => s.id), 'all']);
   if (!valid.has(selectedSubject)) {
     selectedSubject = getTodaySessions().find(s => s.subject !== 'all')?.subject || subjects[0]?.id || 'all';
@@ -320,19 +327,25 @@ function renderExamAlerts() {
     .filter(x => x.days !== null && x.days > 1 && x.days <= FINAL_WINDOW_DAYS)
     .sort((a, b) => a.days - b.days);
   const retakes = (storage.getCurriculum().ucs || []).filter(u => u.inPlan && needsRetakeDate(u, now));
+  const behind = subjects.filter(s => s.behind);
   $('exam-alerts').innerHTML = [
+    ...behind.map(s => `<div class="alert alert-behind"><b>${t('{s}: matéria em atraso.', { s: esc(s.short) })}</b> ${s.backlogNote ? `${esc(s.backlogNote)}. ` : ''}${t('Dá-lhe prioridade nos próximos dias: primeiro as aulas em falta, depois exercícios.')} <button class="link-btn" data-backlog-log="${esc(s.id)}">${t('Registar estudo')}</button> · <button class="link-btn" data-backlog="${esc(s.id)}">${t('Editar')}</button></div>`),
     ...retakes.map(u => `<div class="alert alert-strong"><b>${t('{name}: reprovada na época normal.', { name: esc(u.name) })}</b> ${t('Adiciona a data do recurso (ou época especial) no percurso para o plano se ajustar.')} <button class="link-btn" data-percurso>${t('Abrir percurso')}</button></div>`),
     ...eve.map(s => `<div class="alert alert-strong"><b>${t('Amanhã: exame de {s}.', { s: esc(s.short) })}</b> ${t('Hoje só recuperação e revisão — sem matéria nova. Faz um teste de controlo curto e dorme bem: o sono consolida o que estudaste.')}</div>`),
     ...soon.map(({ s, days }) => `<div class="alert"><b>${t('{s}: exame em {n} dias.', { s: esc(s.short), n: days })}</b> ${t('Esta disciplina passa à frente.')} <button class="link-btn" data-probe="${esc(s.id)}">${t('Fazer teste de controlo')}</button></div>`),
   ].join('');
   $('exam-alerts').querySelectorAll('[data-percurso]').forEach(b => b.addEventListener('click', manageCurriculum));
+  $('exam-alerts').querySelectorAll('[data-backlog-log]').forEach(b => b.addEventListener('click', () => openManual(b.dataset.backlogLog)));
+  $('exam-alerts').querySelectorAll('[data-backlog]').forEach(b => b.addEventListener('click', () => editBacklog(b.dataset.backlog)));
   $('exam-alerts').querySelectorAll('[data-probe]').forEach(b => b.addEventListener('click', () => openProbeSetup(subjects, b.dataset.probe, startProbe)));
 }
 
 function renderToday() {
   renderExamAlerts();
   const today = new Date();
-  const sessions = getTodaySessions(today).map(s => ({ ...s, sub: getSubject(s.subject), done: storage.isSessionDone(today, s.id) }));
+  const todayKey = keyOf(today);
+  const agenda = dayAgenda(plannedFor, todayKey, storage.getPostponed());
+  const sessions = agenda.sessions.map(s => ({ ...s, sub: getSubject(s.subject), done: storage.isSessionDone(today, s.key) }));
   const doneCount = sessions.filter(s => s.done).length;
 
   $('today-count').textContent = sessions.length ? t('{a} de {b}', { a: doneCount, b: sessions.length }) : '';
@@ -374,7 +387,7 @@ function renderToday() {
         </div>
       </div>`;
     $('hero-start').addEventListener('click', () => startStudying(next.subject));
-    $('hero-done').addEventListener('click', () => toggleSession(next.id, true));
+    $('hero-done').addEventListener('click', () => toggleSession(next.key, true));
   }
 
   const groups = [['uni', t('Universidade')], ['lingua', t('Línguas')], ['outro', t('Outros')]];
@@ -387,10 +400,11 @@ function renderToday() {
           ${tag(s.sub)}
           <span class="session-text">
             <span class="session-name">${esc(s.sub.name)}</span>
-            <span class="session-meta">${detail(s)}</span>
+            <span class="session-meta">${s.movedFrom ? `<span class="moved-tag">${t('adiada de {d}', { d: dayLabel(s.movedFrom) })}</span> · ` : ''}${detail(s)}</span>
           </span>
         </button>
-        <button class="check ${s.done ? 'on' : ''}" data-id="${esc(s.id)}" aria-pressed="${s.done}" aria-label="${s.done ? t('Desmarcar') : t('Marcar como feita')}">${icon('check')}</button>
+        ${s.done ? '' : `<button class="icon-btn postpone-btn" data-postpone="${esc(s.key)}" aria-label="${t('Adiar')}" title="${t('Adiar')}">${icon('skip')}</button>`}
+        <button class="check ${s.done ? 'on' : ''}" data-id="${esc(s.key)}" aria-pressed="${s.done}" aria-label="${s.done ? t('Desmarcar') : t('Marcar como feita')}">${icon('check')}</button>
       </div>`).join('');
   }).join('') : `<div class="empty">${hasPlan() ? t('Nada planeado para hoje.') : t('Ainda sem plano.')}</div>`;
 
@@ -403,6 +417,85 @@ function renderToday() {
       renderTimerSubjects();
       switchTab('timer');
     });
+  });
+  $('today-sessions').querySelectorAll('[data-postpone]').forEach(btn => {
+    btn.addEventListener('click', () => postponeSession(sessions.find(s => s.key === btn.dataset.postpone)));
+  });
+  renderTodayExtra(agenda, todayKey);
+}
+
+// Below today's sessions: what was moved away from today, and study logged outside the plan.
+function renderTodayExtra(agenda, todayKey) {
+  const moved = agenda.movedOut.map(s => {
+    const sub = getSubject(s.subject);
+    const where = s.movedTo ? t('adiada para {d}', { d: dayLabel(s.movedTo) }) : t('não esta semana');
+    return `<div class="session muted-row">${tag(sub)}<span class="session-text"><span class="session-name">${esc(sub.name)}</span><span class="session-meta">${where}</span></span>
+      <button class="link-btn small" data-undo="${esc(s.id)}">${t('Anular')}</button></div>`;
+  });
+  const manual = storage.getAttempts().filter(a => a.manual && keyOf(new Date(a.at)) === todayKey).map(a => {
+    const sub = getSubject(a.subject);
+    const what = { learn: t('matéria nova'), practice: t('exercícios'), review: t('revisão') }[a.activity || a.kind] || '';
+    const counts = a.done ? ` · ${t('{c}/{d} certos', { c: a.correct, d: a.done })}` : '';
+    return `<div class="session muted-row">${tag(sub)}<span class="session-text"><span class="session-name">${esc(sub.name)}</span><span class="session-meta">${formatMinutes(a.minutes || 0)} · ${what}${counts}${a.note ? ` · ${esc(a.note)}` : ''}</span></span></div>`;
+  });
+  $('today-extra').innerHTML = [
+    moved.length ? `<div class="group-label">${t('Adiadas')}</div>${moved.join('')}` : '',
+    manual.length ? `<div class="group-label">${t('Registado sem timer')}</div>${manual.join('')}` : '',
+  ].join('');
+  $('today-extra').querySelectorAll('[data-undo]').forEach(b => b.addEventListener('click', () => {
+    storage.savePostponed(undoPostpone(storage.getPostponed(), todayKey, b.dataset.undo));
+    renderToday();
+    renderWeek();
+  }));
+}
+
+function postponeSession(session) {
+  if (!session || storage.isReadOnly()) return;
+  const todayKey = keyOf(new Date());
+  const days = Array.from({ length: 6 }, (_, i) => addDays(todayKey, i + 1))
+    .map((key, i) => ({ key, label: i === 0 ? `${t('Amanhã')} · ${dayLabel(key)}` : dayLabel(key) }));
+  openPostpone({ subject: session.sub, days, movedFrom: session.movedFrom }, (to) => {
+    storage.savePostponed(postpone(storage.getPostponed(), todayKey, session, to));
+    renderToday();
+    renderWeek();
+    toast(to ? t('{s} adiada para {d}', { s: session.sub.short, d: dayLabel(to) }) : t('{s}: fica para a próxima semana', { s: session.sub.short }));
+  });
+}
+
+// "+ Registar estudo": study done without the timer.
+function openManual(preselect) {
+  if (storage.isReadOnly()) return;
+  if (!hasPlan()) return editPlan();
+  const now = new Date();
+  const todayKey = keyOf(now);
+  const agenda = dayAgenda(plannedFor, todayKey, storage.getPostponed());
+  const openSessions = agenda.sessions
+    .filter(s => s.subject !== 'all' && !storage.isSessionDone(now, s.key))
+    .map(s => ({ key: s.key, subject: s.subject }));
+  openManualLog({
+    subjects, preselect: preselect || selectedSubject, today: todayKey, yesterday: addDays(todayKey, -1),
+    openSessions, backlog: activeBacklog(storage.getBacklog()),
+  }, (input, opts) => {
+    const entry = manualEntry(input);
+    if (entry.error) return entry;
+    storage.addManualStudy(entry);
+    if (opts.sessionKey) storage.setSessionDone(now, opts.sessionKey, true);
+    if (opts.backlog === 'set') storage.setBacklog(input.subject, '');
+    if (opts.backlog === 'clear') storage.setBacklog(input.subject, null);
+    loadPlan();
+    renderAll();
+    return entry;
+  });
+}
+
+function editBacklog(subjectId) {
+  if (storage.isReadOnly()) return;
+  const s = getSubject(subjectId);
+  openBacklog({ subject: s, note: s.behind ? s.backlogNote : undefined }, (note) => {
+    storage.setBacklog(subjectId, note);
+    loadPlan();
+    renderAll();
+    toast(note === null ? t('{s} em dia', { s: s.short }) : t('{s}: matéria em atraso', { s: s.short }));
   });
 }
 
@@ -463,20 +556,29 @@ function renderWeek() {
     return;
   }
   const monday = startOfWeek(now);
-  $('week-list').innerHTML = [1, 2, 3, 4, 5, 6, 0].map((dow, i) => {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + i);
-    const isToday = date.toDateString() === now.toDateString();
-    const items = getSessionsForDay(dow);
+  const postponed = storage.getPostponed();
+  const weekKeys = [0, 1, 2, 3, 4, 5, 6].map(i => addDays(keyOf(monday), i));
+  const sum = weekSummary(plannedFor, weekKeys, postponed, (d, k) => storage.isSessionDone(dateOf(d), k), keyOf(now));
+  $('week-summary').textContent = sum.planned ? [
+    sum.done === 1 ? t('Esta semana: 1 feita') : t('Esta semana: {n} feitas', { n: sum.done }),
+    sum.moved ? (sum.moved === 1 ? t('1 adiada') : t('{n} adiadas', { n: sum.moved })) : '',
+    sum.skipped ? (sum.skipped === 1 ? t('1 saltada') : t('{n} saltadas', { n: sum.skipped })) : '',
+    sum.missed ? t('{n} por fazer de dias passados', { n: sum.missed }) : '',
+    sum.pending ? t('{n} ainda por vir', { n: sum.pending }) : '',
+  ].filter(Boolean).join(' · ') : '';
+  $('week-list').innerHTML = weekKeys.map(key => {
+    const date = dateOf(key);
+    const isToday = key === keyOf(now);
+    const { sessions, movedOut } = dayAgenda(plannedFor, key, postponed);
+    const item = (s, extra = '', cls = '') => `<div class="day-item ${cls}">${tag(getSubject(s.subject))}<span class="day-item-text">${extra}<b>${esc(s.session)}</b>${s.focus ? ` · ${esc(s.focus)}` : ''}</span></div>`;
+    const rows = [
+      ...sessions.map(s => item(s, s.movedFrom ? `<span class="moved-tag">${t('de {d}', { d: dayLabel(s.movedFrom) })}</span> ` : '', storage.isSessionDone(date, s.key) ? 'done' : '')),
+      ...movedOut.map(s => item(s, `<span class="moved-tag">${s.movedTo ? t('→ {d}', { d: dayLabel(s.movedTo) }) : t('saltada')}</span> `, 'moved-out')),
+    ];
     return `
       <div class="day ${isToday ? 'today' : ''}">
-        <div class="day-name"><b>${DAY_SHORT()[dow]}</b><small>${date.getDate()}</small></div>
-        <div class="day-items">
-          ${items.length ? items.map(s => {
-            const done = storage.isSessionDone(date, s.id);
-            return `<div class="day-item ${done ? 'done' : ''}">${tag(getSubject(s.subject))}<span class="day-item-text"><b>${esc(s.session)}</b>${s.focus ? ` · ${esc(s.focus)}` : ''}</span></div>`;
-          }).join('') : `<span class="muted small">${t('Descanso')}</span>`}
-        </div>
+        <div class="day-name"><b>${DAY_SHORT()[date.getDay()]}</b><small>${date.getDate()}</small></div>
+        <div class="day-items">${rows.length ? rows.join('') : `<span class="muted small">${t('Descanso')}</span>`}</div>
       </div>`;
   }).join('');
 }
@@ -494,6 +596,7 @@ function renderMastery() {
     if (p.calibration.overconfident) flags.push(`<span class="flag warn">${t('Excesso de confiança: esperavas ~{e}, acertaste {a}', { e: pct(p.calibration.expected), a: pct(p.calibration.actual) })}</span>`);
     if (p.dependency) flags.push(`<span class="flag warn">${t('Depende de ajuda: {a} com ajuda vs {u} sem', { a: pct(p.split.assisted), u: pct(p.split.unassisted) })}</span>`);
     if (p.probeDue && p.mastery !== null) flags.push(`<span class="flag">${t('Teste de controlo em falta esta semana')}</span>`);
+    if (s.behind) flags.push(`<span class="flag warn">${s.backlogNote ? t('Matéria em atraso: {n}', { n: esc(s.backlogNote) }) : t('Matéria em atraso')}</span>`);
     if (s.prereqWeak?.length) flags.push(`<span class="flag warn">${t('Base fraca: {list} — o plano inclui revisão', { list: s.prereqWeak.map(w => `${esc(w.short)} (${t(w.reason)}${w.grade !== null ? `, ${w.grade}` : ''})`).join(', ') })}</span>`);
     const exam = results[s.id];
     let examLine = '';
@@ -507,6 +610,7 @@ function renderMastery() {
       p.split.assisted !== null ? t('{p} com ajuda', { p: pct(p.split.assisted) }) : '',
     ].filter(Boolean);
     const practice = practiceParts.length ? `${t('Prática')}: ${practiceParts.join(' · ')}` : '';
+    const backlogLink = `<button class="link-btn" data-backlog="${esc(s.id)}">${s.behind ? t('Editar atraso') : t('Marcar matéria em atraso')}</button>`;
     return `
       <div class="mastery-row">
         <div class="mastery-head">
@@ -515,18 +619,56 @@ function renderMastery() {
           <span class="mastery-pct">${p.mastery === null ? '—' : pct(p.mastery)}</span>
         </div>
         ${flags.length ? `<div class="flags">${flags.join('')}</div>` : ''}
-        ${practice || examLine ? `<div class="mastery-meta muted small">${[practice, examLine].filter(Boolean).join(' · ')}</div>` : ''}
+        <div class="mastery-meta muted small">${[practice, examLine, backlogLink].filter(Boolean).join(' · ')}</div>
       </div>`;
   }).join('');
   $('mastery-list').querySelectorAll('[data-percurso]').forEach(b => b.addEventListener('click', manageCurriculum));
+  $('mastery-list').querySelectorAll('[data-backlog]').forEach(b => b.addEventListener('click', () => editBacklog(b.dataset.backlog)));
   $('mastery-list').querySelectorAll('[data-grade]').forEach(b => b.addEventListener('click', () => {
     const s = getSubject(b.dataset.grade);
     openExamGrade(s, results[s.id]?.grade, (g) => { storage.setExamResult(s.id, g); renderMastery(); });
   }));
 }
 
+// The last two weeks of logs (blocks, tests, study logged by hand), each one fixable.
+function whenLabel(at) {
+  const key = keyOf(new Date(at));
+  const today = keyOf(new Date());
+  if (key === today) return t('hoje');
+  if (key === addDays(today, -1)) return t('ontem');
+  return dayLabel(key);
+}
+
+function renderRecentLogs() {
+  const since = Date.now() - 14 * 86400000;
+  const logs = storage.getAttempts().filter(a => a.at >= since).sort((a, b) => b.at - a.at).slice(0, 10);
+  $('recent-logs').innerHTML = logs.length ? logs.map(a => {
+    const sub = getSubject(a.subject);
+    const kind = a.kind === 'probe' ? t('Teste de controlo') : a.kind === 'learn' ? t('Matéria nova') : a.assisted ? t('Prática com ajuda') : t('Prática');
+    const parts = [
+      a.kind !== 'learn' && a.done ? t('{c}/{d} certos', { c: a.correct, d: a.done }) : '',
+      a.manual ? t('registado sem timer') : '',
+      a.edited ? t('corrigido') : '',
+    ].filter(Boolean);
+    return `<div class="session log-row">${tag(sub)}<span class="session-text">
+        <span class="session-name">${esc(kind)}${parts.length ? ` · <span class="muted">${parts.join(' · ')}</span>` : ''}</span>
+        <span class="session-meta">${esc(whenLabel(a.at))}${a.note ? ` · ${esc(a.note)}` : ''}</span></span>
+      <button class="link-btn small" data-edit-log="${esc(a.id)}">${t('Corrigir')}</button></div>`;
+  }).join('') : `<div class="empty">${t('Ainda sem registos. Aparecem aqui quando terminas um bloco, fazes um teste de controlo ou registas estudo.')}</div>`;
+  $('recent-logs').querySelectorAll('[data-edit-log]').forEach(b => b.addEventListener('click', () => {
+    if (storage.isReadOnly()) return;
+    const attempt = storage.getAttempts().find(a => a.id === b.dataset.editLog);
+    if (!attempt) return;
+    openEditAttempt({ attempt, subject: getSubject(attempt.subject), when: whenLabel(attempt.at) }, {
+      save: (changes) => { storage.updateAttempt(attempt.id, changes); renderAll(); toast(t('Registo corrigido')); },
+      remove: () => { storage.removeAttempt(attempt.id); renderAll(); toast(t('Registo apagado')); },
+    });
+  }));
+}
+
 function renderProgress() {
   renderMastery();
+  renderRecentLogs();
   renderPercursoCard($('percurso-card'), { onManage: manageCurriculum, onSemester: openSemester });
   const now = new Date();
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -556,7 +698,7 @@ function renderProgress() {
   $('by-subject').innerHTML = rows.length ? rows.map(([id, m]) => {
     const sub = getSubject(id);
     return `<div class="subj-row">${tag(sub)}<div class="subj-bar" style="--c:${esc(sub.color)}"><i style="width:${(m / subMax) * 100}%"></i></div><span class="subj-min">${formatMinutes(m)}</span></div>`;
-  }).join('') : `<div class="empty">${t('Ainda sem tempo registado esta semana. Os minutos entram aqui sempre que terminas um bloco de estudo no timer.')}</div>`;
+  }).join('') : `<div class="empty">${t('Ainda sem tempo registado esta semana. Os minutos entram aqui quando terminas um bloco no timer ou registas estudo.')}</div>`;
 
   renderChecklist();
 }
@@ -796,6 +938,7 @@ const READ_ONLY_BLOCKED = [
   '#today-sessions .check', '#today-sessions .session-main', '.check-row',
   '[data-probe]', '[data-grade]', '[data-percurso]', '#pc-open',
   '#btn-settings-server', '#btn-settings-plan', '#btn-settings-percurso', '.backup-row',
+  '#btn-manual-log', '.postpone-btn', '[data-undo]', '[data-backlog]', '[data-backlog-log]', '[data-edit-log]',
 ].join(',');
 
 function setupReadOnly() {
@@ -859,6 +1002,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupLog();
   setupPercurso();
   $('btn-settings-percurso').addEventListener('click', () => { openSettings(false); manageCurriculum(); });
+  $('btn-manual-log').addEventListener('click', () => openManual());
   $('btn-probe').addEventListener('click', () => {
     if (!hasPlan()) return editPlan();
     openProbeSetup(subjects, subjects.some(s => s.id === selectedSubject) ? selectedSubject : subjects[0].id, startProbe);

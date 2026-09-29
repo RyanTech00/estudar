@@ -1,6 +1,7 @@
 import { t, lang } from './i18n.js';
 import { resolveRole } from './roles.js';
 import { cleanDocument } from './backup.js';
+import { mergeByAt, mergePostponed, setBacklog as withBacklog, editAttempt, deleteAttempt, mergeAttempts } from './agenda.js';
 
 const STORAGE_KEY = 'estudar_data';
 const LAST_UID_KEY = 'estudar_last_uid';
@@ -57,6 +58,8 @@ function getDefaults() {
     attempts: [],   // append-only log of self-graded attempts and probes (see learning.js)
     examResults: {}, // { subjectId: { grade, at } } real exam grades, to check the probes predicted them
     curriculum: null, // { degree, targetAverage, ucs: [...] } — see curriculum.js
+    postponed: {},  // { '2026-09-29': { so: { to: '2026-09-30' | null, at } } } — see agenda.js
+    backlog: {},    // { fp: { note, at, cleared } } — subjects that are behind
     timerConfig: { work: 40, break: 10, longBreak: 15, sessionsBeforeLong: 4 },
     settings: { sound: true },
     updatedAt: 0,
@@ -127,6 +130,39 @@ export function setSessionDone(date, id, done) {
   saveData(data);
 }
 
+// ── Plan vs reality (agenda.js) ────────
+export function getPostponed() {
+  return loadData().postponed || {};
+}
+
+export function savePostponed(postponed) {
+  const data = loadData();
+  data.postponed = postponed;
+  saveData(data);
+}
+
+export function getBacklog() {
+  return loadData().backlog || {};
+}
+
+// note: text (can be empty) to mark the subject as behind; null to mark it caught up.
+export function setBacklog(subjectId, note) {
+  const data = loadData();
+  data.backlog = withBacklog(data.backlog || {}, subjectId, note);
+  saveData(data);
+}
+
+// A manualEntry() result: focus minutes on that day + the attempt, in one save.
+export function addManualStudy(entry) {
+  if (!entry?.attempt) return;
+  const data = loadData();
+  const key = entry.date;
+  data.focus[key] = data.focus[key] || {};
+  data.focus[key][entry.attempt.subject] = Math.min(24 * 60, (data.focus[key][entry.attempt.subject] || 0) + entry.minutes);
+  data.attempts = [...(data.attempts || []), { id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, ...entry.attempt }];
+  saveData(data);
+}
+
 export function logFocus(subjectId, minutes, date = new Date()) {
   if (!subjectId || minutes <= 0) return;
   const data = loadData();
@@ -137,8 +173,33 @@ export function logFocus(subjectId, minutes, date = new Date()) {
 }
 
 // ── Attempts (append-only) and exam results ──
+// Deleted logs stay in the document as markers (so other devices learn about it) but never count.
 export function getAttempts() {
-  return loadData().attempts || [];
+  return (loadData().attempts || []).filter(a => !a.deleted);
+}
+
+// Fix attempted / correct / note on a log (agenda.js editAttempt: confidence and help never change).
+export function updateAttempt(id, changes) {
+  const data = loadData();
+  data.attempts = (data.attempts || []).map(a => (a.id === id ? editAttempt(a, changes) : a));
+  saveData(data);
+}
+
+// A log typed by hand also takes its minutes back; a timer block's minutes stay (the block happened).
+export function removeAttempt(id) {
+  const data = loadData();
+  const a = (data.attempts || []).find(x => x.id === id);
+  if (!a) return;
+  if (a.manual && a.minutes > 0) {
+    const key = dateKey(new Date(a.at));
+    const day = data.focus[key];
+    if (day?.[a.subject]) {
+      day[a.subject] = Math.max(0, day[a.subject] - a.minutes);
+      if (!day[a.subject]) delete day[a.subject];
+    }
+  }
+  data.attempts = data.attempts.map(x => (x.id === id ? deleteAttempt(x) : x));
+  saveData(data);
 }
 
 export function addAttempt(attempt) {
@@ -485,9 +546,7 @@ function subscribe() {
       if ((remote.updatedAt || 0) <= (local.updatedAt || 0)) return;
       // Remote came from a device that already merged on sign-in: take it as-is
       // so un-checking something on one device propagates.
-      const byId = new Map();
-      for (const a of [...(remote.attempts || []), ...(local.attempts || [])]) if (a?.id) byId.set(a.id, a);
-      setLocal({ ...getDefaults(), ...remote, attempts: [...byId.values()].sort((a, b) => a.at - b.at), owner: currentUser.id });
+      setLocal({ ...getDefaults(), ...remote, attempts: mergeAttempts(remote.attempts, local.attempts), owner: currentUser.id });
       onSyncCallback?.();
     })
     .subscribe();
@@ -520,14 +579,15 @@ function mergeData(local, remote) {
   }
 
   // Append-only log: union by id, so no device can erase another's attempts.
-  const byId = new Map();
-  for (const a of [...(remote.attempts || []), ...(local.attempts || [])]) if (a?.id) byId.set(a.id, a);
-  merged.attempts = [...byId.values()].sort((a, b) => a.at - b.at);
+  merged.attempts = mergeAttempts(remote.attempts, local.attempts);
 
   merged.examResults = { ...(remote.examResults || {}) };
   for (const [k, v] of Object.entries(local.examResults || {})) {
     if (!merged.examResults[k] || (v?.at || 0) > (merged.examResults[k].at || 0)) merged.examResults[k] = v;
   }
+
+  merged.postponed = mergePostponed(local.postponed, remote.postponed);
+  merged.backlog = mergeByAt(local.backlog, remote.backlog);
 
   merged.plan = newer.plan || local.plan || remote.plan || null;
   merged.curriculum = newer.curriculum || local.curriculum || remote.curriculum || null;

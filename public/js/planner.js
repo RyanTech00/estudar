@@ -1,4 +1,5 @@
 import { getExamplePlan, EMPTY_PLAN, AREAS, LOADS, PALETTE, normalizePlan } from './data.js';
+import { activeBacklog } from './agenda.js';
 import * as storage from './storage.js';
 import { allocation, FINAL_WINDOW_DAYS } from './learning.js';
 import { enrichWithCurriculum } from './curriculum.js';
@@ -202,7 +203,9 @@ function render() {
 }
 
 function enrichedSubjects(plan) {
-  return enrichWithCurriculum(plan.subjects, storage.getCurriculum().ucs || []);
+  const behind = activeBacklog(storage.getBacklog());
+  return enrichWithCurriculum(plan.subjects, storage.getCurriculum().ucs || [])
+    .map(s => ({ ...s, behind: s.id in behind, backlogNote: behind[s.id] || '' }));
 }
 
 function currentAllocation() {
@@ -220,12 +223,14 @@ function renderAllocation() {
   plan.weeklyPlan.forEach(s => { if (s.subject !== 'all') planned[s.subject] = (planned[s.subject] || 0) + (s.minutes || 0); });
   const totalPlanned = Object.values(planned).reduce((a, b) => a + b, 0);
   const weakBy = Object.fromEntries(enrichedSubjects(plan).filter(s => s.prereqWeak?.length).map(s => [s.id, s.prereqWeak.map(w => w.short).join(', ')]));
+  const behindIds = new Set(enrichedSubjects(plan).filter(s => s.behind).map(s => s.id));
   el.innerHTML = rows.sort((a, b) => b.share - a.share).map(r => {
     const sub = subjectById(r.id);
     const now = totalPlanned ? (planned[r.id] || 0) / totalPlanned : null;
     const why = [
       r.finished ? t('exame já feito') : r.mastery === null ? t('sem teste ainda') : t('domínio {p}%', { p: Math.round(r.mastery * 100) }),
       weakBy[r.id] ? t('base fraca: {list}', { list: weakBy[r.id] }) : '',
+      behindIds.has(r.id) ? t('matéria em atraso') : '',
       r.inFinalWindow ? (r.days === 1 ? t('exame amanhã') : t('exame em {n} dias', { n: r.days })) : '',
     ].filter(Boolean).join(' · ');
     return `<div class="alloc-row"><span class="tag" style="--c:${esc(sub.color)}">${esc(sub.short)}</span>
@@ -310,12 +315,13 @@ async function generate() {
     startDate: plan.startDate,
     examDate: plan.examDate,
     hoursPerDay: plan.hoursPerDay,
-    subjects: enrichedSubjects(plan).map(({ id, name, short, load, area, ects, examDate, derivedExamDate, prereqWeak }) => {
+    subjects: enrichedSubjects(plan).map(({ id, name, short, load, area, ects, examDate, derivedExamDate, prereqWeak, behind, backlogNote }) => {
       const a = shares.find(r => r.id === id);
       return {
         id, name, short, load, area, ects, examDate: examDate || derivedExamDate || '',
         share: a ? Math.round(a.share * 100) : null, mastery: a?.mastery ?? null,
         prereqWeak: (prereqWeak || []).map(w => `${w.name} (${t(w.reason)}${w.grade !== null ? `, ${t('nota {g}', { g: w.grade })}` : ''})`).join('; '),
+        backlog: behind ? (backlogNote || t('sim')) : '',
       };
     }),
     notes: draft.notes || '',

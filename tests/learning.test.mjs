@@ -128,3 +128,14 @@ test('attempts: correct can never exceed attempted', () => {
   assert.equal(isValidAttempt(att({ subject: 'a', kind: 'practice', done: 3, correct: 4 })), false);
   assert.equal(isValidAttempt(att({ subject: 'a', kind: 'practice', done: 3, correct: 3 })), true);
 });
+
+test('R9: a subject marked behind ("matéria em atraso") gets more time until it is caught up', () => {
+  const plan = { examDate: '2027-01-20' };
+  const now = new Date('2026-09-29T12:00:00');
+  const twins = [{ id: 'fp', ects: 6 }, { id: 'so', ects: 6 }];
+  const even = allocation(twins, [], plan, { now });
+  assert.equal(Math.round(even[0].share * 100), Math.round(even[1].share * 100));
+  const behind = allocation([{ ...twins[0], behind: true }, twins[1]], [], plan, { now });
+  assert.ok(behind[0].share > behind[1].share, 'the subject that is behind gets the larger share');
+  assert.ok(Math.abs(behind.reduce((a, r) => a + r.share, 0) - 1) < 1e-9);
+});

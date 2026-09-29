@@ -70,3 +70,24 @@ test('clean: backups go through the same cleaner', () => {
   assert.equal(r.ok, true);
   assert.deepEqual(r.data.examResults, {});
 });
+
+test('clean: keeps postponed sessions, subjects behind and manual entries (and drops bad ones)', () => {
+  const d = cleanDocument({
+    postponed: {
+      '2026-09-29': { so: { to: '2026-09-30', at: 5 }, fp: { to: null, at: 6 }, [XSS]: { to: '2026-09-30' }, ed: { to: 'amanhã' } },
+      'ontem': { so: { to: null } },
+    },
+    backlog: { fp: { note: 'aulas 3 a 5', at: 7 }, ed: { note: '', at: 8, cleared: true }, [XSS]: { note: 'x' } },
+    attempts: [{ id: 'm1', at: 1, subject: 'ed', kind: 'learn', done: 0, correct: 0, activity: 'learn', manual: true, note: 'pilhas e filas', evil: XSS }],
+  });
+  assert.deepEqual(d.postponed, { '2026-09-29': { so: { to: '2026-09-30', at: 5 }, fp: { to: null, at: 6 } } });
+  assert.deepEqual(d.backlog, { fp: { note: 'aulas 3 a 5', at: 7, cleared: false }, ed: { note: '', at: 8, cleared: true } });
+  const a = d.attempts[0];
+  assert.deepEqual([a.activity, a.manual, a.note, 'evil' in a], ['learn', true, 'pilhas e filas', false]);
+});
+
+test('clean: keeps the marks of fixed and deleted logs', () => {
+  const d = cleanDocument({ attempts: [{ id: 'a1', at: 1, subject: 'ed', kind: 'practice', done: 8, correct: 6, edited: 50, deleted: true }, { id: 'a2', at: 2, subject: 'ed', kind: 'practice', done: 1, correct: 1, edited: 'x', deleted: 'yes' }] });
+  assert.deepEqual([d.attempts[0].edited, d.attempts[0].deleted], [50, true]);
+  assert.deepEqual(['edited' in d.attempts[1], 'deleted' in d.attempts[1]], [false, false]);
+});

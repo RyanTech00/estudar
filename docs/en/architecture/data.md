@@ -101,6 +101,7 @@ Field values such as `"load": "alta"` or `"epoca": "normal"` are internal identi
 | `sessions` | Union by day |
 | `focus` | Maximum per day and subject |
 | `checklist` | Logical OR per box |
+| `postponed`, `backlog` | Per entry, the most recent change (`at`); undo is a change too, so it reaches the other devices |
 | `examResults` | Most recent per subject |
 | `plan`, `curriculum`, `timerConfig`, `settings` | Most recent document |
 

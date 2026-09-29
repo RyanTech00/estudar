@@ -98,6 +98,7 @@ O SQL está em [`supabase/migrations/`](https://github.com/RyanTech00/estudar/tr
 | `focus` | Máximo por dia e disciplina |
 | `checklist` | OU lógico por caixa |
 | `examResults` | Mais recente por disciplina |
+| `postponed`, `backlog` | Por entrada, a alteração mais recente (`at`); anular também é uma alteração, para chegar aos outros dispositivos |
 | `plan`, `curriculum`, `timerConfig`, `settings` | Documento mais recente |
 
 ## Cópia local

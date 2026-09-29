@@ -33,7 +33,7 @@ export function parseBackup(text) {
     data: out,
     exportedAt: raw.exportedAt || '',
     summary: {
-      attempts: out.attempts.length,
+      attempts: out.attempts.filter(a => !a.deleted).length,
       days: new Set([...Object.keys(out.sessions), ...Object.keys(out.focus)]).size,
       subjects: out.plan?.subjects.length || 0,
       ucs: out.curriculum?.ucs.length || 0,
@@ -74,6 +74,13 @@ function cleanAttempt(a) {
     minutes: num(a.minutes, 0, 24 * 60) ?? 0,
   };
   if (typeof a.explanation === 'string' && a.explanation) out.explanation = a.explanation.slice(0, 2000);
+  // Study logged by hand, outside the timer (agenda.js manualEntry).
+  if (['learn', 'practice', 'review'].includes(a.activity)) out.activity = a.activity;
+  if (a.manual === true) out.manual = true;
+  if (typeof a.note === 'string' && a.note) out.note = a.note.slice(0, 500);
+  // Fixed or deleted later (agenda.js editAttempt / deleteAttempt).
+  if (Number.isFinite(a.edited)) out.edited = a.edited;
+  if (a.deleted === true) out.deleted = true;
   return out.correct <= out.done && ATTEMPT_KINDS.includes(out.kind) ? out : null;
 }
 
@@ -172,6 +179,21 @@ export function cleanDocument(d) {
       ucs: objects(d.curriculum.ucs, 200).map(cleanUc).filter(Boolean),
     }
     : null;
+
+  // Sessions moved or skipped: { fromDate: { sessionId: { to: date | null, at } } }.
+  out.postponed = {};
+  for (const [from, map] of entries(d.postponed, 400)) {
+    if (!isDay(from) || !isObj(map)) continue;
+    const kept = entries(map, 50)
+      .filter(([id, v]) => isId(id) && isObj(v) && (v.to === null || isDate(v.to)))
+      .map(([id, v]) => [id, { to: v.to, at: Number.isFinite(v.at) ? v.at : 0 }]);
+    if (kept.length) out.postponed[from] = Object.fromEntries(kept);
+  }
+
+  // Subjects that are behind: { subjectId: { note, at, cleared } }.
+  out.backlog = Object.fromEntries(entries(d.backlog, 50)
+    .filter(([id, v]) => isId(id) && isObj(v))
+    .map(([id, v]) => [id, { note: str(v.note, 200), at: Number.isFinite(v.at) ? v.at : 0, cleared: v.cleared === true }]));
 
   out.timerConfig = cleanTimerConfig(isObj(d.timerConfig) ? d.timerConfig : {});
   out.settings = { sound: !(isObj(d.settings) && d.settings.sound === false) };

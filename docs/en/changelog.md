@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- **Log study** outside the timer: subject, from… to… (or minutes), new material / exercises / review, attempted and correct, a note. It counts towards time, your streak and the balance between subjects, can close the day's session, and never enters mastery or calibration.
+- **Postpone** a session to another day this week, or skip it, without changing the weekly plan; undo at any time. The **Week** tab shows done, postponed, skipped and left undone.
+- **Fix logs**: the number attempted can be corrected after **Confirm and go mark**, and logs from the last 14 days can be fixed or deleted under **Progress → Recent logs** (fixes and deletions sync across devices). Confidence and help stay fixed.
+- **Behind on classes** per subject: more time in the allocation (×1.4), a notice on **Today**, and the AI takes it into account when generating the plan.
+
 ## v1.2.0 — security update
 
 A full security audit (OWASP) and **owner and viewers**. After updating (`npx estudar@latest`), open the link from the terminal and click **Set up** once (with your email) and **Publish**: it applies the new migrations, closes sign-ups and sends the security headers to the Worker.

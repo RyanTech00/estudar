@@ -1,5 +1,12 @@
 # Changelog
 
+## Por publicar
+
+- **Registar estudo** fora do timer: disciplina, das… às… (ou minutos), matéria nova / exercícios / revisão, tentados e certos, nota. Conta para o tempo, os dias seguidos e o equilíbrio entre disciplinas, pode fechar a sessão do dia, e nunca entra no domínio nem na calibração.
+- **Adiar** uma sessão para outro dia da semana, ou saltá-la, sem mexer no plano semanal; anular a qualquer momento. O separador **Semana** mostra feitas, adiadas, saltadas e por fazer.
+- **Corrigir registos**: o número de tentados pode ser acertado depois de **Confirmar e ir corrigir**, e os registos dos últimos 14 dias podem ser corrigidos ou apagados em **Progresso → Registos recentes** (as correções e os apagados sincronizam entre dispositivos). A confiança e a ajuda ficam fixas.
+- **Matéria em atraso** por disciplina: mais tempo na distribuição (×1,4), aviso no **Hoje** e a IA tem-na em conta ao gerar o plano.
+
 ## v1.2.0 — atualização de segurança
 
 Auditoria de segurança completa (OWASP) e **dono e leitores**. Depois de atualizar (`npx estudar@latest`), abre o link do terminal e carrega uma vez em **Configurar** (com o teu email) e em **Publicar**: aplica as migrações novas, fecha os registos e envia os cabeçalhos de segurança para o Worker.

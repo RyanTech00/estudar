@@ -185,6 +185,27 @@ body.locked .shell { display: none; }
   display: grid; place-items: center; color: transparent; transition: all .15s; flex-shrink: 0;
 }
 .check .ico { width: 18px; height: 18px; stroke-width: 2.4; }
+/* Plan vs reality: postpone, moved sessions, study logged outside the plan. */
+.postpone-btn { flex-shrink: 0; color: var(--muted); }
+.postpone-btn .ico { width: 16px; height: 16px; }
+.postpone-btn:hover { color: var(--text); }
+.moved-tag { color: var(--accent); font-weight: 500; }
+.muted-row { opacity: .75; }
+.muted-row .session-name { font-weight: 400; }
+.muted-row .session-text { flex: 1; }
+.muted-row .link-btn { flex-shrink: 0; }
+.manual-log-btn { margin-top: 12px; }
+.log-row .session-text { flex: 1; }
+.log-row .session-name { white-space: normal; }
+.log-row .link-btn { flex-shrink: 0; }
+.fix-done { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.fix-done .stepper { margin: 0; }
+.week-summary { margin: -4px 0 12px; }
+.day-item.moved-out { opacity: .5; }
+.day-item.moved-out b { text-decoration: line-through; }
+.alert.alert-behind { border-color: rgba(143, 211, 126, .35); background: rgba(143, 211, 126, .08); color: #d6ead0; }
+.choice-row.three { grid-template-columns: repeat(3, 1fr); }
+.ml-time .field input { min-width: 0; }
 .check:hover { border-color: var(--muted); }
 .check.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 
@@ -486,7 +507,8 @@ code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size
 .read-only-note { margin: 0 0 14px; padding: 10px 14px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface-2); font-size: 14px; color: var(--muted); }
 body.read-only :is([data-tab="timer"], #btn-edit-plan, #btn-probe, #btn-focus-mode, #hero-start, #hero-done, #hero-plan, #hero-server,
   #today-sessions .check, [data-probe], [data-grade], [data-percurso], #pc-open,
-  #btn-settings-server, #btn-settings-plan, #btn-settings-percurso, .backup-row) { display: none !important; }
+  #btn-settings-server, #btn-settings-plan, #btn-settings-percurso, .backup-row,
+  #btn-manual-log, .postpone-btn, [data-undo], [data-backlog], [data-backlog-log], [data-edit-log]) { display: none !important; }
 body.read-only :is(#today-sessions .session-main, .check-row) { pointer-events: none; cursor: default; }
 .link-btn { color: var(--accent); text-decoration: underline; padding: 0; font-size: inherit; }
 .server-save { position: sticky; bottom: 0; z-index: 2; margin: 0 -16px; padding: 12px 16px; background: rgba(13, 14, 16, .94); backdrop-filter: blur(12px); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
