@@ -103,8 +103,9 @@ export class Timer {
   restore(s) {
     if (!s || !['idle', 'running', 'paused'].includes(s.state)) return;
     Object.assign(this, { phase: s.phase, state: s.state, endsAt: s.endsAt, remainingMs: s.remainingMs, sessionsCompleted: s.sessionsCompleted });
+    // Also called with a change from another device: a paused or reset timer stops ticking here too.
+    clearInterval(this.interval);
     if (this.state === 'running') {
-      clearInterval(this.interval);
       this.interval = setInterval(() => this._tick(), 250);
     }
     this._tick();

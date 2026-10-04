@@ -2,6 +2,7 @@
 // The file is untrusted on import (it may be old, edited by hand, or not ours at all).
 import { isValidAttempt } from './learning.js';
 import { t } from './i18n.js';
+import { cleanSharedTimer } from './timersync.js';
 
 export const BACKUP_APP = 'estudar';
 export const BACKUP_VERSION = 1;
@@ -196,6 +197,7 @@ export function cleanDocument(d) {
     .map(([id, v]) => [id, { note: str(v.note, 200), at: Number.isFinite(v.at) ? v.at : 0, cleared: v.cleared === true }]));
 
   out.timerConfig = cleanTimerConfig(isObj(d.timerConfig) ? d.timerConfig : {});
+  out.timer = cleanSharedTimer(d.timer);
   out.settings = { sound: !(isObj(d.settings) && d.settings.sound === false) };
   out.updatedAt = Number.isFinite(d.updatedAt) ? d.updatedAt : 0;
   return out;

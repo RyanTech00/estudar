@@ -59,6 +59,8 @@ export async function handleApi(request, env) {
   cfg.lang = langFrom(request.headers.get('X-Estudar-Lang') || url.searchParams.get('lang'));
   try {
     if (url.pathname === '/api/config' && request.method === 'GET') return json(publicConfig(cfg));
+    // The server's clock, so every device counts the shared timer down from the same time.
+    if (url.pathname === '/api/time' && request.method === 'GET') return json({ now: Date.now() });
     if (url.pathname === '/api/me' && request.method === 'GET') return await meRoute(request, cfg);
     if (url.pathname === '/api/health' && request.method === 'GET') {
       // Published: the status panel is the owner's business only (any signed-in user on installs with no

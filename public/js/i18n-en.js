@@ -655,6 +655,9 @@ export const EN = {
   'Entrar com passkey': 'Sign in with a passkey',
   'ou': 'or',
   'Entrar com impressão digital, rosto ou PIN': 'Sign in with fingerprint, face or PIN',
+  // Timer on every device
+  'Timer a correr noutro dispositivo — continua aqui.': 'Timer running on another device — carry on here.',
+  'Bloco terminado. O registo faz-se no dispositivo onde o começaste.': "Block finished. It's logged on the device where you started it.",
   'Em breve': 'Coming soon',
   'Dono': 'Owner',
   'tudo: plano, timer, IA e configuração': 'everything: plan, timer, AI and setup',

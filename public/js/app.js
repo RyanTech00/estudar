@@ -5,6 +5,7 @@ import { openServerScreen, setupServerScreen, renderSummary } from './setup.js';
 import { openPlanner, setupPlanner } from './planner.js';
 import { enterFocusMode, exitFocusMode, playSound } from './focus.js';
 import { offerPasskey, openPasskeys } from './passkeys.js';
+import { timerKey, drivesTimer, toServerClock, toLocalClock } from './timersync.js';
 import { setupLog, openBlockLog, openProbeSetup, openExamGrade, openManualLog, openPostpone, openBacklog, openEditAttempt } from './logsheet.js';
 import { dayAgenda, postpone, undoPostpone, weekSummary, manualEntry, activeBacklog, keyOf, dateOf, addDays } from './agenda.js';
 import { subjectPriorities, eveOfExam, examDateOf, daysUntil, FINAL_WINDOW_DAYS } from './learning.js';
@@ -110,6 +111,48 @@ function applyTimerConfig() {
   timer.configure({ work: c.work * 60, break: c.break * 60, longBreak: c.longBreak * 60, sessionsBeforeLong: c.sessionsBeforeLong });
 }
 
+// ── Timer on every device ──
+// Each change made here (play, pause, skip, reset, subject) goes into the synced document; a change from
+// another device is picked up and the timer carries on from the same absolute end time.
+let lastSharedKey = '';
+let appliedTimerAt = 0;
+let sharing = true;
+
+function shareTimer() {
+  if (!sharing || storage.isReadOnly()) return;
+  const state = toServerClock({ ...timer.snapshot(), subject: selectedSubject, probe }, storage.getClockOffset());
+  const key = timerKey(state);
+  if (key === lastSharedKey) return;
+  lastSharedKey = key;
+  const at = storage.setSharedTimer(state);
+  if (at) appliedTimerAt = at;
+}
+
+// User actions share themselves; restoring (from this device or another) doesn't.
+for (const m of ['start', 'pause', 'skip', 'reset']) {
+  const action = timer[m].bind(timer);
+  timer[m] = (...args) => { action(...args); shareTimer(); };
+}
+
+function applySharedTimer() {
+  if (storage.isReadOnly()) return;
+  const shared = storage.getSharedTimer();
+  if (!shared || shared.at <= appliedTimerAt) return;
+  appliedTimerAt = shared.at;
+  const key = timerKey(shared);
+  if (shared.device === storage.DEVICE_ID || key === lastSharedKey) { lastSharedKey = key; return; }
+  lastSharedKey = key;
+  if (shared.subject && (shared.subject === 'all' || subjects.some(s => s.id === shared.subject))) selectedSubject = shared.subject;
+  probe = shared.probe;
+  const wasIdle = timer.isIdle;
+  applyTimerConfig();
+  if (probe) timer.configure({ work: probe.minutes * 60 });
+  timer.restore(toLocalClock(shared, storage.getClockOffset()));
+  renderTimerSubjects();
+  if (shared.state === 'running' && !timer.isRunning) return;  // ended while away: the driver logs it
+  if (wasIdle && shared.state === 'running' && shared.phase === 'work') toast(t('Timer a correr noutro dispositivo — continua aqui.'));
+}
+
 // Survives the OS killing the PWA in the background mid-block.
 let lastSavedState = '';
 function persistTimer() {
@@ -129,10 +172,19 @@ function restoreTimer() {
       timer.configure({ work: probe.minutes * 60 });
     }
     timer.restore(saved);
+    lastSharedKey = timerKey(toServerClock({ ...timer.snapshot(), subject: selectedSubject, probe }, storage.getClockOffset()));
   } catch {}
 }
 
 function onPhaseEnd({ finished, natural, workedSeconds }) {
+  // The block was started (or last touched) on another device: that one logs it, so it counts once.
+  if (natural && !drivesTimer(storage.getSharedTimer(), storage.DEVICE_ID)) {
+    if (finished === 'work') {
+      if (storage.getSetting('sound') !== false) playSound('complete');
+      toast(t('Bloco terminado. O registo faz-se no dispositivo onde o começaste.'));
+    }
+    return;
+  }
   if (finished === 'work') {
     const minutes = Math.round(workedSeconds / 60);
     const subject = getSubject(selectedSubject);
@@ -253,6 +305,7 @@ function renderTimerSubjects() {
       selectedSubject = btn.dataset.id;
       renderTimerSubjects();
       persistTimer();
+      shareTimer();
     });
   });
 }
@@ -801,6 +854,8 @@ function setupSettings() {
   });
 
   $('btn-sign-out').addEventListener('click', async () => {
+    // Signing out here leaves the timer running on the other devices.
+    sharing = false;
     if (timer.isRunning) timer.pause();
     await storage.signOut();
     openSettings(false);
@@ -939,6 +994,7 @@ function unlockApp(mode) {
   loadPlan();
   renderAll();
   renderAccount(mode);
+  applySharedTimer();
 }
 
 // Signed in, but this account isn't the owner nor a viewer (e.g. created while sign-ups were open).
@@ -1032,6 +1088,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadPlan();
     applyTimerConfig();
     renderAll();
+    applySharedTimer();
   });
 
   // Day rolls over while the app stays open (e.g. studying past midnight).
@@ -1039,6 +1096,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
     renderTimer();
+    storage.syncClock().then(() => storage.refresh());
     if (new Date().toDateString() !== lastDay) {
       lastDay = new Date().toDateString();
       renderAll();

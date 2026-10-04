@@ -29,4 +29,10 @@ Browsers slow down timers when the screen locks or the app goes into the backgro
 - saves its state on every change; when you return to the app, it resumes exactly where it should be;
 - if the block ended while the app was closed, it **logs it** and starts the break.
 
-The code is in [`public/js/timer.js`](https://github.com/RyanTech00/estudar/blob/main/public/js/timer.js).
+## On the computer and the phone
+
+When you're signed in, the timer is the same on every device: start a block on the computer, open the phone and it's running with the same time, because what travels is the end time, not the count. That time is kept on the server's clock, not each device's: even if the phone and the computer are a second apart, both count down to the same instant. Pausing, resuming, skipping or resetting on one device changes the others in real time; when you come back to the app, it fetches the latest state.
+
+The block is **logged only once**, on the device where you started it (or last touched the timer). The others play the sound and show a notice, but the time isn't counted twice.
+
+The code is in [`public/js/timer.js`](https://github.com/RyanTech00/estudar/blob/main/public/js/timer.js) and [`public/js/timersync.js`](https://github.com/RyanTech00/estudar/blob/main/public/js/timersync.js).

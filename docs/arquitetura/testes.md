@@ -20,7 +20,7 @@ Os testes cobrem as regras que decidem **o que conta como aprendizagem** e **as 
 
 ## Mutações
 
-85 testes no total.
+88 testes no total.
 
 Um teste que passa não prova nada se também passasse com a regra partida. Por isso cada regra foi **estragada de propósito** e confirmou-se que pelo menos um teste falha (incluindo as proteções do Worker: tirar a verificação do dono na IA ou no `/api/health` faz falhar os testes):
 

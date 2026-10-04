@@ -1,6 +1,7 @@
 import { t, lang } from './i18n.js';
 import { resolveRole } from './roles.js';
 import { cleanDocument } from './backup.js';
+import { newerTimer, clockOffset } from './timersync.js';
 import { mergeByAt, mergePostponed, setBacklog as withBacklog, editAttempt, deleteAttempt, mergeAttempts } from './agenda.js';
 
 const STORAGE_KEY = 'estudar_data';
@@ -61,6 +62,7 @@ function getDefaults() {
     postponed: {},  // { '2026-09-29': { so: { to: '2026-09-30' | null, at } } } — see agenda.js
     backlog: {},    // { fp: { note, at, cleared } } — subjects that are behind
     timerConfig: { work: 40, break: 10, longBreak: 15, sessionsBeforeLong: 4 },
+    timer: null,    // the running timer, shared between devices — see timersync.js
     settings: { sound: true },
     updatedAt: 0,
   };
@@ -267,6 +269,53 @@ export function saveWeekChecklist(weekNum, checks) {
   saveData(data);
 }
 
+// ── Shared timer ──
+// A random id per device (not per account), so a device knows which timer changes were its own.
+export const DEVICE_ID = (() => {
+  try {
+    let id = localStorage.getItem('estudar_device');
+    if (!id) {
+      id = Math.random().toString(36).slice(2, 12);
+      localStorage.setItem('estudar_device', id);
+    }
+    return id;
+  } catch { return Math.random().toString(36).slice(2, 12); }
+})();
+
+// serverTime - localTime, measured against /api/time (0 until measured, or in local mode).
+let offset = 0;
+export const getClockOffset = () => offset;
+
+export async function syncClock() {
+  if (!isConfigured()) return;
+  const samples = [];
+  for (let i = 0; i < 3; i++) {
+    try {
+      const a = Date.now();
+      const r = await fetch('/api/time', { cache: 'no-store', signal: AbortSignal.timeout(3000) });
+      const b = Date.now();
+      if (r.ok) samples.push([a, (await r.json()).now, b]);
+    } catch { break; }
+  }
+  if (samples.length) offset = clockOffset(samples);
+}
+
+export function getSharedTimer() {
+  return loadData().timer || null;
+}
+
+// Returns the timestamp of the change (0 if nothing was saved, e.g. read-only).
+export function setSharedTimer(state) {
+  if (role !== 'owner') return 0;
+  const data = loadData();
+  const at = Math.max(Date.now() + offset, (data.timer?.at || 0) + 1);
+  data.timer = { ...state, device: DEVICE_ID, at };
+  saveData(data);
+  // A timer change is sent at once, not after the usual short wait: the other device should follow within a beat.
+  flushPush();
+  return at;
+}
+
 export function getTimerConfig() {
   return loadData().timerConfig;
 }
@@ -341,6 +390,7 @@ function toUser(u) {
 export async function init() {
   await loadServerConfig();
   if (!isConfigured()) return 'local';
+  const clock = syncClock();  // in parallel with the SDK and the session
   // Until the network says otherwise, a device holding a viewer's copy stays read-only (also offline).
   if (loadData().viewing) role = 'viewer';
   try {
@@ -368,6 +418,7 @@ export async function init() {
     }
   });
 
+  await clock;
   return session?.user ? 'signed-in' : 'signed-out';
 }
 
@@ -597,21 +648,35 @@ function subscribe() {
   channel = supabase
     .channel(`user_data:${target}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'user_data', filter: `user_id=eq.${target}` }, (payload) => {
-      if (!payload.new?.data) return;
-      const remote = fromSource(payload.new.data);
-      if (role === 'viewer') {
-        setLocal({ ...remote, owner: currentUser.id, viewing: viewOwnerId });
-        onSyncCallback?.();
-        return;
-      }
-      const local = loadData();
-      if ((remote.updatedAt || 0) <= (local.updatedAt || 0)) return;
-      // Remote came from a device that already merged on sign-in: take it as-is
-      // so un-checking something on one device propagates.
-      setLocal({ ...getDefaults(), ...remote, attempts: mergeAttempts(remote.attempts, local.attempts), owner: currentUser.id });
-      onSyncCallback?.();
+      if (payload.new?.data) applyRemote(payload.new.data);
     })
     .subscribe();
+}
+
+function applyRemote(doc) {
+  const remote = fromSource(doc);
+  if (role === 'viewer') {
+    setLocal({ ...remote, owner: currentUser.id, viewing: viewOwnerId });
+    onSyncCallback?.();
+    return;
+  }
+  const local = loadData();
+  if ((remote.updatedAt || 0) <= (local.updatedAt || 0)) return;
+  // Remote came from a device that already merged on sign-in: take it as-is
+  // so un-checking something on one device propagates.
+  setLocal({ ...getDefaults(), ...remote, attempts: mergeAttempts(remote.attempts, local.attempts), timer: newerTimer(local.timer, remote.timer), owner: currentUser.id });
+  onSyncCallback?.();
+}
+
+// Phones drop the live connection while the app is in the background, and what changed meanwhile isn't
+// replayed: coming back to the app, ask for the latest copy (the timer started on the computer, say).
+export async function refresh() {
+  if (!supabase || !currentUser || role === 'none') return;
+  const target = viewOwnerId || currentUser.id;
+  try {
+    const { data: row, error } = await supabase.from('user_data').select('data').eq('user_id', target).maybeSingle();
+    if (!error && row?.data) applyRemote(row.data);
+  } catch { /* offline: the live connection catches up later */ }
 }
 
 function mergeData(local, remote) {
@@ -656,6 +721,7 @@ function mergeData(local, remote) {
   merged.timerConfig = newer.timerConfig || merged.timerConfig;
   merged.settings = { ...getDefaults().settings, ...(newer.settings || {}) };
   merged.updatedAt = Math.max(local.updatedAt || 0, remote.updatedAt || 0);
+  merged.timer = newerTimer(local.timer, remote.timer);
   return merged;
 }
 
