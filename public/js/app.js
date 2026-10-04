@@ -4,6 +4,7 @@ import * as storage from './storage.js';
 import { openServerScreen, setupServerScreen, renderSummary } from './setup.js';
 import { openPlanner, setupPlanner } from './planner.js';
 import { enterFocusMode, exitFocusMode, playSound } from './focus.js';
+import { offerPasskey, openPasskeys } from './passkeys.js';
 import { setupLog, openBlockLog, openProbeSetup, openExamGrade, openManualLog, openPostpone, openBacklog, openEditAttempt } from './logsheet.js';
 import { dayAgenda, postpone, undoPostpone, weekSummary, manualEntry, activeBacklog, keyOf, dateOf, addDays } from './agenda.js';
 import { subjectPriorities, eveOfExam, examDateOf, daysUntil, FINAL_WINDOW_DAYS } from './learning.js';
@@ -739,6 +740,7 @@ function openSettings(open) {
 function setupSettings() {
   $('btn-settings').addEventListener('click', () => openSettings(true));
   $('btn-settings-close').addEventListener('click', () => openSettings(false));
+  $('btn-settings-passkeys').addEventListener('click', () => { openSettings(false); openPasskeys(toast); });
   $('settings-panel').addEventListener('click', (e) => { if (e.target === $('settings-panel')) openSettings(false); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') openSettings(false); });
 
@@ -822,6 +824,7 @@ function renderAccount(mode) {
     : t('Offline — sincroniza quando voltares a ter ligação.');
   $('user-sync').classList.toggle('off', !synced);
   $('btn-sign-out').classList.toggle('hidden', mode === 'local');
+  $('btn-settings-passkeys').classList.toggle('hidden', mode === 'local' || !user);
   if (!user) {
     $('user-name').textContent = mode === 'local' ? t('Modo local') : '—';
     $('user-email').textContent = '';
@@ -851,6 +854,9 @@ function showLoginStep(step) {
   const auth = storage.getServerConfig()?.auth || { email: true, google: false };
   $('login-email-form').classList.toggle('hidden', step !== 'email' || !auth.email);
   $('login-code-form').classList.toggle('hidden', step !== 'code');
+  const passkey = step === 'email' && storage.passkeysSupported();
+  $('btn-login-passkey').classList.toggle('hidden', !passkey);
+  $('login-or').classList.toggle('hidden', !passkey || !auth.email);
   // Google sign-in is coming soon: the button is always shown on the email step, greyed out.
   $('btn-login-google').classList.toggle('hidden', step !== 'email');
 }
@@ -882,6 +888,19 @@ function setupLoginForms() {
     showLoginError(null);
     const r = await storage.verifyEmailCode(email, code);
     btn.disabled = false;
+    if (!r.ok) return showLoginError(r.message);
+    unlockApp('online');
+    // Next time, without waiting for the email.
+    if (storage.getRole() !== 'none') offerPasskey(toast);
+  });
+
+  $('btn-login-passkey').addEventListener('click', async () => {
+    const btn = $('btn-login-passkey');
+    btn.disabled = true;
+    showLoginError(null);
+    const r = await storage.signInWithPasskey();
+    btn.disabled = false;
+    if (r.cancelled) return;
     if (!r.ok) return showLoginError(r.message);
     unlockApp('online');
   });

@@ -27,6 +27,15 @@ There are three kinds of account:
 - **Viewers.** Under **Server & keys → Login → Who can sign in** you add viewers by email; they sign in with the code, like you, and see the app **read-only**: no timer, no editing, no AI, no setup.
 - **Remove.** The **Remove** button deletes the viewer row and the account: access ends at once, even in an open session, and your data isn't touched.
 
+### Passkeys (fingerprint, face, PIN)
+
+After you sign in with the code, the app offers to **save a passkey** on this device. Next time you click **Sign in with a passkey** and confirm with your fingerprint, face or device PIN (Windows Hello, Touch ID, Face ID, Android), without waiting for the email. Under **Account → Passkeys** you see the registered devices, add another and **remove** one you lost.
+
+- The private key never leaves the device (or the password manager that syncs it); Supabase only keeps the public part. A passkey only works on the app's address, so a fake site can't use it.
+- A passkey can only be registered **while signed in**: it doesn't open the door to new accounts, and a removed viewer loses access, passkeys included.
+- The email code is still how you sign in on a new device, and the way back if you lose one.
+- **Publish** turns passkeys on in Supabase for the published address. If you move to another address (another domain), the old passkeys stop working and you register again.
+
 What enforces this is the server, not the screen:
 
 - the database only lets a viewer **read** the owner's document, and only while the row in `viewers` exists — which no client can write;
@@ -73,7 +82,7 @@ Subject names, grades and text are always escaped before they appear on screen �
 
 - **Security headers** on every response (app and API): a strict *Content-Security-Policy* — only the app's own scripts, no inline scripts, no third-party code (the Supabase client is bundled with the app, at a pinned version) —, `frame-ancestors 'none'` against clickjacking, `nosniff`, `Referrer-Policy: no-referrer`, HSTS and a *Permissions-Policy*.
 - **Data cleaned on the way in and escaped on the way out.** Everything that comes from outside (your Supabase row, the owner's for a viewer, live updates, backups, the AI's answer) goes through a filter that keeps only known fields with the right types and sizes; and all text is escaped before it reaches the screen.
-- **Session.** Sign-in uses PKCE: email links and Google return a one-time code, not the session tokens. Signing out wipes this device's data.
+- **Session.** Sign-in uses PKCE: email links and Google return a one-time code, not the session tokens. Passkeys (WebAuthn) use a fresh challenge on every sign-in, checked by Supabase. Signing out wipes this device's data.
 - **AI.** Only the owner uses it; the daily limit is reserved atomically in the database before the model is called; large requests (over 8 MB) are refused before anything else.
 - **Local server.** It only answers this computer (127.0.0.1, with a *Host* check against DNS rebinding), and the setup screen requires a key that changes on every start — it's in the link `npx estudar` opens. A stored key is only ever sent to the address it was entered for: changing the AI or Supabase URL drops it.
 - **Database.** On top of the access rules, grants take away from clients everything they don't use, and each document is capped at 2 MB.

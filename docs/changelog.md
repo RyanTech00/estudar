@@ -4,6 +4,7 @@
 
 - **Registar estudo** fora do timer: disciplina, das… às… (ou minutos), matéria nova / exercícios / revisão, tentados e certos, nota. Conta para o tempo, os dias seguidos e o equilíbrio entre disciplinas, pode fechar a sessão do dia, e nunca entra no domínio nem na calibração.
 - **Adiar** uma sessão para outro dia da semana, ou saltá-la, sem mexer no plano semanal; anular a qualquer momento. O separador **Semana** mostra feitas, adiadas, saltadas e por fazer.
+- **Passkeys**: entrar com a impressão digital, o rosto ou o PIN do dispositivo, sem código por email. A app propõe guardar uma depois do login; em **Conta → Passkeys** juntas e removes dispositivos. O **Publicar** ativa-as no Supabase para o endereço publicado.
 - **Corrigir registos**: o número de tentados pode ser acertado depois de **Confirmar e ir corrigir**, e os registos dos últimos 14 dias podem ser corrigidos ou apagados em **Progresso → Registos recentes** (as correções e os apagados sincronizam entre dispositivos). A confiança e a ajuda ficam fixas.
 - **Matéria em atraso** por disciplina: mais tempo na distribuição (×1,4), aviso no **Hoje** e a IA tem-na em conta ao gerar o plano.
 

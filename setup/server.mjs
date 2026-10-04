@@ -16,7 +16,7 @@ import { handleApi, health, readEnv, keyKind } from '../worker/api.js';
 import { tr, langFrom } from '../worker/i18n.js';
 import { normalizeEmail } from '../public/js/roles.js';
 import { securityHeaders } from '../worker/security.js';
-import { FIELDS, mergeValues } from './values.mjs';
+import { FIELDS, mergeValues, passkeyConfig } from './values.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PKG = JSON.parse(await readFile(path.join(ROOT, 'package.json'), 'utf8'));
@@ -307,6 +307,17 @@ async function configureSupabaseAuth(token, supabaseUrl, lang = 'pt') {
   });
   if (!addr.ok) return { ok: false, message: tr(lang, 'A configuração de autenticação falhou ({n}). Faz este passo à mão (ver README).', { n: addr.status }) };
 
+  // Passkeys (fingerprint, face, device PIN) for the published address. Optional: a failure here
+  // only means signing in by email code, so it is reported but doesn't fail the step.
+  let passkeyNote = '';
+  const pk = deploy?.url ? passkeyConfig(deploy.url, current.data || {}) : null;
+  if (pk) {
+    const r = await management(token, 'PATCH', `/projects/${ref}/config/auth`, pk.changes);
+    passkeyNote = !r.ok ? ` ${tr(lang, 'As passkeys não foram ativadas ({n}); o login por código continua a funcionar.', { n: r.status })}`
+      : pk.moved ? ` ${tr(lang, 'Passkeys ativas para o novo endereço: as criadas para o endereço antigo deixam de funcionar e têm de ser registadas de novo.')}`
+      : ` ${tr(lang, 'Passkeys ativas.')}`;
+  }
+
   // Since June 2026, new free projects on Supabase's built-in email can't change templates; custom SMTP lifts that.
   const tpl = await management(token, 'PATCH', `/projects/${ref}/config/auth`, {
     mailer_subjects_magic_link: OTP_TEMPLATE[lang].subject,
@@ -320,7 +331,7 @@ async function configureSupabaseAuth(token, supabaseUrl, lang = 'pt') {
       ? tr(lang, 'Endereços autorizados, mas o Supabase não deixou mudar o email: projetos gratuitos novos precisam de um SMTP próprio (Authentication → Emails → SMTP Settings). Configura-o e carrega em Configurar de novo.')
       : tr(lang, 'Endereços autorizados, mas o email com código falhou ({n}). Acrescenta {{ .Token }} ao template Magic Link à mão.', { n: tpl.status }) };
   }
-  return { ok: true, message: tr(lang, 'Endereços autorizados e email com código configurado.') };
+  return { ok: true, message: tr(lang, 'Endereços autorizados e email com código configurado.') + passkeyNote };
 }
 
 async function provisionSupabase(token, lang = 'pt', ownerEmail = '') {

@@ -13,7 +13,8 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<'
 
 let onDone = null;
 
-function open(html) {
+// Also used by other sheets (passkeys.js): one bottom sheet for the whole app.
+export function open(html) {
   $('log-sheet').innerHTML = html;
   $('log-panel').classList.add('active');
   $('log-panel').setAttribute('aria-hidden', 'false');

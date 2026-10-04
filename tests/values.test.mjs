@@ -44,3 +44,14 @@ test('setup values: keys in the wrong field and line breaks are refused', () => 
   assert.throws(() => mergeValues(STORED, { SUPABASE_SERVICE_KEY: 'sb_publishable_oops' }));
   assert.throws(() => mergeValues(STORED, { AI_MODEL: 'x\nSUPABASE_URL="https://evil"' }));
 });
+
+test('passkeys: enabled for the published https address, unchanged when already right, flagged when the domain moves', async () => {
+  const { passkeyConfig } = await import('../setup/values.mjs');
+  const first = passkeyConfig('https://estudar.example.workers.dev', {});
+  assert.deepEqual(first.changes, { passkey_enabled: true, webauthn_rp_display_name: 'Estudar', webauthn_rp_id: 'estudar.example.workers.dev', webauthn_rp_origins: 'https://estudar.example.workers.dev' });
+  assert.equal(first.moved, false);
+  assert.equal(passkeyConfig('https://estudar.example.workers.dev', first.changes), null);
+  assert.equal(passkeyConfig('https://study.example.com', first.changes).moved, true);
+  assert.equal(passkeyConfig('http://localhost:8787', {}), null);
+  assert.equal(passkeyConfig('', {}), null);
+});

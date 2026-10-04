@@ -47,3 +47,16 @@ export function mergeValues(stored, incoming = {}, lang = 'pt') {
   if ((!same('AI_PROVIDER') || !same('AI_BASE_URL')) && !sent('AI_API_KEY')) delete next.AI_API_KEY;
   return next;
 }
+
+// Passkeys (WebAuthn) are tied to one domain, the relying party: the published address, never localhost.
+// Returns the auth-config changes to send, or null when there is nothing to change. Moving to a new
+// domain makes the passkeys made for the old one unusable, so the caller says so (`moved`).
+export function passkeyConfig(deployUrl, current = {}) {
+  let u;
+  try { u = new URL(deployUrl); } catch { return null; }
+  if (u.protocol !== 'https:') return null;
+  const want = { passkey_enabled: true, webauthn_rp_display_name: 'Estudar', webauthn_rp_id: u.hostname, webauthn_rp_origins: u.origin };
+  const same = Object.keys(want).every(k => current[k] === want[k]);
+  if (same) return null;
+  return { changes: want, moved: !!current.passkey_enabled && !!current.webauthn_rp_id && current.webauthn_rp_id !== u.hostname };
+}

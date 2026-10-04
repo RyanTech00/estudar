@@ -389,6 +389,9 @@ input[type="date"] { color-scheme: dark; }
 .field.grow { flex: 2; }
 
 .login-form { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.passkey-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.passkey-btn.hidden { display: none; }
+.login-or { margin: 2px 0; color: var(--muted); font-size: 13px; text-align: center; }
 .login-form input { text-align: center; min-height: 48px; }
 #login-code { font-size: 22px; letter-spacing: .3em; font-variant-numeric: tabular-nums; }
 

@@ -412,6 +412,68 @@ export async function verifyEmailCode(email, token) {
   return { ok: true };
 }
 
+// ── Passkeys ──
+// Fingerprint, face or device PIN instead of an email code. The private key never leaves the device
+// (or the password manager that syncs it); Supabase keeps only the public key. A passkey can only be
+// registered by someone already signed in, so it never opens the door to a new account.
+export const passkeysSupported = () => typeof window !== 'undefined' && !!window.PublicKeyCredential;
+
+const PASSKEY_ERRORS = [
+  [/passkey_disabled/i, () => t('As passkeys ainda não estão ativas nesta instalação. Entra com o código por email.')],
+  [/webauthn_credential_not_found|credential.*not.*found/i, () => t('Esta passkey já não existe nesta instalação. Entra com o código por email e regista-a de novo.')],
+  [/webauthn_credential_exists|InvalidStateError|already registered/i, () => t('Este dispositivo já tem uma passkey para esta conta.')],
+  [/too_many_passkeys/i, () => t('Chegaste ao máximo de passkeys. Remove uma antes de juntar outra.')],
+  [/webauthn_challenge_expired/i, () => t('Demoraste demasiado. Tenta de novo.')],
+  [/SecurityError|rp.?id|origin/i, () => t('As passkeys só funcionam no endereço publicado da app.')],
+];
+
+// Closing the system prompt isn't an error worth showing.
+const passkeyCancelled = (e) => /ERROR_CEREMONY_ABORTED|NotAllowedError|AbortError|cancel/i.test([e?.code, e?.name, e?.cause?.name, e?.message].join(' '));
+
+function passkeyMessage(error) {
+  const msg = [error?.code, error?.name, error?.cause?.name, error?.message].filter(Boolean).join(' ');
+  for (const [re, text] of PASSKEY_ERRORS) if (re.test(msg)) return text();
+  return authMessage(error);
+}
+
+// "Windows · Chrome", "iPhone · Safari": a name to tell the passkeys apart in the list.
+function deviceName() {
+  const ua = navigator.userAgent;
+  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android'
+    : /Mac OS X/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : t('Dispositivo');
+  const br = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : '';
+  return br ? `${os} · ${br}` : os;
+}
+
+export async function signInWithPasskey() {
+  if (!supabase) return { ok: false, message: t('Sem ligação ao servidor.') };
+  const { data, error } = await supabase.auth.signInWithPasskey();
+  if (error) return passkeyCancelled(error) ? { ok: false, cancelled: true } : { ok: false, message: passkeyMessage(error) };
+  if (data?.user) await afterSignIn(data.user);
+  return { ok: true };
+}
+
+export async function registerPasskey() {
+  if (!supabase || !currentUser) return { ok: false, message: t('Sem ligação ao servidor.') };
+  const { data, error } = await supabase.auth.registerPasskey();
+  if (error) return passkeyCancelled(error) ? { ok: false, cancelled: true } : { ok: false, message: passkeyMessage(error) };
+  // The name is a convenience: if renaming fails, the passkey still works.
+  if (data?.id) await supabase.auth.passkey.update({ passkeyId: data.id, friendlyName: deviceName() }).catch(() => {});
+  return { ok: true };
+}
+
+export async function listPasskeys() {
+  if (!supabase || !currentUser) return { ok: false, passkeys: [] };
+  const { data, error } = await supabase.auth.passkey.list();
+  return error ? { ok: false, passkeys: [], message: passkeyMessage(error) } : { ok: true, passkeys: data || [] };
+}
+
+export async function deletePasskey(passkeyId) {
+  if (!supabase || !currentUser) return { ok: false, message: t('Sem ligação ao servidor.') };
+  const { error } = await supabase.auth.passkey.delete({ passkeyId });
+  return error ? { ok: false, message: passkeyMessage(error) } : { ok: true };
+}
+
 export async function signInWithGoogle() {
   if (!supabase) return { ok: false, message: t('Sem ligação ao servidor.') };
   const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: redirectTo() } });

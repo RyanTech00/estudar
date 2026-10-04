@@ -29,7 +29,7 @@ export function securityHeaders({ supabaseUrl = '', https = true } = {}) {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'no-referrer',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), fullscreen=(self), screen-wake-lock=(self)',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), fullscreen=(self), screen-wake-lock=(self), publickey-credentials-get=(self), publickey-credentials-create=(self)',
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Resource-Policy': 'same-origin',
     ...(https ? { 'Strict-Transport-Security': 'max-age=63072000' } : {}),
