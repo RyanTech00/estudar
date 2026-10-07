@@ -658,6 +658,15 @@ export const EN = {
   // Timer on every device
   'Timer a correr noutro dispositivo — continua aqui.': 'Timer running on another device — carry on here.',
   'Bloco terminado. O registo faz-se no dispositivo onde o começaste.': "Block finished. It's logged on the device where you started it.",
+  // Support subjects and topics
+  'Base de {list}, sem exame próprio': 'Foundation for {list}, no exam of its own',
+  'Temas (30 dias)': 'Topics (30 days)',
+  'Tema (opcional)': 'Topic (optional)',
+  'Ex.: POO, recursividade, ponteiros': 'E.g. OOP, recursion, pointers',
+  'Sem exame próprio: segue o primeiro exame das disciplinas que apoia.': 'No exam of its own: it follows the first exam of the subjects it supports.',
+  'Base para': 'Foundation for',
+  'É base para outra disciplina?': 'A foundation for another subject?',
+  'Matéria que tens de aprender para outras, sem exame próprio (ex.: POO para ED e SO)? Junta-a como disciplina e marca em <b>Base para</b> as disciplinas que ela apoia.': 'Material you need to learn for other subjects, with no exam of its own (e.g. OOP for Data Structures and Operating Systems)? Add it as a subject and tick the subjects it supports under <b>Foundation for</b>.',
   'Em breve': 'Coming soon',
   'Dono': 'Owner',
   'tudo: plano, timer, IA e configuração': 'everything: plan, timer, AI and setup',

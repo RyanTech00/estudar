@@ -17,6 +17,7 @@ The plan is your **typical week**: which subject you study each day, for how lon
 | **ECTS** (optional) | Basis for the time allocation (ECTS are the European credits that measure a module's workload) |
 | **Exam date per subject** (optional) | Review only on the day before; priority in the final week. No date yet? The general date is used — once you know it, enter it and everything adjusts |
 | **Hours per day** | The AI and the check won't let the plan go over this limit |
+| **Foundation for** (optional) | Material you need to learn for other subjects, with no exam of its own — for example OOP for Data Structures and Operating Systems. Add it as a subject, click **A foundation for another subject?** and tick the ones it supports. It takes the deadline of the first of those exams, never jumps ahead as "exam next", and the AI places it early in the week, before the subjects it supports |
 
 ## Generate with AI
 

@@ -17,6 +17,7 @@ O plano é a tua **semana tipo**: que disciplina estudas em cada dia, quanto tem
 | **ECTS** (opcional) | Base da distribuição de tempo |
 | **Data do exame por disciplina** (opcional) | Véspera só de revisão; prioridade na semana final. Sem data? Usa a data geral — quando souberes, põe-na e tudo se ajusta |
 | **Horas por dia** | A IA e a verificação não deixam passar desse limite |
+| **Base para** (opcional) | Matéria que tens de aprender para outras, sem exame próprio — por exemplo POO para ED e SO. Junta-a como disciplina, carrega em **É base para outra disciplina?** e marca as que ela apoia. Fica com o prazo do primeiro desses exames, nunca passa à frente como "exame próximo", e a IA põe-na cedo na semana, antes das disciplinas que apoia |
 
 ## Gerar com IA
 

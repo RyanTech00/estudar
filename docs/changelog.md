@@ -4,6 +4,8 @@
 
 - **Registar estudo** fora do timer: disciplina, das… às… (ou minutos), matéria nova / exercícios / revisão, tentados e certos, nota. Conta para o tempo, os dias seguidos e o equilíbrio entre disciplinas, pode fechar a sessão do dia, e nunca entra no domínio nem na calibração.
 - **Adiar** uma sessão para outro dia da semana, ou saltá-la, sem mexer no plano semanal; anular a qualquer momento. O separador **Semana** mostra feitas, adiadas, saltadas e por fazer.
+- **Disciplinas de base**: matéria sem exame próprio que tens de aprender para outras (ex.: POO para ED e SO). Marca-se em **Base para** no plano; segue o prazo do primeiro exame que apoia e a IA põe-na antes dessas disciplinas.
+- **Tema nos registos**: "5 h de ED, tema POO". O **Progresso** mostra o tempo por tema nos últimos 30 dias; o tema também se corrige depois.
 - **Timer em todos os dispositivos**: um bloco começado no computador aparece a correr no telemóvel, com o mesmo tempo; pausar, retomar ou reiniciar num muda nos outros em tempo real, e o bloco conta uma só vez.
 - **Passkeys**: entrar com a impressão digital, o rosto ou o PIN do dispositivo, sem código por email. A app propõe guardar uma depois do login; em **Conta → Passkeys** juntas e removes dispositivos. O **Publicar** ativa-as no Supabase para o endereço publicado.
 - **Corrigir registos**: o número de tentados pode ser acertado depois de **Confirmar e ir corrigir**, e os registos dos últimos 14 dias podem ser corrigidos ou apagados em **Progresso → Registos recentes** (as correções e os apagados sincronizam entre dispositivos). A confiança e a ajuda ficam fixas.

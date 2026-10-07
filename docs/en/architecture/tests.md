@@ -19,7 +19,7 @@ The tests cover the rules that decide **what counts as learning** and **the acad
 | `tests/keys.test.mjs` | 2 | Tells Supabase public and secret keys apart (new and legacy) |
 | `tests/i18n.test.mjs` | 4 | Every interface string and every server message (Worker API and `npm start`) has an English translation; translations keep the same `{placeholders}` and HTML tags as the Portuguese original |
 
-88 tests in total. `tests/i18n-keys.mjs` is not a test: it collects the strings the interface uses, and running `node tests/i18n-keys.mjs` lists any that are missing from the dictionary.
+91 tests in total. `tests/i18n-keys.mjs` is not a test: it collects the strings the interface uses, and running `node tests/i18n-keys.mjs` lists any that are missing from the dictionary.
 
 Grades use the Portuguese 0–20 scale, where 9.5 is a pass; averages are weighted by ECTS credits.
 

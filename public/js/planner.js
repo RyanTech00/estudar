@@ -1,7 +1,7 @@
 import { getExamplePlan, EMPTY_PLAN, AREAS, LOADS, PALETTE, normalizePlan } from './data.js';
 import { activeBacklog } from './agenda.js';
 import * as storage from './storage.js';
-import { allocation, FINAL_WINDOW_DAYS } from './learning.js';
+import { allocation, FINAL_WINDOW_DAYS, withSupportDates } from './learning.js';
 import { enrichWithCurriculum } from './curriculum.js';
 import { t, lang, DAY_NAMES, DAY_SHORT } from './i18n.js';
 
@@ -133,12 +133,14 @@ function render() {
           <select data-k="area" aria-label="${t('Tipo')}">${Object.entries(AREAS).map(([k, v]) => `<option value="${k}" ${s.area === k ? 'selected' : ''}>${t(v)}</option>`).join('')}</select>
           <select data-k="load" aria-label="${t('Carga')}">${Object.entries(LOADS).map(([k, v]) => `<option value="${k}" ${s.load === k ? 'selected' : ''}>${t('Carga {l}', { l: t(v).toLowerCase() })}</option>`).join('')}</select>
           <label class="mini"><span>ECTS</span><input data-k="ects" type="number" min="0" max="60" step="0.5" value="${esc(s.ects ?? '')}" placeholder="—"></label>
-          <label class="mini grow"><span>${t('Exame')}</span><input data-k="examDate" type="date" value="${esc(s.examDate || '')}" aria-label="${t('Data do exame (opcional)')}"></label>
+          <label class="mini grow"><span>${t('Exame')}</span><input data-k="examDate" type="date" value="${esc(s.examDate || '')}" aria-label="${t('Data do exame (opcional)')}" ${s.supports?.length ? `disabled title="${t('Sem exame próprio: segue o primeiro exame das disciplinas que apoia.')}"` : ''}></label>
           <button class="icon-btn" data-remove-subject="${i}" aria-label="${t('Remover disciplina')}"><svg class="ico"><use href="#i-close"/></svg></button>
+          ${draft.subjects.length < 2 ? '' : !(s.supports?.length || s.showSupports) ? `<div class="se-supports"><button type="button" class="link-btn small" data-show-supports>${t('É base para outra disciplina?')}</button></div>` : `<div class="se-supports"><span>${t('Base para')}</span>${draft.subjects.filter(o => o !== s && !o.supports?.length).map(o => `<button type="button" class="chip ${s.supports?.includes(o.id) ? 'on' : ''}" style="--c:${esc(o.color)}" data-support="${esc(o.id)}" aria-pressed="${!!s.supports?.includes(o.id)}">${esc(o.short || '?')}</button>`).join('')}</div>`}
         </div>`).join('')}
       </div>
       <button class="btn btn-ghost btn-sm" id="pl-add-subject">${t('+ Disciplina')}</button>
       <p class="muted small">${t('Sem data de exame? Deixa vazio: usa a data geral acima. Quando souberes, põe-na e o plano ajusta-se.')}</p>
+      <p class="muted small">${t('Matéria que tens de aprender para outras, sem exame próprio (ex.: POO para ED e SO)? Junta-a como disciplina e marca em <b>Base para</b> as disciplinas que ela apoia.')}</p>
     </section>
 
     <section class="card">
@@ -204,7 +206,7 @@ function render() {
 
 function enrichedSubjects(plan) {
   const behind = activeBacklog(storage.getBacklog());
-  return enrichWithCurriculum(plan.subjects, storage.getCurriculum().ucs || [])
+  return withSupportDates(enrichWithCurriculum(plan.subjects, storage.getCurriculum().ucs || []), plan)
     .map(s => ({ ...s, behind: s.id in behind, backlogNote: behind[s.id] || '' }));
 }
 
@@ -262,6 +264,19 @@ function bind() {
       });
     });
   });
+  $('pl-subjects').querySelectorAll('[data-show-supports]').forEach(btn => btn.addEventListener('click', () => {
+    draft.subjects[Number(btn.closest('.subject-edit').dataset.i)].showSupports = true;  // dropped by normalizePlan
+    render();
+  }));
+  $('pl-subjects').querySelectorAll('[data-support]').forEach(btn => btn.addEventListener('click', () => {
+    const s = draft.subjects[Number(btn.closest('.subject-edit').dataset.i)];
+    const id = btn.dataset.support;
+    const list = new Set(s.supports || []);
+    if (list.has(id)) list.delete(id); else list.add(id);
+    s.supports = [...list];
+    if (s.supports.length) s.examDate = '';
+    render();
+  }));
   $('pl-subjects').querySelectorAll('[data-remove-subject]').forEach(btn => btn.addEventListener('click', () => {
     const [removed] = draft.subjects.splice(Number(btn.dataset.removeSubject), 1);
     draft.weeklyPlan = draft.weeklyPlan.filter(s => s.subject !== removed.id);
@@ -315,13 +330,14 @@ async function generate() {
     startDate: plan.startDate,
     examDate: plan.examDate,
     hoursPerDay: plan.hoursPerDay,
-    subjects: enrichedSubjects(plan).map(({ id, name, short, load, area, ects, examDate, derivedExamDate, prereqWeak, behind, backlogNote }) => {
+    subjects: enrichedSubjects(plan).map(({ id, name, short, load, area, ects, examDate, derivedExamDate, prereqWeak, behind, backlogNote, supports }) => {
       const a = shares.find(r => r.id === id);
       return {
         id, name, short, load, area, ects, examDate: examDate || derivedExamDate || '',
         share: a ? Math.round(a.share * 100) : null, mastery: a?.mastery ?? null,
         prereqWeak: (prereqWeak || []).map(w => `${w.name} (${t(w.reason)}${w.grade !== null ? `, ${t('nota {g}', { g: w.grade })}` : ''})`).join('; '),
         backlog: behind ? (backlogNote || t('sim')) : '',
+        supports: (supports || []).map(sid => plan.subjects.find(o => o.id === sid)?.name).filter(Boolean).join('; '),
       };
     }),
     notes: draft.notes || '',

@@ -228,6 +228,7 @@ Princípios obrigatórios (e a razão de cada um):
 10. Primeira exposição vs. prática: para matéria totalmente nova, a primeira sessão de um tópico pode ser em bloco (aprender o conceito com exemplos); a partir daí, prática mista e recuperação. Ler serve apenas para a primeira exposição.
 11. Fases até ao exame: começa com mais aprendizagem nova + recuperação e vai deslocando para exercícios e, nas últimas 1–2 semanas, simulações em condições de exame (transfer-appropriate processing — Morris, Bransford & Franks, 1977).
 12. Matéria em atraso: quando uma disciplina traz "MATÉRIA EM ATRASO", o estudante tem aulas por estudar. Dá-lhe mais tempo do que a fatia sugerida enquanto durar (já vem aumentada), com uma sessão de primeira exposição às aulas em falta logo no início da semana e, nos dias seguintes, exercícios e recuperação dessa matéria. Não retires o espaçamento das outras disciplinas pesadas para isso: reduz primeiro línguas e disciplinas leves.
+13. Disciplinas de base: uma disciplina com "BASE PARA" não tem exame próprio; é matéria que o estudante precisa para as disciplinas indicadas (ex.: POO para Estruturas de Dados). Põe-na cedo na semana e antes das sessões das disciplinas que apoia, com primeira exposição seguida de exercícios práticos e recuperação; liga o foco das sessões ao uso nessas disciplinas. À medida que os exames se aproximam, reduz-lhe o tempo a favor das disciplinas com exame.
 
 Regras de saída:
 - "day": 0=domingo, 1=segunda, … 6=sábado.
@@ -328,6 +329,7 @@ function validate(body) {
       mastery: Number.isFinite(Number(s.mastery)) && s.mastery !== null ? Math.max(0, Math.min(1, Number(s.mastery))) : null,
       prereqWeak: String(s.prereqWeak || '').slice(0, 200),
       backlog: String(s.backlog || '').slice(0, 200),
+      supports: String(s.supports || '').slice(0, 300),
     })),
     notes: String(body.notes || '').slice(0, 1000),
     lang: body.lang === 'en' ? 'en' : body.lang === 'pt' ? 'pt' : null,
@@ -351,6 +353,7 @@ function userPrompt(input) {
       s.mastery !== null ? `domínio ${Math.round(s.mastery * 100)}% em testes sem consulta` : 'ainda sem teste (tratar como matéria por aprender)',
       s.prereqWeak ? `BASE FRACA: ${s.prereqWeak}` : '',
       s.backlog ? `MATÉRIA EM ATRASO: ${s.backlog}` : '',
+      s.supports ? `BASE PARA: ${s.supports} (sem exame próprio)` : '',
     ].filter(Boolean).join(' — ')),
     '',
     'Horas disponíveis por dia:',

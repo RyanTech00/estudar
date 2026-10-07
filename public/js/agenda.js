@@ -93,7 +93,23 @@ export const ACTIVITIES = ['learn', 'practice', 'review'];
 // A manual entry becomes focus minutes + one attempt. Exercises can carry attempted/correct; confidence
 // stays out (it only means something when given before correcting), so calibration never uses these.
 // Returns { minutes, date, attempt } or { error }.
-export function manualEntry({ subject, date, minutes, activity, done = 0, correct = 0, assisted = false, note = '' }, now = Date.now()) {
+// A topic within the subject ("POO" while studying ED): free text, short, optional.
+export const cleanTopic = (s) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+
+// Minutes per topic over the logs given (most first), e.g. [['POO', 300], ['Recursividade', 90]].
+export function topicMinutes(attempts) {
+  const by = new Map();
+  for (const a of attempts) {
+    const topic = cleanTopic(a.topic);
+    if (!topic || !(a.minutes > 0)) continue;
+    const key = topic.toLowerCase();
+    const cur = by.get(key) || [topic, 0];
+    by.set(key, [cur[0], cur[1] + a.minutes]);
+  }
+  return [...by.values()].sort((x, y) => y[1] - x[1]);
+}
+
+export function manualEntry({ subject, date, minutes, activity, done = 0, correct = 0, assisted = false, note = '', topic = '' }, now = Date.now()) {
   const mins = Math.round(Number(minutes));
   if (!subject) return { error: 'subject' };
   if (!isDateKey(date)) return { error: 'date' };
@@ -116,6 +132,7 @@ export function manualEntry({ subject, date, minutes, activity, done = 0, correc
       minutes: mins,
       manual: true,
       note: String(note || '').trim().slice(0, 500),
+      ...(cleanTopic(topic) ? { topic: cleanTopic(topic) } : {}),
       at,
     },
   };
@@ -156,7 +173,7 @@ export function mergePostponed(a = {}, b = {}) {
 // ── Fixing a log after the fact ───────
 // Attempted, correct and the note can be fixed (they're facts, typed by hand). Confidence and help can't:
 // they were given before checking the answers, and changing them later would make calibration meaningless.
-export function editAttempt(attempt, { done, correct, note } = {}, now = Date.now()) {
+export function editAttempt(attempt, { done, correct, note, topic } = {}, now = Date.now()) {
   const out = { ...attempt, edited: now };
   if (attempt.kind !== 'learn') {
     if (done !== undefined) out.done = Math.max(0, Math.min(999, Math.round(Number(done) || 0)));
@@ -164,6 +181,10 @@ export function editAttempt(attempt, { done, correct, note } = {}, now = Date.no
     out.correct = Math.max(0, Math.min(out.done, out.correct));
   }
   if (note !== undefined) out.note = String(note || '').trim().slice(0, 500);
+  if (topic !== undefined) {
+    if (cleanTopic(topic)) out.topic = cleanTopic(topic);
+    else delete out.topic;
+  }
   return out;
 }
 

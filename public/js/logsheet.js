@@ -247,7 +247,7 @@ export function openExamGrade(subject, current, save) {
 // For what happened without the timer: an evening catching up on a subject, a library session.
 // It counts as time and, for exercises, as practice (with or without help). Confidence is not asked:
 // after the fact it would only be a guess, and calibration needs it before correcting (R6).
-export function openManualLog({ subjects, preselect, today, yesterday, openSessions = [], backlog = {} }, save) {
+export function openManualLog({ subjects, preselect, today, yesterday, openSessions = [], backlog = {}, topics = [] }, save) {
   let chosen = preselect && subjects.some(s => s.id === preselect) ? preselect : subjects[0]?.id;
   let date = today;
   let activity = null;
@@ -295,6 +295,9 @@ export function openManualLog({ subjects, preselect, today, yesterday, openSessi
         <button class="choice" data-assist="1">${t('Sim')}</button>
       </div>
     </div>
+
+    <label class="field"><span>${t('Tema (opcional)')}</span><input id="ml-topic" maxlength="40" list="ml-topics" autocomplete="off" placeholder="${esc(t('Ex.: POO, recursividade, ponteiros'))}"></label>
+    <datalist id="ml-topics">${topics.map(x => `<option value="${esc(x)}">`).join('')}</datalist>
 
     <label class="field"><span>${t('Nota (opcional)')}</span><textarea id="ml-note" rows="2" maxlength="500" placeholder="${esc(t('Ex.: aulas em atraso de pilhas e filas; percebi, falta praticar.'))}"></textarea></label>
 
@@ -357,6 +360,7 @@ export function openManualLog({ subjects, preselect, today, yesterday, openSessi
       subject: chosen, date, minutes, activity, assisted,
       done: $('ml-done')?.value, correct: $('ml-correct')?.value,
       note: $('ml-note').value,
+      topic: $('ml-topic').value,
     }, {
       sessionKey: session && $('ml-session').checked ? session.key : null,
       backlog: $('ml-backlog').checked ? (chosen in backlog ? 'clear' : 'set') : null,
@@ -416,7 +420,7 @@ export function openBacklog({ subject, note }, save) {
 // ── Fix a saved log ───────────────────
 // Attempted, correct and the note can change. Confidence and help were given before the answers were seen,
 // so they're shown but locked; a deleted log typed by hand also takes its minutes back.
-export function openEditAttempt({ attempt, subject, when }, { save, remove }) {
+export function openEditAttempt({ attempt, subject, when, topics = [] }, { save, remove }) {
   const learn = attempt.kind === 'learn';
   const kind = attempt.kind === 'probe' ? t('Teste de controlo') : learn ? t('Matéria nova') : t('Prática');
   open(`
@@ -434,6 +438,8 @@ export function openEditAttempt({ attempt, subject, when }, { save, remove }) {
       attempt.confidence ? t('Confiança: “{c}”', { c: CONFIDENCE_LABELS()[attempt.confidence] }) : '',
       attempt.assisted ? t('com ajuda') : t('sem ajuda'),
     ].filter(Boolean).join(' · ')}. ${t('Isto não muda: foi dito antes de veres as respostas.')}</p>`}
+    <label class="field"><span>${t('Tema (opcional)')}</span><input id="ea-topic" maxlength="40" list="ea-topics" autocomplete="off" value="${esc(attempt.topic || '')}" placeholder="${esc(t('Ex.: POO, recursividade, ponteiros'))}"></label>
+    <datalist id="ea-topics">${topics.map(x => `<option value="${esc(x)}">`).join('')}</datalist>
     <label class="field"><span>${t('Nota (opcional)')}</span><textarea id="ea-note" rows="2" maxlength="500">${esc(attempt.note || '')}</textarea></label>
     <p class="login-error hidden" id="ea-error" role="alert"></p>
     <button class="btn btn-primary btn-block" id="ea-save">${t('Guardar')}</button>
@@ -441,7 +447,7 @@ export function openEditAttempt({ attempt, subject, when }, { save, remove }) {
   `);
   $('log-close').addEventListener('click', closeLog);
   $('ea-save').addEventListener('click', () => {
-    const changes = { note: $('ea-note').value };
+    const changes = { note: $('ea-note').value, topic: $('ea-topic').value };
     if (!learn) {
       const done = Number($('ea-done').value);
       const correct = Number($('ea-correct').value);

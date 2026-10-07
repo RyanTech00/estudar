@@ -73,6 +73,23 @@ export function examDateOf(subject, plan) {
   return subject.examDate || subject.derivedExamDate || plan.examDate || '';
 }
 
+// A support subject (e.g. OOP studied for Data Structures and Operating Systems) has no exam of its own:
+// it is needed until the first exam it supports. Sets derivedExamDate on those subjects; the rest are untouched.
+export const isSupport = (s) => Array.isArray(s?.supports) && s.supports.length > 0;
+
+export function withSupportDates(subjects, plan) {
+  return subjects.map(s => {
+    if (!isSupport(s)) return s;
+    const dates = s.supports
+      .map(id => subjects.find(x => x.id === id && !isSupport(x)))
+      .filter(Boolean)
+      .map(x => examDateOf(x, plan))
+      .filter(Boolean)
+      .sort();
+    return { ...s, examDate: '', derivedExamDate: dates[0] || '' };
+  });
+}
+
 export function daysUntil(dateStr, now = new Date()) {
   const d = parseDate(dateStr);
   return d ? Math.round((d - startOfDay(now)) / DAY) : null;
@@ -80,7 +97,7 @@ export function daysUntil(dateStr, now = new Date()) {
 
 // Subjects whose exam is tomorrow: today is review/retrieval only, no new material.
 export function eveOfExam(subjects, plan, now = new Date()) {
-  return subjects.filter(s => daysUntil(examDateOf(s, plan), now) === 1);
+  return subjects.filter(s => !isSupport(s) && daysUntil(examDateOf(s, plan), now) === 1);
 }
 
 // Final window before an exam: that subject takes precedence (R3 over R9).
@@ -104,7 +121,8 @@ function allocateActive(subjects, attempts, plan, floor, now) {
     let deficit = m === null ? 1 : 1 - m;
     if (calibration(attempts, s.id).overconfident) deficit = Math.min(1, deficit + 0.2);
     const days = daysUntil(examDateOf(s, plan), now);
-    const inFinalWindow = days !== null && days >= 0 && days <= FINAL_WINDOW_DAYS;
+    // A support subject never "has an exam next": that week belongs to the subjects it supports.
+    const inFinalWindow = !isSupport(s) && days !== null && days >= 0 && days <= FINAL_WINDOW_DAYS;
     // Weak foundations (prerequisite not done, failed or low) and classes not yet studied ("matéria em atraso")
     // → more time. Heuristic multipliers.
     const weight = (Number(s.ects) > 0 ? Number(s.ects) : LOAD_WEIGHT[s.load] || 5)

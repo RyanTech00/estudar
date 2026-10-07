@@ -4,6 +4,8 @@
 
 - **Log study** outside the timer: subject, from… to… (or minutes), new material / exercises / review, attempted and correct, a note. It counts towards time, your streak and the balance between subjects, can close the day's session, and never enters mastery or calibration.
 - **Postpone** a session to another day this week, or skip it, without changing the weekly plan; undo at any time. The **Week** tab shows done, postponed, skipped and left undone.
+- **Foundation subjects**: material with no exam of its own that you need for other subjects (e.g. OOP for Data Structures and Operating Systems). Ticked under **Foundation for** in the plan; it follows the deadline of the first exam it supports and the AI places it before those subjects.
+- **Topic on logs**: "5 h of Data Structures, topic OOP". **Progress** shows the time per topic over the last 30 days; the topic can also be fixed later.
 - **Timer on every device**: a block started on the computer shows up running on the phone, with the same time; pausing, resuming or resetting on one changes the others in real time, and the block counts once.
 - **Passkeys**: sign in with your fingerprint, face or device PIN, no email code. The app offers to save one after signing in; under **Account → Passkeys** you add and remove devices. **Publish** turns them on in Supabase for the published address.
 - **Fix logs**: the number attempted can be corrected after **Confirm and go mark**, and logs from the last 14 days can be fixed or deleted under **Progress → Recent logs** (fixes and deletions sync across devices). Confidence and help stay fixed.

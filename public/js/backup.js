@@ -79,6 +79,7 @@ function cleanAttempt(a) {
   if (['learn', 'practice', 'review'].includes(a.activity)) out.activity = a.activity;
   if (a.manual === true) out.manual = true;
   if (typeof a.note === 'string' && a.note) out.note = a.note.slice(0, 500);
+  if (typeof a.topic === 'string' && a.topic.trim()) out.topic = a.topic.replace(/\s+/g, ' ').trim().slice(0, 40);
   // Fixed or deleted later (agenda.js editAttempt / deleteAttempt).
   if (Number.isFinite(a.edited)) out.edited = a.edited;
   if (a.deleted === true) out.deleted = true;

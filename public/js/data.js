@@ -206,7 +206,20 @@ export function normalizePlan(p) {
       ects: Number(s.ects) > 0 ? Math.min(60, Math.round(Number(s.ects) * 2) / 2) : null,
       examDate: isDate(s.examDate) ? s.examDate : '',
       ucId: s.ucId ? String(s.ucId).slice(0, 20) : undefined,
+      supports: Array.isArray(s.supports) ? s.supports.map(String).slice(0, 10) : [],
     };
+  });
+  // Support subjects ("base for"): references follow renamed ids, point at real non-support subjects,
+  // and such a subject has no exam date of its own.
+  const renamed = new Map(subjectsIn.map((s, i) => [String(s.id ?? ''), subjectsOut[i].id]));
+  subjectsOut.forEach(s => {
+    s.supports = [...new Set(s.supports.map(id => renamed.get(id) || id))].filter(id => id !== s.id && subjectsOut.some(o => o.id === id));
+  });
+  const supportIds = new Set(subjectsOut.filter(s => s.supports.length).map(s => s.id));
+  subjectsOut.forEach(s => {
+    s.supports = s.supports.filter(id => !supportIds.has(id));
+    if (s.supports.length) s.examDate = '';
+    else delete s.supports;
   });
   const ids = new Set([...subjectsOut.map(s => s.id), 'all']);
 

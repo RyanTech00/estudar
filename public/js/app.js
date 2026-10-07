@@ -7,8 +7,8 @@ import { enterFocusMode, exitFocusMode, playSound } from './focus.js';
 import { offerPasskey, openPasskeys } from './passkeys.js';
 import { timerKey, drivesTimer, toServerClock, toLocalClock } from './timersync.js';
 import { setupLog, openBlockLog, openProbeSetup, openExamGrade, openManualLog, openPostpone, openBacklog, openEditAttempt } from './logsheet.js';
-import { dayAgenda, postpone, undoPostpone, weekSummary, manualEntry, activeBacklog, keyOf, dateOf, addDays } from './agenda.js';
-import { subjectPriorities, eveOfExam, examDateOf, daysUntil, FINAL_WINDOW_DAYS } from './learning.js';
+import { dayAgenda, postpone, undoPostpone, weekSummary, manualEntry, activeBacklog, keyOf, dateOf, addDays, topicMinutes } from './agenda.js';
+import { subjectPriorities, eveOfExam, examDateOf, daysUntil, FINAL_WINDOW_DAYS, isSupport, withSupportDates } from './learning.js';
 import { enrichWithCurriculum, planSubjectsFromCurriculum, needsRetakeDate } from './curriculum.js';
 import { setupPercurso, openPercurso, openSemester, renderPercursoCard } from './percurso.js';
 import { buildBackup, parseBackup, backupFilename } from './backup.js';
@@ -63,6 +63,8 @@ function loadPlan() {
   setActivePlan(storage.getPlan());
   const enriched = enrichWithCurriculum(subjects, storage.getCurriculum().ucs || []);
   subjects.forEach((s, i) => { s.derivedExamDate = enriched[i].derivedExamDate || ''; s.prereqWeak = enriched[i].prereqWeak || []; });
+  // Support subjects (OOP for DS and OS) take the date of the first exam they support.
+  withSupportDates(subjects, plan).forEach((x, i) => { if (isSupport(x)) subjects[i].derivedExamDate = x.derivedExamDate; });
   const behind = activeBacklog(storage.getBacklog());
   subjects.forEach(s => { s.behind = s.id in behind; s.backlogNote = behind[s.id] || ''; });
   const valid = new Set([...subjects.map(s => s.id), 'all']);
@@ -377,6 +379,7 @@ function renderExamAlerts() {
   const now = new Date();
   const eve = eveOfExam(subjects, plan, now);
   const soon = subjects
+    .filter(s => !isSupport(s))
     .map(s => ({ s, days: daysUntil(examDateOf(s, plan), now) }))
     .filter(x => x.days !== null && x.days > 1 && x.days <= FINAL_WINDOW_DAYS)
     .sort((a, b) => a.days - b.days);
@@ -490,7 +493,7 @@ function renderTodayExtra(agenda, todayKey) {
     const sub = getSubject(a.subject);
     const what = { learn: t('matéria nova'), practice: t('exercícios'), review: t('revisão') }[a.activity || a.kind] || '';
     const counts = a.done ? ` · ${t('{c}/{d} certos', { c: a.correct, d: a.done })}` : '';
-    return `<div class="session muted-row">${tag(sub)}<span class="session-text"><span class="session-name">${esc(sub.name)}</span><span class="session-meta">${formatMinutes(a.minutes || 0)} · ${what}${counts}${a.note ? ` · ${esc(a.note)}` : ''}</span></span></div>`;
+    return `<div class="session muted-row">${tag(sub)}<span class="session-text"><span class="session-name">${esc(sub.name)}${a.topic ? ` · ${esc(a.topic)}` : ''}</span><span class="session-meta">${formatMinutes(a.minutes || 0)} · ${what}${counts}${a.note ? ` · ${esc(a.note)}` : ''}</span></span></div>`;
   });
   $('today-extra').innerHTML = [
     moved.length ? `<div class="group-label">${t('Adiadas')}</div>${moved.join('')}` : '',
@@ -516,6 +519,9 @@ function postponeSession(session) {
   });
 }
 
+// Topics already used, for the suggestions (most time first).
+const knownTopics = () => topicMinutes(storage.getAttempts()).map(([name]) => name).slice(0, 20);
+
 // "+ Registar estudo": study done without the timer.
 function openManual(preselect) {
   if (storage.isReadOnly()) return;
@@ -528,7 +534,7 @@ function openManual(preselect) {
     .map(s => ({ key: s.key, subject: s.subject }));
   openManualLog({
     subjects, preselect: preselect || selectedSubject, today: todayKey, yesterday: addDays(todayKey, -1),
-    openSessions, backlog: activeBacklog(storage.getBacklog()),
+    openSessions, backlog: activeBacklog(storage.getBacklog()), topics: knownTopics(),
   }, (input, opts) => {
     const entry = manualEntry(input);
     if (entry.error) return entry;
@@ -654,7 +660,8 @@ function renderMastery() {
     if (s.prereqWeak?.length) flags.push(`<span class="flag warn">${t('Base fraca: {list} — o plano inclui revisão', { list: s.prereqWeak.map(w => `${esc(w.short)} (${t(w.reason)}${w.grade !== null ? `, ${w.grade}` : ''})`).join(', ') })}</span>`);
     const exam = results[s.id];
     let examLine = '';
-    if (exam) examLine = `${t('Exame')}: ${esc(exam.grade)}/20${p.mastery !== null ? ` · ${t('último domínio medido {p}', { p: pct(p.mastery) })}` : ''}`;
+    if (isSupport(s)) examLine = t('Base de {list}, sem exame próprio', { list: s.supports.map(id => esc(getSubject(id).short)).join(', ') });
+    else if (exam) examLine = `${t('Exame')}: ${esc(exam.grade)}/20${p.mastery !== null ? ` · ${t('último domínio medido {p}', { p: pct(p.mastery) })}` : ''}`;
     else if (p.days !== null && p.days < 0) examLine = s.ucId
       ? `<button class="link-btn" data-percurso>${t('Registar notas no percurso')}</button>`
       : `<button class="link-btn" data-grade="${esc(s.id)}">${t('Registar nota do exame')}</button>`;
@@ -705,15 +712,20 @@ function renderRecentLogs() {
       a.edited ? t('corrigido') : '',
     ].filter(Boolean);
     return `<div class="session log-row">${tag(sub)}<span class="session-text">
-        <span class="session-name">${esc(kind)}${parts.length ? ` · <span class="muted">${parts.join(' · ')}</span>` : ''}</span>
+        <span class="session-name">${esc(kind)}${a.topic ? ` · ${esc(a.topic)}` : ''}${parts.length ? ` · <span class="muted">${parts.join(' · ')}</span>` : ''}</span>
         <span class="session-meta">${esc(whenLabel(a.at))}${a.note ? ` · ${esc(a.note)}` : ''}</span></span>
       <button class="link-btn small" data-edit-log="${esc(a.id)}">${t('Corrigir')}</button></div>`;
   }).join('') : `<div class="empty">${t('Ainda sem registos. Aparecem aqui quando terminas um bloco, fazes um teste de controlo ou registas estudo.')}</div>`;
+  // Topics studied inside other subjects (OOP while doing DS): how much time went into each lately.
+  const topics = topicMinutes(storage.getAttempts().filter(a => a.at >= Date.now() - 30 * 86400000)).slice(0, 6);
+  if (topics.length) {
+    $('recent-logs').insertAdjacentHTML('afterbegin', `<p class="muted small topic-sum">${t('Temas (30 dias)')}: ${topics.map(([name, m]) => `<b>${esc(name)}</b> ${formatMinutes(m)}`).join(' · ')}</p>`);
+  }
   $('recent-logs').querySelectorAll('[data-edit-log]').forEach(b => b.addEventListener('click', () => {
     if (storage.isReadOnly()) return;
     const attempt = storage.getAttempts().find(a => a.id === b.dataset.editLog);
     if (!attempt) return;
-    openEditAttempt({ attempt, subject: getSubject(attempt.subject), when: whenLabel(attempt.at) }, {
+    openEditAttempt({ attempt, subject: getSubject(attempt.subject), when: whenLabel(attempt.at), topics: knownTopics() }, {
       save: (changes) => { storage.updateAttempt(attempt.id, changes); renderAll(); toast(t('Registo corrigido')); },
       remove: () => { storage.removeAttempt(attempt.id); renderAll(); toast(t('Registo apagado')); },
     });
