@@ -157,6 +157,13 @@ export default defineConfig({
   appearance: 'dark',
   sitemap: { hostname: SITE },
 
+  // Canonical igual ao URL do sitemap (cleanUrls: páginas index terminam em "/").
+  transformPageData(pageData) {
+    const path = pageData.relativePath.replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, '')
+    pageData.frontmatter.head ??= []
+    pageData.frontmatter.head.push(['link', { rel: 'canonical', href: `${SITE}/${path}` }])
+  },
+
   locales: {
     root: {
       label: 'Português',
@@ -209,6 +216,8 @@ export default defineConfig({
   ],
 
   themeConfig: {
+    // PT e EN têm slugs diferentes (/guia/ vs /en/guide/): mudar de idioma leva à raiz do idioma, não a um 404.
+    i18nRouting: false,
     logo: '/logo.svg',
     siteTitle: 'Estudar',
     socialLinks: [{ icon: 'github', link: REPO }],
